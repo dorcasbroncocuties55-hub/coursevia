@@ -247,6 +247,15 @@ const subscriptionPlans = [
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
+// Health check - used by UptimeRobot to keep server awake
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+app.get("/", (req, res) => {
+  res.json({ name: "Coursevia API", status: "running", version: "1.0.0" });
+});
+
 app.get("/api/subscription/plans", (req, res) => {
   res.json({ success: true, data: subscriptionPlans });
 });
@@ -1619,9 +1628,22 @@ const releasePendingBalances = async () => {
 releasePendingBalances();
 setInterval(releasePendingBalances, 6 * 60 * 60 * 1000);
 
+// Health check
+app.get("/", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    service: "Coursevia Backend",
+    stripe: stripe ? "live" : "demo",
+    db: supabaseAdmin ? "connected" : "demo"
+  });
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  console.log(`Network: http://192.168.119.66:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
   console.log(`Payment provider: ${stripe ? "Stripe (live)" : "Demo mode"}`);
   console.log(`Database: ${supabaseAdmin ? "Supabase connected" : "Demo mode (no DB)"}`);
 });
