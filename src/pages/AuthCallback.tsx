@@ -21,6 +21,19 @@ const AuthCallback = () => {
           throw new Error(authError);
         }
 
+        // Handle hash-based token (implicit flow from Google OAuth)
+        const hash = window.location.hash;
+        if (hash && hash.includes("access_token")) {
+          // Supabase will auto-detect and set the session from the hash
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (!error && session) {
+            // Session already set by Supabase from hash - proceed
+          } else {
+            // Wait a moment for Supabase to process the hash
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+
         if (code) {
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError) throw exchangeError;
