@@ -475,6 +475,7 @@ const simplePage = (title: string, content: string) => () => (
 
 export const Blog = simplePage("Blog", "Coursevia publishes practical insights on learning strategy, provider growth, digital education, booking workflows, and premium content operations. New editorial pieces are being prepared for release.");
 
-export const Contact = simplePage("Contact Us", "Have questions or need help? Reach out to our support team.\n\nEmail: support@coursevia.com\n\nWe typically respond within 24 hours during business days.");
+// Contact page is now a full dedicated component — see Contact.tsx
+export { default as Contact } from "./Contact";
 
 export const HelpCenter = simplePage("Help Center", "Welcome to the Coursevia Help Center.\n\nFor account issues, payment questions, or technical support, please visit our FAQ page or contact us directly.\n\nCommon topics:\n• Account setup and verification\n• Payment and billing\n• Course access issues\n• Booking and scheduling\n• Withdrawal requests");
