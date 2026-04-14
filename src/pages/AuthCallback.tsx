@@ -10,14 +10,14 @@ const AuthCallback = () => {
 
   useEffect(() => {
     let mounted = true;
-    let done = false;
+    let handled = false;
 
-    const handleSession = async (session: any) => {
-      if (done || !mounted) return;
-      done = true;
+    const handle = async (session: any) => {
+      if (handled || !mounted) return;
+      handled = true;
 
       try {
-        if (!session?.user) throw new Error("No session. Please try again.");
+        if (!session?.user) throw new Error("No session found. Please try again.");
 
         setStatus("Setting up account...");
 
@@ -71,31 +71,31 @@ const AuthCallback = () => {
       }
     };
 
-    // detectSessionInUrl fires SIGNED_IN when it processes the hash
+    // onAuthStateChange fires when detectSessionInUrl processes the hash
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        handleSession(session);
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
+        handle(session);
       }
     });
 
-    // Also check if session already exists (e.g. already processed)
+    // Also check existing session immediately
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) handleSession(session);
+      if (session) handle(session);
     });
 
-    // Timeout fallback — if nothing fires in 10s, show error
-    const timeout = setTimeout(() => {
-      if (!done && mounted) {
+    // Timeout after 15s
+    const timer = setTimeout(() => {
+      if (!handled && mounted) {
         toast.error("Sign in timed out. Please try again.");
         window.localStorage.removeItem("coursevia_oauth_role");
         navigate("/login", { replace: true });
       }
-    }, 10000);
+    }, 15000);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
-      clearTimeout(timeout);
+      clearTimeout(timer);
     };
   }, [navigate]);
 

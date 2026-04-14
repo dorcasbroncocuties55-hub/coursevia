@@ -424,9 +424,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!mounted) return;
 
-      // Let AuthCallback.tsx handle everything on the callback page
-      if (window.location.pathname === "/auth/callback") return;
-
       if (event === "INITIAL_SESSION" && initialSessionHandledRef.current) {
         return;
       }
