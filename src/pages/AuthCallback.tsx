@@ -13,27 +13,34 @@ const AuthCallback = () => {
 
     const run = async () => {
       try {
-        setStatus("Step 1: Getting session...");
+        setStatus("Step 1: Exchanging code...");
 
-        // Supabase processes the hash/code automatically — just get the session
-        // Retry up to 8 times with 500ms delay to give Supabase time to process
+        const url = new URL(window.location.href);
+        const code = url.searchParams.get("code");
+        const errorDesc = url.searchParams.get("error_description") || url.searchParams.get("error");
+
+        if (errorDesc) throw new Error(errorDesc);
+
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+        }
+
+        setStatus("Step 2: Getting session...");
+
+        // Retry up to 6 times
         let session = null;
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 6; i++) {
           const { data, error } = await supabase.auth.getSession();
           if (error) throw error;
-          if (data.session?.user) {
-            session = data.session;
-            break;
-          }
+          if (data.session?.user) { session = data.session; break; }
           await new Promise((r) => setTimeout(r, 500));
         }
 
-        if (!session?.user) {
-          throw new Error("Could not get session. Please try signing in again.");
-        }
+        if (!session?.user) throw new Error("Could not get session. Please try signing in again.");
 
         if (!mounted) return;
-        setStatus("Step 2: Setting up account...");
+        setStatus("Step 3: Setting up account...");
 
         const userId = session.user.id;
         const meta = session.user.user_metadata || {};
@@ -55,7 +62,7 @@ const AuthCallback = () => {
           }
         }
 
-        setStatus("Step 3: Loading profile...");
+        setStatus("Step 4: Loading profile...");
 
         const [{ data: profile }, { data: roleRows }] = await Promise.all([
           supabase.from("profiles").select("onboarding_completed, role").eq("user_id", userId).maybeSingle(),

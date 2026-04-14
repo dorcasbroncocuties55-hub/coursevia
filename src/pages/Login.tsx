@@ -98,7 +98,7 @@ const Login = () => {
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
-            access_type: "online",
+            access_type: "offline",
             prompt: "select_account",
           },
         },
