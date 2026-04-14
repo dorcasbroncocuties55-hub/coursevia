@@ -102,7 +102,7 @@ const LearnerSubscription = () => {
       console.error("Subscription error:", e);
       const msg = e.message || "";
       if (msg.includes("fetch") || msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("ECONNREFUSED")) {
-        toast.error("Payment server is offline. Please start the backend server.");
+        toast.error("Payment server is waking up. Please wait 30 seconds and try again.");
       } else {
         toast.error(msg || "Subscription failed. Check console for details.");
       }
