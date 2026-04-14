@@ -9,6 +9,12 @@ pingBackend().then(ok => {
   if (!ok) console.info("Backend warming up — payments will be ready shortly.");
 });
 
+// Handle 404 redirect from Render (SPA routing fallback via 404.html)
+const redirectPath = new URLSearchParams(window.location.search).get("redirect");
+if (redirectPath) {
+  window.history.replaceState(null, "", redirectPath);
+}
+
 // When a new deploy happens, old lazy-loaded chunk filenames no longer exist.
 // This catches the load error and does a hard reload to fetch the new build.
 window.addEventListener("vite:preloadError", () => {
