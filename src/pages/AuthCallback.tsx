@@ -11,75 +11,61 @@ const AuthCallback = () => {
   useEffect(() => {
     let mounted = true;
 
-    const handleSession = async (session: any) => {
-      console.log("[AuthCallback] handleSession called", { user: session?.user?.id });
-      if (!session?.user || !mounted) return;
-
+    const run = async () => {
       try {
-        setStatus("Setting up your account...");
+        // Give Supabase SDK time to parse the hash and set the session
+        await new Promise((r) => setTimeout(r, 500));
 
-        const userId = session.user.id;
-        const requestedRole = parseRole(
-          window.localStorage.getItem("coursevia_oauth_role")
-        ) || "learner";
-        console.log("[AuthCallback] userId:", userId, "requestedRole:", requestedRole);
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-        const meta = session.user.user_metadata || {};
-        const fullName =
-          meta.full_name || meta.name || session.user.email?.split("@")[0] || "User";
-        const avatarUrl = meta.avatar_url || meta.picture || null;
-        const email = session.user.email || null;
+        if (error) throw error;
 
-        // Try RPC first, fall back to direct upsert
-        try {
-          console.log("[AuthCallback] trying RPC...");
-          await supabase.rpc("ensure_my_profile_and_role", {
-            p_requested_role: requestedRole,
-          } as any);
-          console.log("[AuthCallback] RPC success");
-        } catch (rpcErr) {
-          console.warn("[AuthCallback] RPC failed, doing direct upsert:", rpcErr);
-          await supabase.from("profiles").upsert(
-            {
-              user_id: userId,
-              email,
-              full_name: fullName,
-              avatar_url: avatarUrl,
-              onboarding_completed: false,
-            },
-            { onConflict: "user_id", ignoreDuplicates: true }
-          );
-
-          const { data: existingRole } = await supabase
-            .from("user_roles")
-            .select("id")
-            .eq("user_id", userId)
-            .maybeSingle();
-
-          if (!existingRole) {
-            await supabase
-              .from("user_roles")
-              .insert({ user_id: userId, role: requestedRole as any });
+        if (!session?.user) {
+          // Try exchanging code if present (PKCE flow)
+          const code = new URL(window.location.href).searchParams.get("code");
+          if (code) {
+            const { error: exchErr } = await supabase.auth.exchangeCodeForSession(code);
+            if (exchErr) throw exchErr;
+          } else {
+            throw new Error("No session found. Please try signing in again.");
           }
         }
 
-        // Fetch profile and roles
-        console.log("[AuthCallback] fetching profile and roles...");
+        // Re-fetch session after potential code exchange
+        const { data: { session: finalSession }, error: finalErr } = await supabase.auth.getSession();
+        if (finalErr) throw finalErr;
+        if (!finalSession?.user) throw new Error("Authentication failed. Please try again.");
+
+        if (!mounted) return;
+        setStatus("Setting up your account...");
+
+        const userId = finalSession.user.id;
+        const meta = finalSession.user.user_metadata || {};
+        const requestedRole = parseRole(window.localStorage.getItem("coursevia_oauth_role")) || "learner";
+        const fullName = meta.full_name || meta.name || finalSession.user.email?.split("@")[0] || "User";
+        const avatarUrl = meta.avatar_url || meta.picture || null;
+        const email = finalSession.user.email || null;
+
+        // Try RPC, fall back to direct insert
+        try {
+          await supabase.rpc("ensure_my_profile_and_role", { p_requested_role: requestedRole } as any);
+        } catch {
+          await supabase.from("profiles").upsert(
+            { user_id: userId, email, full_name: fullName, avatar_url: avatarUrl, onboarding_completed: false },
+            { onConflict: "user_id", ignoreDuplicates: true }
+          );
+          const { data: existingRole } = await supabase.from("user_roles").select("id").eq("user_id", userId).maybeSingle();
+          if (!existingRole) {
+            await supabase.from("user_roles").insert({ user_id: userId, role: requestedRole as any });
+          }
+        }
+
         const [{ data: profile }, { data: roleRows }] = await Promise.all([
-          supabase
-            .from("profiles")
-            .select("onboarding_completed, role")
-            .eq("user_id", userId)
-            .maybeSingle(),
-          supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", userId),
+          supabase.from("profiles").select("onboarding_completed, role").eq("user_id", userId).maybeSingle(),
+          supabase.from("user_roles").select("role").eq("user_id", userId),
         ]);
 
         window.localStorage.removeItem("coursevia_oauth_role");
-
-        console.log("[AuthCallback] profile:", profile, "roleRows:", roleRows, "mounted:", mounted);
 
         if (!mounted) return;
 
@@ -95,37 +81,18 @@ const AuthCallback = () => {
         }
 
         navigate(roleToDashboardPath(resolvedRole), { replace: true });
-      } catch (error: any) {
-        console.error("Auth callback error:", error);
-        toast.error(error?.message || "Authentication failed");
+
+      } catch (err: any) {
+        console.error("AuthCallback error:", err);
+        toast.error(err?.message || "Authentication failed");
         window.localStorage.removeItem("coursevia_oauth_role");
         if (mounted) navigate("/login", { replace: true });
       }
     };
 
-    // onAuthStateChange fires the moment Supabase parses the hash token
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("[AuthCallback] onAuthStateChange event:", event, "session:", !!session);
-      if (event === "SIGNED_IN" && session) {
-        subscription.unsubscribe();
-        await handleSession(session);
-      }
-    });
+    run();
 
-    // Also handle already-active session (e.g. page reload)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        subscription.unsubscribe();
-        handleSession(session);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
+    return () => { mounted = false; };
   }, [navigate]);
 
   return (
