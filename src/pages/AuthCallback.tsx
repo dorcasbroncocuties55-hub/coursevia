@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -6,6 +6,7 @@ import { parseRole, roleToDashboardPath } from "@/lib/authRoles";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
+  const [status, setStatus] = useState("Completing sign in...");
 
   useEffect(() => {
     let mounted = true;
@@ -14,70 +15,61 @@ const AuthCallback = () => {
       try {
         const url = new URL(window.location.href);
         const code = url.searchParams.get("code");
-        const authError = url.searchParams.get("error_description") || url.searchParams.get("error");
-        const requestedRole = parseRole(window.localStorage.getItem("coursevia_oauth_role"));
+        const authError =
+          url.searchParams.get("error_description") ||
+          url.searchParams.get("error");
 
-        if (authError) {
-          throw new Error(authError);
-        }
+        if (authError) throw new Error(authError);
 
-        // Handle hash-based token (implicit flow from Google OAuth)
-        const hash = window.location.hash;
-        if (hash && hash.includes("access_token")) {
-          // Supabase will auto-detect and set the session from the hash
-          const { data: { session }, error } = await supabase.auth.getSession();
-          if (!error && session) {
-            // Session already set by Supabase from hash - proceed
-          } else {
-            // Wait a moment for Supabase to process the hash
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
-
+        // Exchange the code for a session (PKCE flow)
         if (code) {
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          const { error: exchangeError } =
+            await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError) throw exchangeError;
         }
 
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
-
-        if (error) throw error;
-        if (!session?.user) throw new Error("Authentication failed. Please try again.");
-
-        if (requestedRole) {
-          const { error: updateUserError } = await supabase.auth.updateUser({
-            data: {
-              requested_role: requestedRole,
-              role: requestedRole,
-              account_type: requestedRole,
-              provider_type: requestedRole === "learner" ? null : requestedRole,
-            },
-          });
-
-          if (updateUserError) {
-            console.error("OAuth metadata update error:", updateUserError);
+        // Wait for the session to be available — retry up to 5 times
+        let session = null;
+        for (let i = 0; i < 5; i++) {
+          const { data, error } = await supabase.auth.getSession();
+          if (error) throw error;
+          if (data.session) {
+            session = data.session;
+            break;
           }
+          await new Promise((r) => setTimeout(r, 600));
         }
 
+        if (!session?.user) throw new Error("Authentication failed. Please try again.");
+
+        const requestedRole = parseRole(
+          window.localStorage.getItem("coursevia_oauth_role")
+        );
+
+        // Ensure profile and role exist in DB
         try {
+          setStatus("Setting up your account...");
           await supabase.rpc("ensure_my_profile_and_role", {
             p_requested_role: requestedRole,
           } as any);
         } catch (rpcError) {
-          console.warn("ensure_my_profile_and_role skipped during OAuth callback:", rpcError);
+          console.warn("ensure_my_profile_and_role skipped:", rpcError);
         }
 
+        // Fetch profile and roles
         const [{ data: profile }, { data: roleRows }] = await Promise.all([
           supabase
             .from("profiles")
             .select("onboarding_completed, role")
             .eq("user_id", session.user.id)
             .maybeSingle(),
-          supabase.from("user_roles").select("role").eq("user_id", session.user.id),
+          supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", session.user.id),
         ]);
+
+        window.localStorage.removeItem("coursevia_oauth_role");
 
         const resolvedRole =
           parseRole(roleRows?.[0]?.role) ||
@@ -85,17 +77,21 @@ const AuthCallback = () => {
           parseRole(session.user.user_metadata?.requested_role) ||
           requestedRole;
 
+        if (!mounted) return;
+
         if (!profile || !profile.onboarding_completed) {
-          if (mounted) navigate("/onboarding", { replace: true });
+          navigate("/onboarding", { replace: true });
           return;
         }
 
-        if (mounted) {
-          navigate(resolvedRole ? roleToDashboardPath(resolvedRole) : "/onboarding", { replace: true });
-        }
+        navigate(
+          resolvedRole ? roleToDashboardPath(resolvedRole) : "/onboarding",
+          { replace: true }
+        );
       } catch (error: any) {
         console.error("Auth callback error:", error);
         toast.error(error?.message || "Authentication failed");
+        window.localStorage.removeItem("coursevia_oauth_role");
         if (mounted) navigate("/login", { replace: true });
       }
     };
@@ -104,13 +100,12 @@ const AuthCallback = () => {
 
     return () => {
       mounted = false;
-      window.localStorage.removeItem("coursevia_oauth_role");
     };
   }, [navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
-      <p className="text-muted-foreground">Completing sign in...</p>
+      <p className="text-muted-foreground">{status}</p>
     </div>
   );
 };

@@ -1,25 +1,28 @@
 services:
   - type: web
     name: coursevia-frontend
-    env: static
+    runtime: static
     buildCommand: npm run build
     staticPublishPath: dist
+    pullRequestPreviewsEnabled: false
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
     envVars:
-      - key: VITE_BACKEND_URL
-        value: https://coursevia-production-5872.up.railway.app
+      - key: NODE_VERSION
+        value: 20
       - key: VITE_SUPABASE_URL
-        value: https://lpvcaukviteexnjzqqeo.supabase.co
+        sync: false
       - key: VITE_SUPABASE_ANON_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwdmNhdWt2aXRlZXhuanpxcWVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5MTQxNDgsImV4cCI6MjA4OTQ5MDE0OH0.rHd16T2wKEUxyu2IWME-faqW-ZlrW8fNCmFaTs1IiV8
+        sync: false
+      - key: VITE_SUPABASE_PROJECT_ID
+        sync: false
+      - key: VITE_BACKEND_URL
+        sync: false
       - key: VITE_STRIPE_PUBLISHABLE_KEY
-        value: pk_live_51SzYAsDrKgcLcR6egdhVeVl8nSVqpQQBwE5dYpcCo3Zl1VzFqiAotYV6ywZqIwqvF7702bRGkpDrcFDfpr9yh34z00pKMs7hvf
+        sync: false
       - key: VITE_CHECKOUT_PUBLIC_KEY
-        value: pk_sbox_n3b2guhpa4gbnln2di5xytqztme
-      - key: VITE_SITE_SEARCH_360_ID
-        value: "57286"
-      - key: VITE_SITE_SEARCH_360_API_KEY
-        value: 0tg7ii7k2u602t74yws909v24s3j7763
+        sync: false
+      - key: VITE_PERSONA_TEMPLATE_ID
+        sync: false
