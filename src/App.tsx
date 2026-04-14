@@ -65,6 +65,7 @@ const CoachClients = lazy(() => import("./pages/coach/CoachClients"));
 const CoachSessions = lazy(() => import("./pages/coach/CoachSessions"));
 const CoachReviews = lazy(() => import("./pages/coach/CoachReviews"));
 const CoachContent = lazy(() => import("./pages/coach/CoachContent"));
+const CoachRefunds = lazy(() => import("./pages/coach/CoachRefunds"));
 const CoachUploadVideo = lazy(() => import("./pages/coach/CoachUploadVideo"));
 
 // Therapist dashboard
@@ -76,6 +77,7 @@ const TherapistBookings = lazy(() => import("./pages/therapist/TherapistBookings
 const TherapistClients = lazy(() => import("./pages/therapist/TherapistClients"));
 const TherapistSessions = lazy(() => import("./pages/therapist/TherapistSessions"));
 const TherapistContent = lazy(() => import("./pages/therapist/TherapistContent"));
+const TherapistRefunds = lazy(() => import("./pages/therapist/TherapistRefunds"));
 const TherapistUploadVideo = lazy(() => import("./pages/therapist/TherapistUploadVideo"));
 
 // Shared dashboard pages
@@ -509,6 +511,14 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/coach/refunds"
+                  element={
+                    <ProtectedRoute requiredRole="coach">
+                      <CoachRefunds />
+                    </ProtectedRoute>
+                  }
+                />
 
                 <Route
                   path="/therapist/dashboard"
@@ -627,6 +637,14 @@ const App = () => {
                   element={
                     <ProtectedRoute requiredRole="therapist">
                       <TherapistKYC />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/therapist/refunds"
+                  element={
+                    <ProtectedRoute requiredRole="therapist">
+                      <TherapistRefunds />
                     </ProtectedRoute>
                   }
                 />

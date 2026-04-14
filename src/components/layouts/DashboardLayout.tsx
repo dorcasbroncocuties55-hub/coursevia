@@ -59,6 +59,7 @@ const coachNav: NavItem[] = [
   { label: "Messages", href: "/coach/messages", icon: MessageSquare },
   { label: "Wallet", href: "/coach/wallet", icon: Wallet },
   { label: "Withdrawals", href: "/coach/withdrawals", icon: CreditCard },
+  { label: "Refunds", href: "/coach/refunds", icon: ArrowDownCircle },
   { label: "Reviews", href: "/coach/reviews", icon: FileText },
   { label: "Bank Accounts", href: "/coach/bank-accounts", icon: Wallet },
   { label: "Profile Settings", href: "/coach/profile-settings", icon: Settings },
@@ -77,6 +78,7 @@ const therapistNav: NavItem[] = [
   { label: "Messages", href: "/therapist/messages", icon: MessageSquare },
   { label: "Wallet", href: "/therapist/wallet", icon: Wallet },
   { label: "Withdrawals", href: "/therapist/withdrawals", icon: CreditCard },
+  { label: "Refunds", href: "/therapist/refunds", icon: ArrowDownCircle },
   { label: "Bank Accounts", href: "/therapist/bank-accounts", icon: Wallet },
   { label: "Profile Settings", href: "/therapist/profile-settings", icon: Settings },
 ];
@@ -104,6 +106,7 @@ const adminNav: NavItem[] = [
   { label: "Withdrawals",  href: "/admin/withdrawals",   icon: ArrowDownCircle },
   { label: "Transactions", href: "/admin/transactions",  icon: FileText },
   { label: "KYC",          href: "/admin/kyc",           icon: Shield },
+  { label: "Refunds",      href: "/admin/refunds",       icon: ArrowDownCircle },
   { label: "Reports",      href: "/admin/reports",       icon: Flag },
   { label: "Content",      href: "/admin/content",       icon: BookOpen },
   { label: "Categories",   href: "/admin/categories",    icon: BarChart3 },

@@ -1381,6 +1381,45 @@ app.get("/api/escrow/:userId", async (req, res) => {
 
 // ── Refunds ───────────────────────────────────────────────────────────────────
 
+// Refund request for a payment (course, video, booking)
+app.post("/api/refunds/request-payment", async (req, res) => {
+  try {
+    const { payment_id, user_id, reason } = req.body || {};
+    if (!payment_id || !user_id || !reason?.trim()) return res.status(400).json({ message: "payment_id, user_id, and reason are required." });
+    if (!supabaseAdmin) return res.status(503).json({ message: "Database not configured." });
+
+    const { data: payment } = await supabaseAdmin.from("payments").select("*").eq("id", payment_id).eq("payer_id", user_id).maybeSingle();
+    if (!payment) return res.status(404).json({ message: "Payment not found." });
+    if (!["completed", "success", "approved"].includes(payment.status)) return res.status(400).json({ message: "Only completed payments can be refunded." });
+
+    // 7-day window
+    const paidAt = new Date(payment.created_at);
+    const windowEnd = new Date(paidAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+    if (new Date() > windowEnd) return res.status(400).json({ message: "Refund window has closed. Requests must be submitted within 7 days of purchase." });
+
+    // No duplicate
+    const { data: existing } = await supabaseAdmin.from("refunds").select("id, status").eq("payment_id", payment_id).in("status", ["pending", "processed"]).maybeSingle();
+    if (existing) return res.status(409).json({ message: "A refund request already exists for this payment." });
+
+    const amount = safeNumber(payment.amount);
+    const { data: refund, error } = await supabaseAdmin.from("refunds").insert({
+      user_id,
+      payment_id,
+      booking_id: null,
+      amount,
+      reason: reason.trim(),
+      status: "pending",
+      payment_type: payment.payment_type,
+      content_title: null,
+    }).select("*").single();
+    if (error) throw new Error(error.message);
+
+    return res.json({ success: true, refund, message: "Refund request submitted. Admin will review within 24–48 hours." });
+  } catch (error) {
+    return res.status(500).json({ message: error instanceof Error ? error.message : "Could not submit refund request." });
+  }
+});
+
 app.post("/api/refunds/request", async (req, res) => {
   try {
     const { booking_id, user_id, reason } = req.body || {};
@@ -1413,7 +1452,16 @@ app.post("/api/refunds/request", async (req, res) => {
     if (existing) return res.status(409).json({ message: "A refund request already exists for this booking." });
 
     const amount = safeNumber(payment?.amount || booking.price || 0);
-    const { data: refund, error } = await supabaseAdmin.from("refunds").insert({ user_id, booking_id, amount, reason: reason.trim(), status: "pending" }).select("*").single();
+    const { data: refund, error } = await supabaseAdmin.from("refunds").insert({
+      user_id,
+      booking_id,
+      payment_id: payment?.id || null,
+      amount,
+      reason: reason.trim(),
+      status: "pending",
+      payment_type: "booking",
+      content_title: booking.service_title || booking.title || null,
+    }).select("*").single();
     if (error) throw new Error(error.message);
 
     return res.json({ success: true, refund, message: "Refund request submitted. Admin will review within 24–48 hours." });
@@ -1449,6 +1497,71 @@ app.post("/api/refunds/approve", async (req, res) => {
     return res.json({ success: true, message: "Refund approved. Learner wallet credited." });
   } catch (error) {
     return res.status(500).json({ message: error instanceof Error ? error.message : "Could not approve refund." });
+  }
+});
+
+app.post("/api/refunds/reject", async (req, res) => {
+  try {
+    const { refund_id, reject_reason } = req.body || {};
+    if (!refund_id) return res.status(400).json({ message: "refund_id is required." });
+    if (!supabaseAdmin) return res.status(503).json({ message: "Database not configured." });
+
+    const { data: refund } = await supabaseAdmin.from("refunds").select("*").eq("id", refund_id).maybeSingle();
+    if (!refund) return res.status(404).json({ message: "Refund not found." });
+    if (refund.status !== "pending") return res.status(400).json({ message: "Refund is not pending." });
+
+    await supabaseAdmin.from("refunds").update({
+      status: "rejected",
+      reject_reason: reject_reason?.trim() || null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", refund_id);
+
+    // Notify user
+    await supabaseAdmin.from("notifications").insert({
+      user_id: refund.user_id,
+      title: "Refund Request Update",
+      message: reject_reason?.trim()
+        ? `Your refund request of $${Number(refund.amount).toFixed(2)} was not approved. Reason: ${reject_reason.trim()}`
+        : `Your refund request of $${Number(refund.amount).toFixed(2)} was reviewed and not approved.`,
+      type: "refund",
+    }).catch(() => {});
+
+    return res.json({ success: true, message: "Refund rejected." });
+  } catch (error) {
+    return res.status(500).json({ message: error instanceof Error ? error.message : "Could not reject refund." });
+  }
+});
+
+app.get("/api/refunds/user/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) return res.status(400).json({ message: "userId is required." });
+    if (!supabaseAdmin) return res.status(503).json({ message: "Database not configured." });
+
+    const { data, error } = await supabaseAdmin
+      .from("refunds")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return res.json(data || []);
+  } catch (error) {
+    return res.status(500).json({ message: error instanceof Error ? error.message : "Could not fetch refunds." });
+  }
+});
+
+app.get("/api/refunds/all", async (req, res) => {
+  try {
+    if (!supabaseAdmin) return res.status(503).json({ message: "Database not configured." });
+    const { data, error } = await supabaseAdmin
+      .from("refunds")
+      .select("*, profiles!refunds_user_id_fkey(full_name, email)")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return res.json(data || []);
+  } catch (error) {
+    return res.status(500).json({ message: error instanceof Error ? error.message : "Could not fetch refunds." });
   }
 });
 

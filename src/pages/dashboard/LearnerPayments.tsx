@@ -2,40 +2,67 @@ import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { CreditCard, TrendingUp } from "lucide-react";
+import { CreditCard, TrendingUp, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { RefundRequestModal } from "@/components/shared/RefundRequestModal";
+import { RefundHistory } from "@/components/shared/RefundHistory";
 
 const statusStyle: Record<string, string> = {
   completed: "bg-emerald-100 text-emerald-700",
   approved:  "bg-emerald-100 text-emerald-700",
+  success:   "bg-emerald-100 text-emerald-700",
   pending:   "bg-amber-100 text-amber-700",
   failed:    "bg-red-100 text-red-700",
   rejected:  "bg-red-100 text-red-700",
+};
+
+const isRefundable = (p: any) => {
+  if (!["completed", "approved", "success"].includes(p.status)) return false;
+  if (p.payment_type === "subscription") return false;
+  const paid = new Date(p.created_at);
+  const windowEnd = new Date(paid.getTime() + 7 * 24 * 60 * 60 * 1000);
+  return new Date() < windowEnd;
 };
 
 const LearnerPayments = () => {
   const { user } = useAuth();
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<"payments" | "refunds">("payments");
+  const [refundModal, setRefundModal] = useState<any | null>(null);
+  const [existingRefunds, setExistingRefunds] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
+  const load = async () => {
     if (!user) return;
-    supabase.from("payments").select("*").eq("payer_id", user.id)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => { setPayments(data || []); setLoading(false); });
-  }, [user]);
+    const [{ data: pays }, { data: refs }] = await Promise.all([
+      supabase.from("payments").select("*").eq("payer_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("refunds" as any).select("payment_id").eq("user_id", user.id).in("status", ["pending", "processed"]),
+    ]);
+    setPayments(pays || []);
+    setExistingRefunds(new Set((refs || []).map((r: any) => r.payment_id).filter(Boolean)));
+    setLoading(false);
+  };
 
-  const total = payments.filter(p => ["completed","approved"].includes(p.status)).reduce((s, p) => s + Number(p.amount || 0), 0);
+  useEffect(() => { load(); }, [user]);
+
+  const total = payments.filter(p => ["completed", "approved", "success"].includes(p.status))
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
+
+  const tabs = [
+    { key: "payments", label: "Payment History" },
+    { key: "refunds",  label: "Refund Requests" },
+  ] as const;
 
   return (
     <DashboardLayout role="learner">
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Payment History</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{payments.length} transaction{payments.length !== 1 ? "s" : ""}</p>
+          <h1 className="text-2xl font-bold text-foreground">Payments</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage your payments and refund requests</p>
         </div>
 
-        {/* Summary */}
+        {/* Stats */}
         <div className="grid grid-cols-2 gap-4">
           <div className="rounded-2xl border border-border bg-card p-5">
             <div className="flex items-center gap-2 mb-2">
@@ -53,7 +80,21 @@ const LearnerPayments = () => {
           </div>
         </div>
 
-        {loading ? (
+        {/* Tabs */}
+        <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
+          {tabs.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                tab === t.key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "refunds" ? (
+          <RefundHistory userId={user?.id || ""} />
+        ) : loading ? (
           <div className="space-y-2">
             {[...Array(4)].map((_, i) => <div key={i} className="h-16 rounded-2xl bg-muted animate-pulse" />)}
           </div>
@@ -73,29 +114,58 @@ const LearnerPayments = () => {
                     <th className="text-left text-xs font-medium text-muted-foreground p-4">Amount</th>
                     <th className="text-left text-xs font-medium text-muted-foreground p-4">Method</th>
                     <th className="text-left text-xs font-medium text-muted-foreground p-4">Status</th>
+                    <th className="text-left text-xs font-medium text-muted-foreground p-4">Refund</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {payments.map(p => (
-                    <tr key={p.id} className="border-b border-border last:border-0 hover:bg-secondary/20">
-                      <td className="p-4 text-muted-foreground">{format(new Date(p.created_at), "PP")}</td>
-                      <td className="p-4 capitalize font-medium">{String(p.payment_type || "payment").replace(/_/g, " ")}</td>
-                      <td className="p-4 font-mono font-semibold">${Number(p.amount || 0).toFixed(2)}</td>
-                      <td className="p-4 text-muted-foreground capitalize">{p.payment_method || "—"}</td>
-                      <td className="p-4">
-                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusStyle[p.status] || "bg-muted text-muted-foreground"}`}>
-                          {p.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {payments.map(p => {
+                    const canRefund = isRefundable(p) && !existingRefunds.has(p.id);
+                    const hasRefund = existingRefunds.has(p.id);
+                    return (
+                      <tr key={p.id} className="border-b border-border last:border-0 hover:bg-secondary/20">
+                        <td className="p-4 text-muted-foreground">{format(new Date(p.created_at), "PP")}</td>
+                        <td className="p-4 capitalize font-medium">{String(p.payment_type || "payment").replace(/_/g, " ")}</td>
+                        <td className="p-4 font-mono font-semibold">${Number(p.amount || 0).toFixed(2)}</td>
+                        <td className="p-4 text-muted-foreground capitalize">{p.payment_method || "—"}</td>
+                        <td className="p-4">
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusStyle[p.status] || "bg-muted text-muted-foreground"}`}>
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          {hasRefund ? (
+                            <span className="text-xs text-amber-600 font-medium">Requested</span>
+                          ) : canRefund ? (
+                            <Button size="sm" variant="outline" onClick={() => setRefundModal(p)}
+                              className="h-7 px-2.5 text-xs gap-1 border-amber-300 text-amber-700 hover:bg-amber-50">
+                              <RotateCcw size={11} /> Request
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
         )}
       </div>
+
+      {refundModal && user && (
+        <RefundRequestModal
+          paymentId={refundModal.id}
+          userId={user.id}
+          amount={refundModal.amount}
+          paymentType={refundModal.payment_type}
+          onSuccess={() => { setRefundModal(null); load(); setTab("refunds"); }}
+          onClose={() => setRefundModal(null)}
+        />
+      )}
     </DashboardLayout>
   );
 };
+
 export default LearnerPayments;
