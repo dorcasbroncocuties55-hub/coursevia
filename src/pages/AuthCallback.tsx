@@ -15,7 +15,9 @@ const AuthCallback = () => {
       try {
         setStatus("Step 1: Reading token...");
 
-        const hash = window.location.hash;
+        // Read hash from sessionStorage if React Router already stripped it
+        const hash = window.location.hash || sessionStorage.getItem("oauth_hash") || "";
+        sessionStorage.removeItem("oauth_hash");
         const params = new URLSearchParams(hash.replace("#", ""));
         const accessToken = params.get("access_token");
         const refreshToken = params.get("refresh_token") || "";
