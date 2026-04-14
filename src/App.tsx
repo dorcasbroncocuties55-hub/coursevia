@@ -17,7 +17,7 @@ const Login = lazy(() => import("./pages/Login"));
 const Signup = lazy(() => import("./pages/Signup"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const AuthCallback = lazy(() => import("@/pages/AuthCallback"));
+import AuthCallback from "@/pages/AuthCallback";
 const VerifyEmail = lazy(() => import("@/pages/VerifyEmail"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const About = lazy(() => import("./pages/public/About"));
