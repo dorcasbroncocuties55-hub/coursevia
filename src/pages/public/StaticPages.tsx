@@ -1,455 +1,483 @@
+import PolicyLayout, { PolicyCard } from "@/components/shared/PolicyLayout";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 
-const PageWrapper = ({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) => (
+const lastUpdated = `Last updated: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`;
+
+// ─── TERMS OF SERVICE ────────────────────────────────────────────────────────
+
+const termsSections = [
+  { id: "intro", title: "Introduction" },
+  { id: "eligibility", title: "Eligibility" },
+  { id: "accounts", title: "User Accounts" },
+  { id: "services", title: "Platform Services" },
+  { id: "payments", title: "Payments & Transactions" },
+  { id: "creators", title: "Creator Responsibilities" },
+  { id: "prohibited", title: "Prohibited Activities" },
+  { id: "ip", title: "Intellectual Property" },
+  { id: "termination", title: "Termination" },
+  { id: "liability", title: "Limitation of Liability" },
+  { id: "changes", title: "Changes to Terms" },
+  { id: "contact", title: "Contact" },
+];
+
+export const Terms = () => (
   <div className="min-h-screen bg-background">
     <Navbar />
-    <div className="bg-gradient-to-br from-primary/5 via-background to-background border-b border-border">
-      <div className="mx-auto max-w-3xl px-6 py-16 text-center">
-        <h1 className="text-4xl font-bold text-foreground mb-3">{title}</h1>
-        {subtitle && <p className="text-muted-foreground">{subtitle}</p>}
-      </div>
-    </div>
-    <div className="mx-auto max-w-3xl px-6 py-14 space-y-10 text-muted-foreground leading-relaxed">
-      {children}
-    </div>
+    <PolicyLayout
+      title="Terms of Service"
+      subtitle={lastUpdated}
+      description="These Terms govern your use of Coursevia — a marketplace for video-based learning, coaching, and digital services. By accessing or using the platform, you agree to these terms."
+      badge="Secure • Transparent • User-first"
+      sections={termsSections}
+      ctaTitle="Ready to start learning or selling?"
+      ctaDesc="Join thousands of creators and learners already growing on Coursevia."
+      ctaPrimary={{ label: "Explore Courses", href: "/courses" }}
+      ctaSecondary={{ label: "Become a Creator", href: "/signup" }}
+    >
+      <PolicyCard id="intro" title="Introduction">
+        <p>Welcome to Coursevia. Coursevia is a platform that enables creators, coaches, and professionals to offer video-based courses and services to users worldwide.</p>
+        <p>By accessing or using our platform, you agree to comply with and be bound by these Terms of Service. If you do not agree, you may not use Coursevia.</p>
+      </PolicyCard>
+
+      <PolicyCard id="eligibility" title="Eligibility">
+        <p>To use Coursevia, you must:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Be at least 18 years old", "Provide accurate registration information", "Use the platform in compliance with all applicable laws"].map((item) => (
+            <li key={item} className="flex items-start gap-2">
+              <span className="text-primary mt-1">•</span><span>{item}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2">We reserve the right to suspend or terminate accounts that violate these conditions.</p>
+      </PolicyCard>
+
+      <PolicyCard id="accounts" title="User Accounts">
+        <p>You are responsible for maintaining the confidentiality of your account credentials. You agree:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Not to share your login details with anyone", "To notify us immediately of any unauthorized access", "That you are fully responsible for all activities under your account"].map((item) => (
+            <li key={item} className="flex items-start gap-2">
+              <span className="text-primary mt-1">•</span><span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </PolicyCard>
+
+      <PolicyCard id="services" title="Platform Services">
+        <p>Coursevia provides:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Video-based course hosting", "Creator onboarding and monetization tools", "Customer support systems", "Marketplace features for discovering content"].map((item) => (
+            <li key={item} className="flex items-start gap-2">
+              <span className="text-primary mt-1">•</span><span>{item}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2">We do not directly provide the content — creators are responsible for what they upload.</p>
+      </PolicyCard>
+
+      <PolicyCard id="payments" title="Payments & Transactions">
+        <p>All payments on Coursevia are processed through secure third-party providers. By making a purchase, you agree:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Prices are set by creators", "Payments are non-refundable unless stated otherwise", "Coursevia may charge platform or service fees"].map((item) => (
+            <li key={item} className="flex items-start gap-2">
+              <span className="text-primary mt-1">•</span><span>{item}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2">We are not responsible for payment processing errors caused by third-party providers.</p>
+      </PolicyCard>
+
+      <PolicyCard id="creators" title="Creator Responsibilities">
+        <p>If you upload or sell content on Coursevia, you agree:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["You own or have rights to all content you upload", "Your content does not violate any laws or copyrights", "You provide accurate descriptions of your services and products"].map((item) => (
+            <li key={item} className="flex items-start gap-2">
+              <span className="text-primary mt-1">•</span><span>{item}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2">We reserve the right to remove content that violates these terms without prior notice.</p>
+      </PolicyCard>
+
+      <PolicyCard id="prohibited" title="Prohibited Activities">
+        <p>You agree not to:</p>
+        <ul className="space-y-1.5 mt-1">
+          {[
+            "Use the platform for illegal activities of any kind",
+            "Upload harmful, abusive, or misleading content",
+            "Attempt to hack, disrupt, or exploit the platform",
+            "Copy or redistribute content without permission",
+            "Impersonate any person or entity on the platform",
+            "Solicit users to transact outside of Coursevia to avoid fees",
+          ].map((item) => (
+            <li key={item} className="flex items-start gap-2">
+              <span className="text-primary mt-1">•</span><span>{item}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2">Violations may result in account suspension or permanent ban.</p>
+      </PolicyCard>
+
+      <PolicyCard id="ip" title="Intellectual Property">
+        <p>All platform design, branding, and system functionality belong to Coursevia Inc.</p>
+        <p className="mt-2">Users retain ownership of their uploaded content but grant Coursevia a non-exclusive, worldwide, royalty-free license to display and distribute it within the platform for the purpose of providing our services.</p>
+        <p className="mt-2">This license does not transfer ownership of your content to Coursevia.</p>
+      </PolicyCard>
+
+      <PolicyCard id="termination" title="Termination">
+        <p>We may suspend or terminate your account at any time if:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["You violate these Terms of Service", "Your activity poses a risk to the platform or other users"].map((item) => (
+            <li key={item} className="flex items-start gap-2">
+              <span className="text-primary mt-1">•</span><span>{item}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2">You may also stop using the platform at any time by contacting support@coursevia.com.</p>
+      </PolicyCard>
+
+      <PolicyCard id="liability" title="Limitation of Liability">
+        <p>Coursevia is provided "as is" without warranties of any kind. We are not liable for:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Loss of revenue or data", "Disputes between users and creators", "Content uploaded by third parties", "Interruptions or errors in platform availability"].map((item) => (
+            <li key={item} className="flex items-start gap-2">
+              <span className="text-primary mt-1">•</span><span>{item}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2">Use of the platform is at your own risk. To the maximum extent permitted by law, Coursevia's total liability shall not exceed the amount paid by you in the 12 months preceding the claim.</p>
+      </PolicyCard>
+
+      <PolicyCard id="changes" title="Changes to Terms">
+        <p>We may update these Terms from time to time to reflect changes in our practices, technology, or legal requirements.</p>
+        <p className="mt-2">You will be notified of significant changes via email or a prominent notice on the platform. Continued use of Coursevia after changes are posted means you accept the updated terms.</p>
+      </PolicyCard>
+
+      <PolicyCard id="contact" title="Contact">
+        <p>If you have any questions about these Terms, you can contact us at:</p>
+        <div className="mt-2 p-3 rounded-xl bg-muted/50 space-y-1">
+          <p><strong className="text-foreground">Email:</strong> support@coursevia.com</p>
+          <p><strong className="text-foreground">Platform:</strong> Coursevia Support Dashboard</p>
+        </div>
+      </PolicyCard>
+    </PolicyLayout>
     <Footer />
   </div>
 );
 
-const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <div>
-    <h2 className="text-xl font-bold text-foreground mb-3">{title}</h2>
-    <div className="space-y-3 text-sm leading-relaxed">{children}</div>
+// ─── PRIVACY POLICY ──────────────────────────────────────────────────────────
+
+const privacySections = [
+  { id: "intro", title: "Introduction" },
+  { id: "collect", title: "Information We Collect" },
+  { id: "use", title: "How We Use Your Info" },
+  { id: "third-party", title: "Payments & Third Parties" },
+  { id: "sharing", title: "Data Sharing" },
+  { id: "security", title: "Data Security" },
+  { id: "cookies", title: "Cookies & Tracking" },
+  { id: "rights", title: "Your Rights" },
+  { id: "retention", title: "Data Retention" },
+  { id: "children", title: "Children's Privacy" },
+  { id: "policy-changes", title: "Changes to Policy" },
+  { id: "contact-privacy", title: "Contact Us" },
+];
+
+export const Privacy = () => (
+  <div className="min-h-screen bg-background">
+    <Navbar />
+    <PolicyLayout
+      title="Privacy Policy"
+      subtitle={lastUpdated}
+      description="Coursevia is committed to protecting your privacy. This policy explains how we collect, use, and safeguard your personal information when you use our platform."
+      badge="Secure • Transparent • GDPR-Ready"
+      sections={privacySections}
+      ctaTitle="Your Privacy, Our Priority"
+      ctaDesc="We are committed to keeping your data secure while providing a seamless and powerful learning experience."
+      ctaPrimary={{ label: "Explore Courses", href: "/courses" }}
+      ctaSecondary={{ label: "Contact Support", href: "/contact" }}
+    >
+      <PolicyCard id="intro" title="Introduction">
+        <p>Coursevia ("we", "our", "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your personal information when you access or use our platform.</p>
+        <p className="mt-2">By using Coursevia, you agree to the practices described in this policy. If you do not agree, please do not use the platform.</p>
+      </PolicyCard>
+
+      <PolicyCard id="collect" title="Information We Collect">
+        <p>We may collect the following types of information:</p>
+        <div className="space-y-3 mt-2">
+          <div>
+            <p className="font-semibold text-foreground text-xs mb-1">1. Personal Information</p>
+            <ul className="space-y-1">{["Full name", "Email address", "Account credentials and profile details"].map((i) => <li key={i} className="flex items-start gap-2"><span className="text-primary">•</span><span>{i}</span></li>)}</ul>
+          </div>
+          <div>
+            <p className="font-semibold text-foreground text-xs mb-1">2. Usage Data</p>
+            <ul className="space-y-1">{["Pages visited and features used", "Actions taken on the platform", "Device type, browser, and IP address"].map((i) => <li key={i} className="flex items-start gap-2"><span className="text-primary">•</span><span>{i}</span></li>)}</ul>
+          </div>
+          <div>
+            <p className="font-semibold text-foreground text-xs mb-1">3. Transaction Data</p>
+            <ul className="space-y-1">{["Payment activity (processed via third-party providers)", "Purchase history and subscription status"].map((i) => <li key={i} className="flex items-start gap-2"><span className="text-primary">•</span><span>{i}</span></li>)}</ul>
+          </div>
+        </div>
+      </PolicyCard>
+
+      <PolicyCard id="use" title="How We Use Your Information">
+        <p>We use your information to:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Provide and continuously improve our platform", "Process transactions and manage your account", "Communicate with you about updates and support", "Personalize your experience and recommendations", "Ensure platform security and prevent fraud", "Comply with applicable legal obligations"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+      </PolicyCard>
+
+      <PolicyCard id="third-party" title="Payments & Third Parties">
+        <p>Payments on Coursevia are processed through secure third-party providers (e.g., Stripe, Paystack). We do not store your full payment details — all card data is tokenized.</p>
+        <p className="mt-2">Third-party services we use may include:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Payment processors", "Analytics tools", "Email delivery systems", "Identity verification (KYC) providers"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+        <p className="mt-2">These providers have their own privacy policies and are contractually bound to protect your data.</p>
+      </PolicyCard>
+
+      <PolicyCard id="sharing" title="Data Sharing">
+        <p>We do not sell your personal data. We may share information only when necessary:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["To operate and improve the platform", "To comply with legal obligations or court orders", "To protect users and platform integrity from fraud or abuse"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+      </PolicyCard>
+
+      <PolicyCard id="security" title="Data Security">
+        <p>We implement appropriate security measures to protect your data, including:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["TLS/SSL encryption for all data in transit", "AES-256 encryption for sensitive data at rest", "Secure, access-controlled servers", "Regular security audits and penetration testing"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+        <p className="mt-2">However, no system is completely secure. We cannot guarantee absolute protection, but we will notify you promptly in the event of a data breach.</p>
+      </PolicyCard>
+
+      <PolicyCard id="cookies" title="Cookies & Tracking">
+        <p>We use cookies and similar technologies to:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Improve user experience and remember preferences", "Analyze platform usage and performance", "Deliver relevant content and features"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+        <p className="mt-2">You can control cookie settings through your browser. Disabling certain cookies may affect platform functionality.</p>
+      </PolicyCard>
+
+      <PolicyCard id="rights" title="Your Rights">
+        <p>You have the right to:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Access the personal data we hold about you", "Request corrections to inaccurate data", "Request deletion of your account and data", "Opt out of marketing communications", "Request data portability in a machine-readable format"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+        <p className="mt-2">To exercise any of these rights, contact us at privacy@coursevia.com. We will respond within 30 days.</p>
+      </PolicyCard>
+
+      <PolicyCard id="retention" title="Data Retention">
+        <p>We retain your information only as long as necessary to:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Provide our services to you", "Comply with legal and regulatory obligations", "Resolve disputes and enforce agreements"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+        <p className="mt-2">Upon account deletion, personal data is removed within 90 days. Financial records may be retained for up to 7 years for legal compliance.</p>
+      </PolicyCard>
+
+      <PolicyCard id="children" title="Children's Privacy">
+        <p>Coursevia is not intended for individuals under the age of 18. We do not knowingly collect personal data from children.</p>
+        <p className="mt-2">If we become aware that we have inadvertently collected data from a minor, we will take immediate steps to delete that information. Please contact privacy@coursevia.com if you believe this has occurred.</p>
+      </PolicyCard>
+
+      <PolicyCard id="policy-changes" title="Changes to This Policy">
+        <p>We may update this Privacy Policy from time to time to reflect changes in our practices or legal requirements.</p>
+        <p className="mt-2">Significant changes will be communicated via email or a prominent notice on the platform. Continued use of Coursevia after changes are posted means you accept the updated policy.</p>
+      </PolicyCard>
+
+      <PolicyCard id="contact-privacy" title="Contact Us">
+        <p>If you have questions about this Privacy Policy or our data practices:</p>
+        <div className="mt-2 p-3 rounded-xl bg-muted/50 space-y-1">
+          <p><strong className="text-foreground">Email:</strong> privacy@coursevia.com</p>
+          <p><strong className="text-foreground">Support:</strong> support@coursevia.com</p>
+          <p><strong className="text-foreground">Platform:</strong> Coursevia Support Dashboard</p>
+        </div>
+      </PolicyCard>
+    </PolicyLayout>
+    <Footer />
   </div>
 );
 
-export const Terms = () => (
-  <PageWrapper
-    title="Terms of Service"
-    subtitle="Last updated: April 14, 2026 — Please read these terms carefully before using Coursevia."
-  >
-    <Section title="1. Acceptance of Terms">
-      <p>
-        By accessing or using the Coursevia platform, website, mobile applications, or any associated services (collectively, the "Platform"), you agree to be bound by these Terms of Service ("Terms"), our Privacy Policy, and any additional guidelines or policies incorporated herein by reference. If you do not agree to these Terms, you must not access or use the Platform.
-      </p>
-      <p>
-        These Terms constitute a legally binding agreement between you ("User," "you," or "your") and Coursevia Inc. ("Coursevia," "we," "us," or "our"). We reserve the right to update or modify these Terms at any time. Continued use of the Platform following any changes constitutes your acceptance of the revised Terms.
-      </p>
-    </Section>
+// ─── REFUND POLICY ───────────────────────────────────────────────────────────
 
-    <Section title="2. Eligibility">
-      <p>
-        You must be at least 18 years of age to create an account and use the Platform. By registering, you represent and warrant that you are at least 18 years old and have the legal capacity to enter into a binding agreement. If you are accessing the Platform on behalf of a company or organization, you represent that you have the authority to bind that entity to these Terms.
-      </p>
-      <p>
-        Coursevia reserves the right to refuse service, terminate accounts, or cancel transactions at its sole discretion, including in cases where eligibility requirements are not met.
-      </p>
-    </Section>
-
-    <Section title="3. Account Registration and Security">
-      <p>
-        To access certain features of the Platform, you must register for an account. You agree to provide accurate, current, and complete information during registration and to keep your account information updated at all times.
-      </p>
-      <p>
-        You are solely responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. You agree to notify Coursevia immediately at support@coursevia.com if you suspect any unauthorized use of your account or any other security breach.
-      </p>
-      <p>
-        Coursevia will not be liable for any loss or damage arising from your failure to comply with these security obligations. You may not share your account credentials with any third party or allow others to access your account.
-      </p>
-    </Section>
-
-    <Section title="4. User Roles and Responsibilities">
-      <p>
-        The Platform supports multiple user roles, including Learners, Coaches, Therapists, and Creators (collectively, "Providers"). Each role carries specific rights and responsibilities as outlined below.
-      </p>
-      <p>
-        <strong className="text-foreground">Learners</strong> may browse, purchase, and access content and services offered on the Platform. Learners agree to use purchased content solely for personal, non-commercial purposes and not to reproduce, distribute, or resell any content without explicit written permission from the content owner.
-      </p>
-      <p>
-        <strong className="text-foreground">Providers</strong> (Coaches, Therapists, and Creators) must complete Coursevia's identity verification (KYC) process before offering services. Providers are responsible for the accuracy, legality, and quality of the services and content they offer. Providers agree not to misrepresent their qualifications, credentials, or experience.
-      </p>
-      <p>
-        All users agree to treat others with respect and professionalism. Harassment, discrimination, hate speech, or any form of abusive behavior is strictly prohibited and may result in immediate account termination.
-      </p>
-    </Section>
-
-    <Section title="5. Content Ownership and Licensing">
-      <p>
-        Creators and Providers retain full ownership of the content they upload to the Platform, including courses, videos, session materials, and any other intellectual property. By uploading content, you grant Coursevia a non-exclusive, worldwide, royalty-free license to host, display, distribute, and promote your content on the Platform for the purpose of providing our services.
-      </p>
-      <p>
-        This license does not transfer ownership of your content to Coursevia. You may remove your content from the Platform at any time, subject to any existing learner access rights for purchased content.
-      </p>
-      <p>
-        Coursevia's own platform content, branding, trademarks, logos, and technology are the exclusive property of Coursevia Inc. and may not be used, copied, or reproduced without prior written consent.
-      </p>
-    </Section>
-
-    <Section title="6. Payments, Fees, and Escrow">
-      <p>
-        All transactions on the Platform are processed through our secure, PCI-DSS compliant payment infrastructure. By making a purchase, you authorize Coursevia to charge the applicable fees to your selected payment method.
-      </p>
-      <p>
-        Coursevia operates an escrow model for session-based services. Funds paid by Learners are held securely until the service has been delivered and confirmed. Upon successful delivery, funds are released to the Provider minus Coursevia's platform fee, which is disclosed at the time of listing.
-      </p>
-      <p>
-        Coursevia reserves the right to adjust its fee structure at any time. Providers will be notified of any changes to platform fees with reasonable advance notice.
-      </p>
-    </Section>
-
-    <Section title="7. Refunds and Cancellations">
-      <p>
-        Refund eligibility varies by product type. Please refer to our Refund Policy for full details. In general: course purchases may be refunded within 7 days if less than 30% of the content has been accessed; session bookings may be cancelled and refunded if cancelled at least 24 hours before the scheduled time; subscription fees are non-refundable except where required by applicable law.
-      </p>
-      <p>
-        Coursevia reserves the right to issue refunds at its discretion in cases of provider misconduct, technical failure, or other exceptional circumstances.
-      </p>
-    </Section>
-
-    <Section title="8. Prohibited Conduct">
-      <p>You agree not to engage in any of the following prohibited activities on the Platform:</p>
-      <ul className="list-disc pl-5 space-y-1">
-        <li>Uploading, posting, or transmitting any content that is unlawful, harmful, defamatory, obscene, or otherwise objectionable.</li>
-        <li>Impersonating any person or entity, or falsely representing your affiliation with any person or entity.</li>
-        <li>Attempting to gain unauthorized access to any part of the Platform or its underlying systems.</li>
-        <li>Using automated tools, bots, or scrapers to extract data from the Platform without prior written consent.</li>
-        <li>Engaging in any activity that disrupts, damages, or impairs the Platform's functionality or availability.</li>
-        <li>Circumventing or attempting to circumvent any security or access control measures.</li>
-        <li>Using the Platform to facilitate any illegal activity, including fraud, money laundering, or the distribution of illegal content.</li>
-        <li>Soliciting other users to conduct transactions outside of the Platform in order to avoid fees.</li>
-      </ul>
-    </Section>
-
-    <Section title="9. Dispute Resolution">
-      <p>
-        In the event of a dispute between a Learner and a Provider, Coursevia offers a mediation process to help resolve the issue fairly. Both parties agree to engage in good faith with Coursevia's dispute resolution process before pursuing any external legal remedies.
-      </p>
-      <p>
-        Any disputes arising out of or relating to these Terms that cannot be resolved through mediation shall be subject to binding arbitration in accordance with the rules of a recognized arbitration body, unless prohibited by applicable law. You waive any right to participate in a class action lawsuit or class-wide arbitration.
-      </p>
-    </Section>
-
-    <Section title="10. Limitation of Liability">
-      <p>
-        To the maximum extent permitted by applicable law, Coursevia shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, goodwill, or other intangible losses, arising out of or in connection with your use of the Platform.
-      </p>
-      <p>
-        Coursevia's total liability to you for any claims arising under these Terms shall not exceed the total amount paid by you to Coursevia in the twelve (12) months preceding the claim.
-      </p>
-    </Section>
-
-    <Section title="11. Termination">
-      <p>
-        Coursevia reserves the right to suspend or terminate your account and access to the Platform at any time, with or without notice, for any reason, including but not limited to a violation of these Terms. Upon termination, your right to use the Platform ceases immediately.
-      </p>
-      <p>
-        You may terminate your account at any time by contacting support@coursevia.com. Termination does not entitle you to a refund of any fees paid, except as provided in our Refund Policy.
-      </p>
-    </Section>
-
-    <Section title="12. Governing Law">
-      <p>
-        These Terms shall be governed by and construed in accordance with applicable law. Any legal proceedings arising out of or relating to these Terms shall be brought in a court of competent jurisdiction.
-      </p>
-    </Section>
-
-    <Section title="13. Contact Information">
-      <p>
-        If you have any questions about these Terms of Service, please contact us at:
-      </p>
-      <p>
-        <strong className="text-foreground">Coursevia Inc.</strong><br />
-        Email: legal@coursevia.com<br />
-        Support: support@coursevia.com
-      </p>
-    </Section>
-  </PageWrapper>
-);
-
-export const Privacy = () => (
-  <PageWrapper
-    title="Privacy Policy"
-    subtitle="Last updated: April 14, 2026 — Your privacy matters to us. This policy explains how we handle your data."
-  >
-    <Section title="1. Introduction">
-      <p>
-        Coursevia Inc. ("Coursevia," "we," "us," or "our") is committed to protecting the privacy and security of your personal information. This Privacy Policy describes how we collect, use, disclose, and safeguard your data when you use the Coursevia platform, website, and associated services (collectively, the "Platform").
-      </p>
-      <p>
-        By using the Platform, you consent to the data practices described in this Privacy Policy. If you do not agree with this policy, please do not use the Platform.
-      </p>
-    </Section>
-
-    <Section title="2. Information We Collect">
-      <p>We collect the following categories of personal information:</p>
-      <p>
-        <strong className="text-foreground">Account Information:</strong> When you register, we collect your name, email address, password (stored in hashed form), profile photo, and role (Learner, Coach, Therapist, or Creator).
-      </p>
-      <p>
-        <strong className="text-foreground">Identity Verification Data:</strong> Providers are required to complete a KYC (Know Your Customer) process. This may include government-issued ID documents, selfies for liveness verification, and professional credentials. This data is processed by our verified KYC partner and is subject to their privacy practices.
-      </p>
-      <p>
-        <strong className="text-foreground">Payment Information:</strong> We collect billing details necessary to process transactions. Raw card numbers are never stored on our servers — all payment data is tokenized and processed through our PCI-DSS compliant payment partners.
-      </p>
-      <p>
-        <strong className="text-foreground">Usage Data:</strong> We automatically collect information about how you interact with the Platform, including pages visited, features used, session duration, device type, browser type, IP address, and referring URLs.
-      </p>
-      <p>
-        <strong className="text-foreground">Communications:</strong> If you contact us or communicate with other users through the Platform's messaging system, we may retain those communications to provide support and ensure platform safety.
-      </p>
-      <p>
-        <strong className="text-foreground">Content and Submissions:</strong> Any content you upload, including courses, videos, reviews, and profile information, is stored on our servers and associated with your account.
-      </p>
-    </Section>
-
-    <Section title="3. How We Use Your Information">
-      <p>We use the information we collect for the following purposes:</p>
-      <ul className="list-disc pl-5 space-y-1">
-        <li>To create and manage your account and provide access to Platform features.</li>
-        <li>To process payments, manage escrow, and facilitate payouts to Providers.</li>
-        <li>To verify the identity and credentials of Providers through our KYC process.</li>
-        <li>To personalize your experience and provide relevant recommendations.</li>
-        <li>To communicate with you about your account, transactions, and Platform updates.</li>
-        <li>To send marketing communications where you have opted in to receive them.</li>
-        <li>To monitor and enforce compliance with our Terms of Service and community guidelines.</li>
-        <li>To detect, investigate, and prevent fraudulent transactions and other illegal activities.</li>
-        <li>To analyze usage patterns and improve the Platform's features and performance.</li>
-        <li>To comply with applicable legal obligations and respond to lawful requests from authorities.</li>
-      </ul>
-    </Section>
-
-    <Section title="4. How We Share Your Information">
-      <p>
-        We do not sell your personal data to third parties. We may share your information in the following limited circumstances:
-      </p>
-      <p>
-        <strong className="text-foreground">Service Providers:</strong> We share data with trusted third-party vendors who assist us in operating the Platform, including payment processors, cloud hosting providers, identity verification services, analytics platforms, and customer support tools. These vendors are contractually obligated to protect your data and use it only for the purposes we specify.
-      </p>
-      <p>
-        <strong className="text-foreground">Between Users:</strong> Certain profile information (such as your name, photo, bio, and reviews) is visible to other users as part of the Platform's marketplace functionality. Session participants can see each other's names and profile details.
-      </p>
-      <p>
-        <strong className="text-foreground">Legal Requirements:</strong> We may disclose your information if required to do so by law, court order, or governmental authority, or if we believe in good faith that such disclosure is necessary to protect the rights, property, or safety of Coursevia, our users, or the public.
-      </p>
-      <p>
-        <strong className="text-foreground">Business Transfers:</strong> In the event of a merger, acquisition, or sale of all or a portion of our assets, your information may be transferred as part of that transaction. We will notify you via email or prominent notice on the Platform before your data is transferred and becomes subject to a different privacy policy.
-      </p>
-    </Section>
-
-    <Section title="5. Data Retention">
-      <p>
-        We retain your personal data for as long as your account is active or as needed to provide you with our services. If you close your account, we will delete or anonymize your personal data within 90 days, except where we are required to retain it for legal, regulatory, or legitimate business purposes (such as resolving disputes or complying with tax obligations).
-      </p>
-      <p>
-        Transaction records and financial data may be retained for up to 7 years in accordance with applicable accounting and tax regulations.
-      </p>
-    </Section>
-
-    <Section title="6. Cookies and Tracking Technologies">
-      <p>
-        We use cookies, web beacons, and similar tracking technologies to enhance your experience on the Platform, analyze usage patterns, and deliver relevant content and advertising. You can control cookie preferences through your browser settings, though disabling certain cookies may affect Platform functionality.
-      </p>
-      <p>
-        We use both session cookies (which expire when you close your browser) and persistent cookies (which remain on your device for a set period). We also use third-party analytics tools such as Google Analytics to understand how users interact with the Platform.
-      </p>
-    </Section>
-
-    <Section title="7. Your Rights and Choices">
-      <p>Depending on your location, you may have the following rights regarding your personal data:</p>
-      <ul className="list-disc pl-5 space-y-1">
-        <li><strong className="text-foreground">Access:</strong> Request a copy of the personal data we hold about you.</li>
-        <li><strong className="text-foreground">Correction:</strong> Request that we correct inaccurate or incomplete data.</li>
-        <li><strong className="text-foreground">Deletion:</strong> Request that we delete your personal data, subject to legal retention requirements.</li>
-        <li><strong className="text-foreground">Portability:</strong> Request that we provide your data in a structured, machine-readable format.</li>
-        <li><strong className="text-foreground">Objection:</strong> Object to the processing of your data for direct marketing purposes.</li>
-        <li><strong className="text-foreground">Restriction:</strong> Request that we restrict the processing of your data in certain circumstances.</li>
-        <li><strong className="text-foreground">Withdraw Consent:</strong> Where processing is based on consent, you may withdraw it at any time.</li>
-      </ul>
-      <p>
-        To exercise any of these rights, please contact us at privacy@coursevia.com. We will respond to your request within 30 days.
-      </p>
-    </Section>
-
-    <Section title="8. Data Security">
-      <p>
-        We implement industry-standard technical and organizational security measures to protect your personal data against unauthorized access, alteration, disclosure, or destruction. These measures include TLS/SSL encryption for data in transit, AES-256 encryption for sensitive data at rest, multi-factor authentication for administrative access, regular security audits and penetration testing, and strict access controls limiting data access to authorized personnel only.
-      </p>
-      <p>
-        While we take every reasonable precaution to protect your data, no method of transmission over the internet or electronic storage is 100% secure. We cannot guarantee absolute security, but we are committed to promptly notifying you in the event of a data breach that affects your personal information.
-      </p>
-    </Section>
-
-    <Section title="9. International Data Transfers">
-      <p>
-        Coursevia operates globally, and your data may be transferred to and processed in countries other than your country of residence. We ensure that any international transfers of personal data are conducted in compliance with applicable data protection laws, including through the use of Standard Contractual Clauses or other approved transfer mechanisms where required.
-      </p>
-    </Section>
-
-    <Section title="10. Children's Privacy">
-      <p>
-        The Platform is not intended for use by individuals under the age of 18. We do not knowingly collect personal data from children. If we become aware that we have inadvertently collected data from a minor, we will take immediate steps to delete that information. If you believe we have collected data from a child, please contact us at privacy@coursevia.com.
-      </p>
-    </Section>
-
-    <Section title="11. Changes to This Policy">
-      <p>
-        We may update this Privacy Policy from time to time to reflect changes in our practices, technology, legal requirements, or other factors. We will notify you of any material changes by posting the updated policy on the Platform and updating the "Last updated" date at the top of this page. We encourage you to review this policy periodically.
-      </p>
-    </Section>
-
-    <Section title="12. Contact Us">
-      <p>
-        If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact our Data Protection team:
-      </p>
-      <p>
-        <strong className="text-foreground">Coursevia Inc. — Privacy Team</strong><br />
-        Email: privacy@coursevia.com<br />
-        Support: support@coursevia.com
-      </p>
-    </Section>
-  </PageWrapper>
-);
+const refundSections = [
+  { id: "r-intro", title: "Introduction" },
+  { id: "digital", title: "Digital Products" },
+  { id: "general", title: "General Refund Rule" },
+  { id: "eligible", title: "Eligible Refund Cases" },
+  { id: "non-refundable", title: "Non-Refundable Cases" },
+  { id: "consumption", title: "Content Consumption" },
+  { id: "timeframe", title: "Request Timeframe" },
+  { id: "how-to", title: "How to Request" },
+  { id: "review", title: "Review Process" },
+  { id: "method", title: "Refund Processing" },
+  { id: "creator-protection", title: "Creator Protection" },
+  { id: "disputes", title: "Disputes & Chargebacks" },
+  { id: "r-changes", title: "Policy Updates" },
+  { id: "r-contact", title: "Contact Support" },
+];
 
 export const RefundPolicy = () => (
-  <PageWrapper
-    title="Refund Policy"
-    subtitle="Last updated: April 14, 2026 — We want every experience on Coursevia to be exceptional."
-  >
-    <Section title="1. Overview">
-      <p>
-        Coursevia is committed to ensuring that every learner and client has a positive experience on our platform. We understand that circumstances change, and we have designed our refund policy to be fair, transparent, and easy to understand. This policy applies to all purchases made through the Coursevia platform, including courses, premium videos, coaching sessions, therapy sessions, and subscriptions.
-      </p>
-    </Section>
+  <div className="min-h-screen bg-background">
+    <Navbar />
+    <PolicyLayout
+      title="Refund Policy"
+      subtitle={lastUpdated}
+      description="This Refund Policy outlines the conditions under which refunds may be issued for purchases made on Coursevia. We strive to be fair to both learners and creators."
+      badge="Fair • Transparent • Creator-Protected"
+      sections={refundSections}
+      ctaTitle="Need Help With a Purchase?"
+      ctaDesc="Our team is here to ensure fairness for both users and creators. If you're experiencing an issue, reach out — we'll review it carefully."
+      ctaPrimary={{ label: "Contact Support", href: "/contact" }}
+      ctaSecondary={{ label: "Help Center", href: "/help" }}
+    >
+      <PolicyCard id="r-intro" title="Introduction">
+        <p>At Coursevia, we strive to provide high-quality digital learning experiences through our video-based marketplace.</p>
+        <p className="mt-2">This Refund Policy explains how refunds are handled for purchases made on the platform. By purchasing any course or digital product on Coursevia, you agree to this policy.</p>
+      </PolicyCard>
 
-    <Section title="2. Course Purchases">
-      <p>
-        You may request a full refund for a course purchase within 7 calendar days of the purchase date, provided that you have accessed less than 30% of the course content. Refund requests that meet these criteria will be processed within 5–10 business days to your original payment method.
-      </p>
-      <p>
-        Refunds will not be granted if more than 30% of the course content has been accessed, if the 7-day window has passed, or if the course was purchased as part of a bundle or promotional offer with specific non-refund terms.
-      </p>
-    </Section>
+      <PolicyCard id="digital" title="Nature of Digital Products">
+        <p>All products on Coursevia are digital and delivered instantly upon purchase. This includes:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Video courses and educational content", "Creator-based digital services", "Subscriptions and premium access"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+        <p className="mt-2">Due to the nature of digital products, refunds are limited and subject to the conditions outlined below.</p>
+      </PolicyCard>
 
-    <Section title="3. Session Bookings (Coaching & Therapy)">
-      <p>
-        Session bookings may be cancelled and fully refunded if the cancellation is made at least 24 hours before the scheduled session start time. Cancellations made less than 24 hours before the session are not eligible for a refund, though a credit may be issued at Coursevia's discretion.
-      </p>
-      <p>
-        If a Provider cancels a session, you will receive a full refund automatically within 3–5 business days. If a Provider fails to attend a scheduled session without prior notice, you are entitled to a full refund and may also be eligible for a service credit.
-      </p>
-    </Section>
+      <PolicyCard id="general" title="General Refund Policy">
+        <p>As a general rule, <strong className="text-foreground">all sales are considered final.</strong></p>
+        <p className="mt-2">However, we may issue refunds under specific circumstances where fairness and user protection apply. Refund eligibility is determined based on usage, access, and the nature of the issue reported.</p>
+      </PolicyCard>
 
-    <Section title="4. Premium Video Purchases">
-      <p>
-        Individual video purchases are non-refundable once the video has been accessed or streamed. If you experience a technical issue that prevents you from accessing purchased video content, please contact our support team within 48 hours and we will investigate and resolve the issue or issue a refund as appropriate.
-      </p>
-    </Section>
+      <PolicyCard id="eligible" title="When Refunds May Be Granted">
+        <p>You may be eligible for a refund if:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["You were charged multiple times for the same product", "The content is completely inaccessible due to a verified platform issue", "The product was significantly misrepresented by the creator", "There is a verified technical error preventing access"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+        <p className="mt-2">All refund requests must be supported with valid evidence.</p>
+      </PolicyCard>
 
-    <Section title="5. Subscriptions">
-      <p>
-        Subscription fees are billed in advance on a monthly or annual basis and are generally non-refundable. If you cancel your subscription, you will retain access to subscription benefits until the end of your current billing period. No partial refunds are issued for unused subscription time, except where required by applicable consumer protection law.
-      </p>
-      <p>
-        If you believe you were charged in error, please contact support@coursevia.com within 14 days of the charge and we will investigate promptly.
-      </p>
-    </Section>
+      <PolicyCard id="non-refundable" title="Non-Refundable Cases">
+        <p>Refunds will <strong className="text-foreground">not</strong> be granted in the following situations:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["You changed your mind after purchase", "You did not complete or enjoy the course", "You misunderstood the product description", "You have already consumed a significant portion of the content", "Your issue is based on personal expectations rather than factual problems"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+        <p className="mt-2">This protects creators and ensures fairness across the platform.</p>
+      </PolicyCard>
 
-    <Section title="6. How to Request a Refund">
-      <p>
-        To request a refund, please contact our support team at support@coursevia.com with the following information: your account email address, the order or transaction ID, the reason for your refund request, and any supporting documentation if applicable.
-      </p>
-      <p>
-        We aim to respond to all refund requests within 2 business days. Approved refunds are processed within 5–10 business days, depending on your payment method and financial institution.
-      </p>
-    </Section>
+      <PolicyCard id="consumption" title="Content Access & Consumption">
+        <p>If a user has viewed or downloaded a substantial portion of the content, or completed key sections of a course, the purchase may no longer be eligible for a refund.</p>
+        <p className="mt-2">Coursevia tracks usage activity to ensure fair evaluation of all refund requests.</p>
+      </PolicyCard>
 
-    <Section title="7. Disputes and Escalations">
-      <p>
-        If you are not satisfied with the outcome of your refund request, you may escalate the matter to our Trust & Safety team at disputes@coursevia.com. We are committed to resolving all disputes fairly and in a timely manner.
-      </p>
-    </Section>
-  </PageWrapper>
+      <PolicyCard id="timeframe" title="Refund Request Window">
+        <p>All refund requests must be submitted within <strong className="text-foreground">7 days of purchase.</strong></p>
+        <p className="mt-2">Requests made after this period may not be considered, except in exceptional circumstances at Coursevia's sole discretion.</p>
+      </PolicyCard>
+
+      <PolicyCard id="how-to" title="Requesting a Refund">
+        <p>To request a refund:</p>
+        <ol className="space-y-1.5 mt-1 list-decimal pl-4">
+          {["Contact support via the Coursevia platform or email support@coursevia.com", "Provide your order ID and account email", "Clearly explain the issue you experienced", "Attach any relevant evidence (screenshots, error messages, etc.)"].map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ol>
+        <p className="mt-2">Our team will review your request and respond within a reasonable timeframe.</p>
+      </PolicyCard>
+
+      <PolicyCard id="review" title="Refund Review Process">
+        <p>All refund requests are carefully reviewed by our support team. We consider:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Usage activity and content access logs", "Technical logs and platform error records", "Nature and validity of the complaint", "Accuracy of the creator's content description"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+        <p className="mt-2">Coursevia reserves the right to approve or deny any request based on these factors.</p>
+      </PolicyCard>
+
+      <PolicyCard id="method" title="Refund Processing">
+        <p>If approved:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Refunds will be issued to the original payment method", "Processing time may vary depending on your payment provider (typically 5–10 business days)", "Platform fees may be non-refundable in certain cases"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+      </PolicyCard>
+
+      <PolicyCard id="creator-protection" title="Creator Protection">
+        <p>Coursevia is committed to protecting creators from abuse. We actively monitor:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Excessive or repeated refund requests", "Fraudulent behavior and content exploitation", "Patterns of abuse targeting specific creators"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+        <p className="mt-2">Accounts found abusing the refund system may be restricted or permanently suspended.</p>
+      </PolicyCard>
+
+      <PolicyCard id="disputes" title="Disputes & Chargebacks">
+        <p>If you initiate a chargeback with your bank or payment provider without first contacting Coursevia:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Your account may be suspended pending investigation", "Access to purchased content may be revoked", "You may be liable for chargeback fees"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+        <p className="mt-2">We strongly encourage resolving all issues through our support system first.</p>
+      </PolicyCard>
+
+      <PolicyCard id="r-changes" title="Policy Updates">
+        <p>We may update this Refund Policy from time to time. Continued use of Coursevia means you accept any updated terms.</p>
+        <p className="mt-2">Significant changes will be communicated via email or a prominent notice on the platform.</p>
+      </PolicyCard>
+
+      <PolicyCard id="r-contact" title="Contact Us">
+        <p>For any refund-related questions or to submit a request:</p>
+        <div className="mt-2 p-3 rounded-xl bg-muted/50 space-y-1">
+          <p><strong className="text-foreground">Email:</strong> support@coursevia.com</p>
+          <p><strong className="text-foreground">Platform:</strong> Coursevia Support Dashboard</p>
+        </div>
+      </PolicyCard>
+    </PolicyLayout>
+    <Footer />
+  </div>
 );
 
-export const Blog = () => (
-  <PageWrapper title="Blog" subtitle="Insights on learning, growth, and the future of education.">
-    <Section title="Coming Soon">
-      <p>
-        Coursevia publishes practical insights on learning strategy, provider growth, digital education, booking workflows, and premium content operations. Our editorial team is preparing a series of in-depth articles, case studies, and expert interviews for release soon.
-      </p>
-      <p>
-        Topics will include how top coaches build their client base, how creators monetize their expertise, mental health trends in digital therapy, and the future of online learning. Subscribe to our newsletter to be notified when new content is published.
-      </p>
-    </Section>
-  </PageWrapper>
+// ─── SIMPLE PAGES ────────────────────────────────────────────────────────────
+
+import Navbar2 from "@/components/landing/Navbar";
+import Footer2 from "@/components/landing/Footer";
+
+const simplePage = (title: string, content: string) => () => (
+  <div className="min-h-screen bg-background">
+    <Navbar2 />
+    <div className="container-tight section-spacing">
+      <h1 className="text-4xl font-bold text-foreground mb-6">{title}</h1>
+      <div className="prose prose-sm max-w-none text-muted-foreground leading-relaxed whitespace-pre-line">{content}</div>
+    </div>
+    <Footer2 />
+  </div>
 );
 
-export const Contact = () => (
-  <PageWrapper title="Contact Us" subtitle="We're here to help. Reach out and we'll get back to you quickly.">
-    <Section title="Get in Touch">
-      <p>
-        Whether you have a question about your account, need help with a payment, want to report an issue, or are interested in partnering with Coursevia — our team is ready to assist.
-      </p>
-    </Section>
-    <Section title="Support">
-      <p>
-        For general support, account issues, and billing inquiries:<br />
-        <strong className="text-foreground">Email:</strong> support@coursevia.com<br />
-        We typically respond within 24 hours on business days.
-      </p>
-    </Section>
-    <Section title="Legal & Privacy">
-      <p>
-        For legal inquiries, data requests, or privacy concerns:<br />
-        <strong className="text-foreground">Email:</strong> legal@coursevia.com / privacy@coursevia.com
-      </p>
-    </Section>
-    <Section title="Provider & Partnership Inquiries">
-      <p>
-        Interested in becoming a featured provider or exploring a partnership with Coursevia?<br />
-        <strong className="text-foreground">Email:</strong> partners@coursevia.com
-      </p>
-    </Section>
-  </PageWrapper>
-);
+export const Blog = simplePage("Blog", "Coursevia publishes practical insights on learning strategy, provider growth, digital education, booking workflows, and premium content operations. New editorial pieces are being prepared for release.");
 
-export const HelpCenter = () => (
-  <PageWrapper title="Help Center" subtitle="Find answers to common questions and get the support you need.">
-    <Section title="Getting Started">
-      <p>
-        New to Coursevia? Start by creating a free account at coursevia.com/signup. Once registered, you can browse courses, videos, coaches, and therapists. Complete your profile to get personalized recommendations.
-      </p>
-    </Section>
-    <Section title="Account & Verification">
-      <p>
-        To access all platform features, verify your email address after registration. Providers (coaches, therapists, creators) must also complete our KYC identity verification process. This typically takes 1–2 business days.
-      </p>
-    </Section>
-    <Section title="Payments & Billing">
-      <p>
-        We accept major credit and debit cards, as well as select local payment methods. All transactions are secured with industry-standard encryption. For billing questions or to dispute a charge, contact support@coursevia.com.
-      </p>
-    </Section>
-    <Section title="Courses & Content Access">
-      <p>
-        Purchased courses are accessible from your learner dashboard indefinitely. If you experience issues accessing content, try clearing your browser cache or contact our support team.
-      </p>
-    </Section>
-    <Section title="Booking & Scheduling">
-      <p>
-        To book a session, visit a provider's profile and select an available time slot. You'll receive a confirmation email with session details and a link to join. Sessions can be cancelled up to 24 hours in advance for a full refund.
-      </p>
-    </Section>
-    <Section title="Withdrawals & Payouts">
-      <p>
-        Providers can request withdrawals from their wallet dashboard. Payouts are processed within 3–5 business days to your registered bank account or digital wallet. Minimum withdrawal amounts and supported methods vary by region.
-      </p>
-    </Section>
-    <Section title="Still Need Help?">
-      <p>
-        If you can't find the answer you're looking for, our support team is available at support@coursevia.com. We're here Monday through Friday and aim to respond within 24 hours.
-      </p>
-    </Section>
-  </PageWrapper>
-);
+export const Contact = simplePage("Contact Us", "Have questions or need help? Reach out to our support team.\n\nEmail: support@coursevia.com\n\nWe typically respond within 24 hours during business days.");
+
+export const HelpCenter = simplePage("Help Center", "Welcome to the Coursevia Help Center.\n\nFor account issues, payment questions, or technical support, please visit our FAQ page or contact us directly.\n\nCommon topics:\n• Account setup and verification\n• Payment and billing\n• Course access issues\n• Booking and scheduling\n• Withdrawal requests");
