@@ -13,38 +13,48 @@ const AuthCallback = () => {
 
     const run = async () => {
       try {
-        // Give Supabase SDK time to parse the hash and set the session
-        await new Promise((r) => setTimeout(r, 500));
+        let session = null;
 
-        const { data: { session }, error } = await supabase.auth.getSession();
+        // Parse hash manually — Supabase v2.99+ does not auto-parse hash tokens
+        const hash = window.location.hash;
+        if (hash && hash.includes("access_token")) {
+          const params = new URLSearchParams(hash.replace("#", ""));
+          const accessToken = params.get("access_token");
+          const refreshToken = params.get("refresh_token") || "";
 
-        if (error) throw error;
-
-        if (!session?.user) {
-          // Try exchanging code if present (PKCE flow)
-          const code = new URL(window.location.href).searchParams.get("code");
-          if (code) {
-            const { error: exchErr } = await supabase.auth.exchangeCodeForSession(code);
-            if (exchErr) throw exchErr;
-          } else {
-            throw new Error("No session found. Please try signing in again.");
+          if (accessToken) {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (error) throw error;
+            session = data.session;
           }
         }
 
-        // Re-fetch session after potential code exchange
-        const { data: { session: finalSession }, error: finalErr } = await supabase.auth.getSession();
-        if (finalErr) throw finalErr;
-        if (!finalSession?.user) throw new Error("Authentication failed. Please try again.");
+        // PKCE flow — exchange code
+        if (!session) {
+          const code = new URL(window.location.href).searchParams.get("code");
+          if (code) {
+            const { error } = await supabase.auth.exchangeCodeForSession(code);
+            if (error) throw error;
+          }
+          const { data, error } = await supabase.auth.getSession();
+          if (error) throw error;
+          session = data.session;
+        }
+
+        if (!session?.user) throw new Error("Authentication failed. Please try again.");
 
         if (!mounted) return;
         setStatus("Setting up your account...");
 
-        const userId = finalSession.user.id;
-        const meta = finalSession.user.user_metadata || {};
+        const userId = session.user.id;
+        const meta = session.user.user_metadata || {};
         const requestedRole = parseRole(window.localStorage.getItem("coursevia_oauth_role")) || "learner";
-        const fullName = meta.full_name || meta.name || finalSession.user.email?.split("@")[0] || "User";
+        const fullName = meta.full_name || meta.name || session.user.email?.split("@")[0] || "User";
         const avatarUrl = meta.avatar_url || meta.picture || null;
-        const email = finalSession.user.email || null;
+        const email = session.user.email || null;
 
         // Try RPC, fall back to direct insert
         try {
@@ -91,7 +101,6 @@ const AuthCallback = () => {
     };
 
     run();
-
     return () => { mounted = false; };
   }, [navigate]);
 
