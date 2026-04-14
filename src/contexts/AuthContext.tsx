@@ -405,7 +405,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq("user_id", nextSession.user.id)
           .maybeSingle();
         
-        if (profileError?.code === "PGRST301" || (!profile && !profileError)) {
+        if (profileError?.code === "PGRST301") {
           // User deleted - clear everything and redirect
           try { await supabase.auth.signOut({ scope: "local" }); } catch {}
           try { window.localStorage.clear(); window.sessionStorage.clear(); } catch {}
