@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "backend": "node backend/server.js",
-    "start": "vite",
+    "start": "node serve.js",
     "start:backend": "node backend/server.js"
   },
   "dependencies": {
