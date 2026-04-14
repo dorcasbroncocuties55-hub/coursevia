@@ -18,10 +18,10 @@ const AuthCallback = () => {
         const code = url.searchParams.get("code");
         if (code) {
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeError) console.warn("exchangeCodeForSession error:", exchangeError);
+          if (exchangeError) console.warn("exchangeCodeForSession:", exchangeError.message);
         }
 
-        // Poll for session — Supabase processes the OAuth hash automatically
+        // Poll until session is ready
         let session = null;
         for (let i = 0; i < 30; i++) {
           const { data } = await supabase.auth.getSession();
@@ -34,56 +34,53 @@ const AuthCallback = () => {
 
         setStatus("Setting up your account...");
 
-        const userId = session.user.id;
-        const meta   = session.user.user_metadata || {};
+        const userId    = session.user.id;
+        const meta      = session.user.user_metadata || {};
         const fullName  = meta.full_name || meta.name || session.user.email?.split("@")[0] || "User";
         const avatarUrl = meta.avatar_url || meta.picture || null;
         const email     = session.user.email || null;
 
-        // Always start as learner — role is chosen in onboarding step 1
-        const requestedRole = "learner";
         window.localStorage.removeItem("coursevia_oauth_role");
 
-        // Ensure profile exists
-        const { data: existingProfile } = await supabase
-          .from("profiles")
-          .select("user_id, onboarding_completed, role")
-          .eq("user_id", userId)
-          .maybeSingle();
+        // Upsert profile — never overwrite onboarding_completed if it's already true
+        await supabase.from("profiles").upsert(
+          {
+            user_id: userId,
+            email,
+            full_name: fullName,
+            avatar_url: avatarUrl,
+            // Only set these on insert — existing rows keep their values
+          },
+          { onConflict: "user_id", ignoreDuplicates: true }
+        );
 
-        if (!existingProfile) {
-          // New user — create profile
-          await supabase.from("profiles").upsert(
-            {
-              user_id: userId,
-              email,
-              full_name: fullName,
-              avatar_url: avatarUrl,
-              role: requestedRole,
-              onboarding_completed: false,
-            },
-            { onConflict: "user_id" }
-          );
-        }
-
-        // Ensure role record exists
+        // Ensure a role row exists
         const { data: existingRole } = await supabase
           .from("user_roles")
-          .select("id")
+          .select("role")
           .eq("user_id", userId)
           .maybeSingle();
 
         if (!existingRole) {
           await supabase
             .from("user_roles")
-            .insert({ user_id: userId, role: existingProfile?.role || requestedRole });
+            .insert({ user_id: userId, role: "learner" })
+            .throwOnError();
         }
+
+        // Re-fetch the final profile state AFTER all upserts
+        const { data: finalProfile } = await supabase
+          .from("profiles")
+          .select("onboarding_completed, role")
+          .eq("user_id", userId)
+          .maybeSingle();
 
         if (!mounted) return;
 
-        // Decide where to send the user
-        const onboardingDone = existingProfile?.onboarding_completed === true;
-        const role = existingProfile?.role || requestedRole;
+        const onboardingDone = finalProfile?.onboarding_completed === true;
+        const role = finalProfile?.role || existingRole?.role || "learner";
+
+        console.log("AuthCallback routing:", { onboardingDone, role });
 
         if (!onboardingDone) {
           window.location.href = "/onboarding";
