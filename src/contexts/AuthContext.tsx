@@ -339,32 +339,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     clearStoredRequestedRole();
 
-    // Clear all storage first before signOut
-    try {
-      // Clear ALL localStorage keys (not just sb- prefix)
-      const keysToRemove = Object.keys(window.localStorage).filter(
-        key => key.startsWith("sb-") || key.startsWith("supabase") || key.includes("auth")
-      );
-      keysToRemove.forEach(key => window.localStorage.removeItem(key));
-      
-      // Clear all sessionStorage
-      window.sessionStorage.clear();
-    } catch (storageError) {
-      console.error("storage clear error:", storageError);
-    }
-
-    // Sign out from Supabase
     try {
       await supabase.auth.signOut({ scope: "local" });
     } catch (error) {
       console.error("logout error:", error);
     }
 
-    // Clear auth state
     clearAuthState();
     setLoading(false);
-    
-    // Force hard redirect to login - clears any in-memory state
     window.location.href = "/login";
   };
 
