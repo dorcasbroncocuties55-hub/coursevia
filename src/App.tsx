@@ -125,6 +125,10 @@ const AdminKYC = lazy(() => import("./pages/admin/AdminKYC"));
 const AdminRefunds = lazy(() => import("./pages/admin/AdminRefunds"));
 const AdminInviteCodes = lazy(() => import("./pages/admin/AdminInviteCodes"));
 
+// Support agent portal
+const SupportAgentLogin     = lazy(() => import("./pages/support/SupportAgentLogin"));
+const SupportAgentDashboard = lazy(() => import("./pages/support/SupportAgentDashboard"));
+
 // Static pages (named exports)
 const Terms = lazy(() => import("./pages/public/StaticPages").then(m => ({ default: m.Terms })));
 const Privacy = lazy(() => import("./pages/public/StaticPages").then(m => ({ default: m.Privacy })));
@@ -731,6 +735,8 @@ const App = () => {
                 />
 
                 <Route path="/admin-login" element={<AdminLogin />} />
+                <Route path="/support-agent" element={<SupportAgentLogin />} />
+                <Route path="/support-agent/dashboard" element={<SupportAgentDashboard />} />
                 <Route
                   path="/admin/dashboard"
                   element={

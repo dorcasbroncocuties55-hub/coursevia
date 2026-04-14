@@ -192,6 +192,23 @@ const ChatWidget = () => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs, typing]);
 
+  // Listen for agent replies in real-time
+  useEffect(() => {
+    if (!convId) return;
+    const ch = supabase.channel(`chat-${convId}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "support_messages",
+        filter: `conversation_id=eq.${convId}`,
+      }, (payload: any) => {
+        const m = payload.new;
+        if (m.role === "agent") {
+          setMsgs(prev => [...prev, { id: m.id, role: "agent", text: m.text, ts: new Date(m.created_at) }]);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [convId]);
+
   const addMsg = (role: ChatMsg["role"], text: string) => {
     const msg: ChatMsg = { id: Date.now().toString(), role, text, ts: new Date() };
     setMsgs(prev => [...prev, msg]);
@@ -200,27 +217,26 @@ const ChatWidget = () => {
 
   const saveToSupabase = async (userMsg: string, botReply: string) => {
     try {
-      if (!convId) {
+      let cid = convId;
+      if (!cid) {
         const { data } = await supabase.from("support_conversations" as any).insert({
           user_id: user?.id || null,
           user_name: profile?.full_name || user?.email || "Guest",
           user_email: user?.email || null,
           status: "open",
+          priority: "normal",
         }).select("id").single();
-        if (data?.id) {
-          setConvId(data.id);
-          await supabase.from("support_messages" as any).insert([
-            { conversation_id: data.id, role: "user", text: userMsg },
-            { conversation_id: data.id, role: "bot",  text: botReply },
-          ]);
-        }
-      } else {
-        await supabase.from("support_messages" as any).insert([
-          { conversation_id: convId, role: "user", text: userMsg },
-          { conversation_id: convId, role: "bot",  text: botReply },
-        ]);
+        if (data?.id) { cid = data.id; setConvId(data.id); }
       }
-    } catch { /* silent — chat still works without DB */ }
+      if (cid) {
+        await supabase.from("support_messages" as any).insert([
+          { conversation_id: cid, sender_name: profile?.full_name || user?.email || "Guest", role: "user", text: userMsg, read: false },
+          { conversation_id: cid, sender_name: "Bot", role: "bot", text: botReply, read: true },
+        ]);
+        // Update conversation timestamp so agents see it
+        await supabase.from("support_conversations" as any).update({ updated_at: new Date().toISOString() }).eq("id", cid);
+      }
+    } catch { /* silent */ }
   };
 
   const send = async () => {
@@ -259,9 +275,23 @@ const ChatWidget = () => {
         user_name: profile?.full_name || user?.email || "Guest",
         user_email: user?.email || null,
         status: "open",
-        escalated: true,
+        priority: "high",
+        subject: "Live chat escalation",
       }).select("id").single();
-      if (data?.id) setConvId(data.id);
+      if (data?.id) {
+        setConvId(data.id);
+        // Save existing chat history
+        const history = msgs.filter(m => m.role !== "bot" || !m.text.includes("👋"));
+        for (const m of history) {
+          await supabase.from("support_messages" as any).insert({
+            conversation_id: data.id,
+            sender_name: m.role === "user" ? (profile?.full_name || user?.email || "Guest") : "Bot",
+            role: m.role,
+            text: m.text,
+            read: m.role !== "user",
+          });
+        }
+      }
     } catch {}
   };
 
