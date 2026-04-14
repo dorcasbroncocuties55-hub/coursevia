@@ -39,7 +39,25 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS provider_type            text;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS account_type             text;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS status                   text DEFAULT 'active';
 
--- ── 2. Create or replace the complete_onboarding RPC ─────────────────────
+-- ── 2. Drop ALL existing versions of complete_onboarding ─────────────────
+-- (multiple overloads exist with different signatures — drop them all)
+
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT oid::regprocedure AS sig
+    FROM pg_proc
+    WHERE proname = 'complete_onboarding'
+      AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig || ' CASCADE';
+  END LOOP;
+END;
+$$;
+
+-- ── 3. Create the single correct complete_onboarding RPC ──────────────────
 
 CREATE OR REPLACE FUNCTION complete_onboarding(
   p_role                    text,
@@ -144,11 +162,11 @@ BEGIN
 END;
 $$;
 
--- ── 3. Grant execute permission ───────────────────────────────────────────
+-- ── 4. Grant execute permission ───────────────────────────────────────────
 
 GRANT EXECUTE ON FUNCTION complete_onboarding TO authenticated;
 
--- ── 4. Fix RLS on profiles ────────────────────────────────────────────────
+-- ── 5. Fix RLS on profiles ────────────────────────────────────────────────
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
@@ -178,7 +196,7 @@ CREATE POLICY "Public can view provider profiles"
     AND onboarding_completed = true
   );
 
--- ── 5. Fix RLS on user_roles ──────────────────────────────────────────────
+-- ── 6. Fix RLS on user_roles ──────────────────────────────────────────────
 
 ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
 
@@ -193,7 +211,7 @@ CREATE POLICY "Users can insert own role"
   ON user_roles FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
--- ── 6. Fix RLS on wallets ─────────────────────────────────────────────────
+-- ── 7. Fix RLS on wallets ─────────────────────────────────────────────────
 
 ALTER TABLE wallets ENABLE ROW LEVEL SECURITY;
 
@@ -210,7 +228,7 @@ CREATE POLICY "Users can insert own wallet"
 CREATE POLICY "Users can update own wallet"
   ON wallets FOR UPDATE USING (auth.uid() = user_id);
 
--- ── 7. Verify ─────────────────────────────────────────────────────────────
+-- ── 8. Verify ─────────────────────────────────────────────────────────────
 
 SELECT 
   column_name, 
