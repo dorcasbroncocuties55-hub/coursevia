@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { parseRole, roleToDashboardPath } from "@/lib/authRoles";
 
+// Grab hash immediately before anything can strip it
+const INITIAL_HASH = window.location.hash;
+
 const AuthCallback = () => {
   const navigate = useNavigate();
   const [status, setStatus] = useState("Completing sign in...");
@@ -13,34 +16,51 @@ const AuthCallback = () => {
 
     const run = async () => {
       try {
-        setStatus("Step 1: Exchanging code...");
+        setStatus("Step 1: Processing...");
 
         const url = new URL(window.location.href);
         const code = url.searchParams.get("code");
         const errorDesc = url.searchParams.get("error_description") || url.searchParams.get("error");
-
         if (errorDesc) throw new Error(errorDesc);
 
-        if (code) {
+        let session = null;
+
+        // Try hash token first (implicit flow — Supabase project forces this)
+        const hashParams = new URLSearchParams(INITIAL_HASH.replace("#", ""));
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token") || "";
+
+        if (accessToken) {
+          setStatus("Step 2: Setting session from token...");
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (!error && data.session) session = data.session;
+        }
+
+        // Fall back to PKCE code exchange
+        if (!session && code) {
+          setStatus("Step 2: Exchanging code...");
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
         }
 
-        setStatus("Step 2: Getting session...");
-
-        // Retry up to 6 times
-        let session = null;
-        for (let i = 0; i < 6; i++) {
-          const { data, error } = await supabase.auth.getSession();
-          if (error) throw error;
-          if (data.session?.user) { session = data.session; break; }
-          await new Promise((r) => setTimeout(r, 500));
+        // Get session with retries
+        if (!session) {
+          setStatus("Step 3: Getting session...");
+          for (let i = 0; i < 6; i++) {
+            const { data, error } = await supabase.auth.getSession();
+            if (error) throw error;
+            if (data.session?.user) { session = data.session; break; }
+            await new Promise((r) => setTimeout(r, 500));
+          }
         }
 
-        if (!session?.user) throw new Error("Could not get session. Please try signing in again.");
+        if (!session?.user) throw new Error("Could not establish session. Please try again.");
 
         if (!mounted) return;
-        setStatus("Step 3: Setting up account...");
+        setStatus("Setting up your account...");
 
         const userId = session.user.id;
         const meta = session.user.user_metadata || {};
@@ -62,15 +82,12 @@ const AuthCallback = () => {
           }
         }
 
-        setStatus("Step 4: Loading profile...");
-
         const [{ data: profile }, { data: roleRows }] = await Promise.all([
           supabase.from("profiles").select("onboarding_completed, role").eq("user_id", userId).maybeSingle(),
           supabase.from("user_roles").select("role").eq("user_id", userId),
         ]);
 
         window.localStorage.removeItem("coursevia_oauth_role");
-
         if (!mounted) return;
 
         const resolvedRole =
