@@ -9,15 +9,6 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { roleToDashboardPath } from "@/lib/authRoles";
 
-type SignupRole = "learner" | "coach" | "creator" | "therapist";
-
-const roleOptions: { value: SignupRole; label: string; hint: string }[] = [
-  { value: "learner",   label: "Learner",    hint: "Learn from courses, videos, and sessions." },
-  { value: "coach",     label: "Coach",      hint: "Offer coaching services and live sessions." },
-  { value: "creator",   label: "Creator",    hint: "Publish premium videos and courses." },
-  { value: "therapist", label: "Therapist",  hint: "Offer guided wellness and therapy sessions." },
-];
-
 const Signup = () => {
   const navigate  = useNavigate();
   const location  = useLocation();
@@ -26,7 +17,6 @@ const Signup = () => {
   const [fullName,     setFullName]     = useState("");
   const [email,        setEmail]        = useState("");
   const [password,     setPassword]     = useState("");
-  const [selectedRole, setSelectedRole] = useState<SignupRole>("learner");
   const [showPassword, setShowPassword] = useState(false);
   const [loading,      setLoading]      = useState(false);
 
@@ -45,7 +35,8 @@ const Signup = () => {
   const runGoogleSignup = async () => {
     try {
       setLoading(true);
-      window.localStorage.setItem("coursevia_oauth_role", selectedRole);
+      // Role will be chosen during onboarding — store learner as default
+      window.localStorage.setItem("coursevia_oauth_role", "learner");
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -70,13 +61,18 @@ const Signup = () => {
       if (!cleanEmail)         { toast.error("Email is required"); return; }
       if (password.length < 6) { toast.error("Password must be at least 6 characters"); return; }
 
-      window.localStorage.setItem("coursevia_oauth_role", selectedRole);
-
       const { data, error } = await supabase.auth.signUp({
-        email: cleanEmail, password,
+        email: cleanEmail,
+        password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
-          data: { full_name: cleanName, display_name: cleanName, role: selectedRole, requested_role: selectedRole, account_type: selectedRole, provider_type: selectedRole === "learner" ? null : selectedRole },
+          data: {
+            full_name: cleanName,
+            display_name: cleanName,
+            // Role is chosen in onboarding step 1
+            role: "learner",
+            requested_role: "learner",
+          },
         },
       });
       if (error) throw error;
@@ -113,31 +109,12 @@ const Signup = () => {
             Create your account
           </h1>
           <p className="text-muted-foreground text-sm mb-6">
-            Join as a learner, coach, creator, or therapist.
+            Join Coursevia — you'll choose your role in the next step.
           </p>
-
-          {/* Role picker */}
-          <div className="grid grid-cols-2 gap-2 mb-6">
-            {roleOptions.map(role => (
-              <button
-                key={role.value}
-                type="button"
-                onClick={() => setSelectedRole(role.value)}
-                className={`rounded-xl border p-3 text-left transition ${
-                  selectedRole === role.value
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/40"
-                }`}
-              >
-                <div className="text-sm font-semibold text-foreground">{role.label}</div>
-                <div className="mt-1 text-[11px] leading-4 text-muted-foreground">{role.hint}</div>
-              </button>
-            ))}
-          </div>
 
           {/* Google */}
           <Button variant="outline" className="w-full mb-6" onClick={runGoogleSignup} disabled={loading}>
-            {loading ? "Please wait..." : `Continue with Google as ${roleOptions.find(r => r.value === selectedRole)?.label}`}
+            {loading ? "Please wait..." : "Continue with Google"}
           </Button>
 
           <div className="relative mb-6">
@@ -162,14 +139,22 @@ const Signup = () => {
             <div>
               <Label htmlFor="password">Password</Label>
               <div className="relative">
-                <Input id="password" type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required className="pr-10" />
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="pr-10"
+                />
                 <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowPassword(v => !v)}>
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating account..." : `Create ${roleOptions.find(r => r.value === selectedRole)?.label} account`}
+              {loading ? "Creating account..." : "Create account"}
             </Button>
           </form>
 
@@ -182,7 +167,7 @@ const Signup = () => {
         </div>
       </div>
 
-      {/* Right — branding panel (same as login) */}
+      {/* Right — branding panel */}
       <div className="hidden lg:flex flex-1 bg-primary/5 items-center justify-center p-12">
         <div className="max-w-md text-center">
           <h2 className="text-3xl font-bold text-foreground mb-4">

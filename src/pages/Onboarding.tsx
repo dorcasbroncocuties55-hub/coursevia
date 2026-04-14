@@ -1052,7 +1052,6 @@ const Onboarding = () => {
       }
 
       if (step === 3) {
-        if (!validateAvatar()) return;
         if (!validatePersonalInfo()) return;
         setStep(4);
         return;
@@ -1073,7 +1072,6 @@ const Onboarding = () => {
     }
 
     if (step === 3) {
-      if (!validateAvatar()) return;
       if (!validatePersonalInfo()) return;
       setStep(4);
       return;
@@ -1142,7 +1140,10 @@ const Onboarding = () => {
 
     const finalRole = safeRoleOption(selectedRole, "learner");
 
-    if (!validateAvatar()) return;
+    // Avatar is optional — skip hard block, just warn
+    if (!avatarFile && !avatarPreview) {
+      console.warn("No avatar provided, continuing without one.");
+    }
 
     if (finalRole === "learner") {
       if (!validateLearnerInfo()) return;
