@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,24 +7,36 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   MessageCircle, Send, User, Search, LogOut, CheckCircle2,
-  Clock, AlertCircle, RefreshCw, UserCheck, ArrowRightLeft,
-  Headphones, Circle, XCircle, ChevronDown, Loader2,
+  Clock, AlertCircle, RefreshCw, ArrowRightLeft,
+  Headphones, Circle, XCircle, Loader2, Tag, Zap,
+  BarChart3, Filter, Star, Archive, Bell,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 
 type Conv = {
   id: string; user_id?: string; user_name?: string; user_email?: string;
   agent_id?: string; status: string; subject?: string; priority: string;
-  created_at: string; updated_at: string;
+  tags?: string[]; created_at: string; updated_at: string;
   agent?: { full_name?: string };
-  last_message?: string;
-  unread?: number;
 };
 type Msg = { id: string; conversation_id: string; sender_name?: string; role: string; text: string; created_at: string; read: boolean };
 type Agent = { id: string; user_id: string; full_name?: string; is_online: boolean };
-type UserProfile = { user_id: string; full_name?: string; email?: string; role?: string; country?: string; created_at?: string; onboarding_completed?: boolean };
+type UserProfile = { user_id: string; full_name?: string; country?: string; created_at?: string; onboarding_completed?: boolean };
 type Payment = { id: string; amount: number; payment_type: string; status: string; created_at: string };
-type Refund  = { id: string; amount: number; status: string; reason?: string; created_at: string };
+type Refund  = { id: string; amount: number; status: string; reason?: string; refund_method?: string; created_at: string };
+
+// Canned responses — Zendesk/Intercom style
+const CANNED: { label: string; text: string }[] = [
+  { label: "Greeting",        text: "Hi there! 👋 Thanks for reaching out to Coursevia Support. How can I help you today?" },
+  { label: "Looking into it", text: "Thanks for the details. I'm looking into this for you right now and will get back to you shortly." },
+  { label: "Resolved",        text: "Great news — I've resolved the issue on our end. Please refresh the page and let me know if everything looks good!" },
+  { label: "Refund info",     text: "Refund requests are reviewed within 24–48 hours. Once approved, the refund goes back to your original payment method within 5–10 business days." },
+  { label: "Password reset",  text: "I've sent a password reset email to your registered address. Please check your inbox (and spam folder) and follow the link to reset your password." },
+  { label: "Escalating",      text: "I'm escalating this to our specialist team who will follow up with you shortly. Thank you for your patience!" },
+  { label: "Close",           text: "I'm glad we could help! If you have any other questions, don't hesitate to reach out. Have a great day! 😊" },
+];
+
+const TAGS = ["billing", "technical", "refund", "account", "course-access", "urgent", "vip", "follow-up"];
 
 const statusColor: Record<string, string> = {
   open:     "bg-amber-100 text-amber-700",
@@ -41,23 +53,28 @@ const priorityColor: Record<string, string> = {
 
 const SupportAgentDashboard = () => {
   const navigate = useNavigate();
-  const [agentId, setAgentId]       = useState<string | null>(null);
-  const [agentName, setAgentName]   = useState("");
-  const [convs, setConvs]           = useState<Conv[]>([]);
-  const [agents, setAgents]         = useState<Agent[]>([]);
-  const [activeConv, setActiveConv] = useState<Conv | null>(null);
-  const [msgs, setMsgs]             = useState<Msg[]>([]);
-  const [reply, setReply]           = useState("");
-  const [search, setSearch]         = useState("");
+  const [agentId, setAgentId]         = useState<string | null>(null);
+  const [agentName, setAgentName]     = useState("");
+  const [convs, setConvs]             = useState<Conv[]>([]);
+  const [agents, setAgents]           = useState<Agent[]>([]);
+  const [activeConv, setActiveConv]   = useState<Conv | null>(null);
+  const [msgs, setMsgs]               = useState<Msg[]>([]);
+  const [reply, setReply]             = useState("");
+  const [search, setSearch]           = useState("");
+  const [msgSearch, setMsgSearch]     = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [tab, setTab]               = useState<"chats" | "user" | "payments" | "refunds">("chats");
+  const [tab, setTab]                 = useState<"chats"|"user"|"payments"|"refunds"|"stats">("chats");
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userPayments, setUserPayments] = useState<Payment[]>([]);
   const [userRefunds, setUserRefunds]   = useState<Refund[]>([]);
-  const [transferTo, setTransferTo] = useState("");
-  const [loading, setLoading]       = useState(false);
-  const [sending, setSending]       = useState(false);
-  const [noteText, setNoteText]     = useState("");
+  const [transferTo, setTransferTo]   = useState("");
+  const [loading, setLoading]         = useState(false);
+  const [sending, setSending]         = useState(false);
+  const [noteText, setNoteText]       = useState("");
+  const [showCanned, setShowCanned]   = useState(false);
+  const [tagInput, setTagInput]       = useState("");
+  const [selected, setSelected]       = useState<Set<string>>(new Set());
+  const [stats, setStats]             = useState({ open: 0, assigned: 0, resolved: 0, avgReply: "—" });
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // ── Boot ──────────────────────────────────────────────────────────────────
@@ -72,6 +89,7 @@ const SupportAgentDashboard = () => {
       await supabase.from("support_agents" as any).update({ is_online: true }).eq("id", agent.id);
       loadConvs();
       loadAgents();
+      loadStats();
     };
     boot();
     return () => {
@@ -103,6 +121,20 @@ const SupportAgentDashboard = () => {
       .select("*, agent:support_agents(full_name)")
       .order("updated_at", { ascending: false });
     setConvs((data as Conv[]) || []);
+  };
+
+  const loadStats = async () => {
+    const { data } = await supabase.from("support_conversations" as any).select("status, created_at, resolved_at");
+    if (!data) return;
+    const open     = data.filter((c: any) => c.status === "open").length;
+    const assigned = data.filter((c: any) => c.status === "assigned").length;
+    const resolved = data.filter((c: any) => c.status === "resolved").length;
+    const resolvedWithTime = data.filter((c: any) => c.status === "resolved" && c.resolved_at && c.created_at);
+    const avgMs = resolvedWithTime.length
+      ? resolvedWithTime.reduce((s: number, c: any) => s + (new Date(c.resolved_at).getTime() - new Date(c.created_at).getTime()), 0) / resolvedWithTime.length
+      : 0;
+    const avgHours = avgMs ? Math.round(avgMs / 3600000) : 0;
+    setStats({ open, assigned, resolved, avgReply: avgHours ? `${avgHours}h` : "—" });
   };
 
   const loadAgents = async () => {
@@ -213,10 +245,12 @@ const SupportAgentDashboard = () => {
   };
 
   const resetUserPassword = async () => {
-    if (!userProfile?.email) return;
-    const { error } = await supabase.auth.resetPasswordForEmail(userProfile.email, { redirectTo: `${window.location.origin}/reset-password` });
+    if (!userProfile?.full_name) return;
+    const email = (userProfile as any).email || "";
+    if (!email) { toast.error("No email on file for this user."); return; }
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
     if (error) toast.error(error.message);
-    else toast.success(`Password reset email sent to ${userProfile.email}`);
+    else toast.success(`Password reset email sent to ${email}`);
   };
 
   const logout = async () => {
@@ -225,12 +259,51 @@ const SupportAgentDashboard = () => {
     navigate("/support-agent", { replace: true });
   };
 
+  const addTag = async (tag: string) => {
+    if (!activeConv || !tag.trim()) return;
+    const current = activeConv.tags || [];
+    if (current.includes(tag)) return;
+    const updated = [...current, tag];
+    await supabase.from("support_conversations" as any).update({ tags: updated }).eq("id", activeConv.id);
+    setActiveConv(prev => prev ? { ...prev, tags: updated } : prev);
+    loadConvs();
+  };
+
+  const removeTag = async (tag: string) => {
+    if (!activeConv) return;
+    const updated = (activeConv.tags || []).filter(t => t !== tag);
+    await supabase.from("support_conversations" as any).update({ tags: updated }).eq("id", activeConv.id);
+    setActiveConv(prev => prev ? { ...prev, tags: updated } : prev);
+    loadConvs();
+  };
+
+  const bulkAction = async (action: "resolve" | "close") => {
+    if (!selected.size) return;
+    const status = action === "resolve" ? "resolved" : "closed";
+    for (const id of selected) {
+      await supabase.from("support_conversations" as any).update({
+        status, updated_at: new Date().toISOString(),
+        ...(status === "resolved" ? { resolved_at: new Date().toISOString() } : {}),
+      }).eq("id", id);
+    }
+    toast.success(`${selected.size} conversation(s) ${status}.`);
+    setSelected(new Set());
+    loadConvs(); loadStats();
+  };
+
   // ── Filtered convs ────────────────────────────────────────────────────────
-  const filtered = convs.filter(c => {
+  const filtered = useMemo(() => convs.filter(c => {
     const matchStatus = filterStatus === "all" || c.status === filterStatus;
-    const matchSearch = !search || (c.user_name || "").toLowerCase().includes(search.toLowerCase()) || (c.user_email || "").toLowerCase().includes(search.toLowerCase());
+    const matchSearch = !search ||
+      (c.user_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.user_email || "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.subject || "").toLowerCase().includes(search.toLowerCase());
     return matchStatus && matchSearch;
-  });
+  }), [convs, filterStatus, search]);
+
+  const filteredMsgs = useMemo(() => msgSearch
+    ? msgs.filter(m => m.text.toLowerCase().includes(msgSearch.toLowerCase()))
+    : msgs, [msgs, msgSearch]);
 
   const openCount = convs.filter(c => c.status === "open").length;
 
@@ -246,11 +319,13 @@ const SupportAgentDashboard = () => {
           <span className="text-xs text-muted-foreground hidden sm:block">Agent Dashboard</span>
         </div>
         <div className="flex items-center gap-3">
-          {openCount > 0 && (
-            <span className="bg-amber-100 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full">
-              {openCount} open
-            </span>
-          )}
+          {/* Stats pills */}
+          <div className="hidden md:flex items-center gap-2 text-xs">
+            <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">{stats.open} open</span>
+            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">{stats.assigned} assigned</span>
+            <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">{stats.resolved} resolved</span>
+            <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full">avg {stats.avgReply}</span>
+          </div>
           <div className="flex items-center gap-1.5 text-sm text-foreground">
             <Circle size={8} className="fill-emerald-500 text-emerald-500" />
             {agentName}
@@ -271,7 +346,7 @@ const SupportAgentDashboard = () => {
               <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search conversations..." className="pl-8 h-8 text-xs" />
             </div>
             <div className="flex gap-1 flex-wrap">
-              {["all","open","assigned","resolved"].map(s => (
+              {["all","open","assigned","resolved","closed"].map(s => (
                 <button key={s} onClick={() => setFilterStatus(s)}
                   className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors capitalize ${
                     filterStatus === s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
@@ -280,30 +355,47 @@ const SupportAgentDashboard = () => {
                 </button>
               ))}
             </div>
+            {selected.size > 0 && (
+              <div className="flex gap-1.5 pt-1">
+                <button onClick={() => bulkAction("resolve")} className="flex-1 text-xs bg-emerald-600 text-white rounded-lg py-1.5 font-medium">Resolve {selected.size}</button>
+                <button onClick={() => bulkAction("close")} className="flex-1 text-xs bg-slate-500 text-white rounded-lg py-1.5 font-medium">Close {selected.size}</button>
+                <button onClick={() => setSelected(new Set())} className="text-xs text-muted-foreground px-2">✕</button>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto">
             {filtered.length === 0 ? (
               <div className="p-6 text-center text-xs text-muted-foreground">No conversations found.</div>
-            ) : filtered.map(c => (
-              <button key={c.id} onClick={() => openConv(c)}
-                className={`w-full text-left p-3 border-b border-border hover:bg-muted/50 transition-colors ${activeConv?.id === c.id ? "bg-primary/5 border-l-2 border-l-primary" : ""}`}>
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <p className="text-sm font-medium text-foreground truncate">{c.user_name || "Guest"}</p>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${statusColor[c.status] || "bg-muted text-muted-foreground"}`}>
-                    {c.status}
-                  </span>
+            ) : filtered.map(c => {
+              const isSelected = selected.has(c.id);
+              return (
+                <div key={c.id} className={`flex items-stretch border-b border-border ${activeConv?.id === c.id ? "bg-primary/5 border-l-2 border-l-primary" : ""}`}>
+                  <div className="flex items-center px-2 cursor-pointer" onClick={e => { e.stopPropagation(); setSelected(prev => { const n = new Set(prev); isSelected ? n.delete(c.id) : n.add(c.id); return n; }); }}>
+                    <div className={`h-4 w-4 rounded border-2 flex items-center justify-center ${isSelected ? "bg-primary border-primary" : "border-border"}`}>
+                      {isSelected && <span className="text-white text-[8px]">✓</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => openConv(c)} className="flex-1 text-left p-2.5 hover:bg-muted/50 transition-colors">
+                    <div className="flex items-start justify-between gap-2 mb-0.5">
+                      <p className="text-sm font-medium text-foreground truncate">{c.user_name || "Guest"}</p>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${statusColor[c.status] || "bg-muted text-muted-foreground"}`}>{c.status}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{c.user_email || "No email"}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className={`text-[10px] font-medium capitalize ${priorityColor[c.priority] || ""}`}>{c.priority === "urgent" ? "🔴 " : ""}{c.priority}</span>
+                      <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(c.updated_at))} ago</span>
+                    </div>
+                    {c.tags && c.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {c.tags.slice(0, 3).map(t => <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">{t}</span>)}
+                      </div>
+                    )}
+                    {c.agent?.full_name && <p className="text-[10px] text-muted-foreground mt-0.5">👤 {c.agent.full_name}</p>}
+                  </button>
                 </div>
-                <p className="text-xs text-muted-foreground truncate">{c.user_email || "No email"}</p>
-                <div className="flex items-center justify-between mt-1">
-                  <span className={`text-[10px] font-medium capitalize ${priorityColor[c.priority] || ""}`}>{c.priority}</span>
-                  <span className="text-[10px] text-muted-foreground">{format(new Date(c.updated_at), "MMM d, HH:mm")}</span>
-                </div>
-                {c.agent?.full_name && (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Assigned: {c.agent.full_name}</p>
-                )}
-              </button>
-            ))}
+              );
+            })}
           </div>
 
           <div className="p-3 border-t border-border">
@@ -328,37 +420,51 @@ const SupportAgentDashboard = () => {
             <div className="flex-1 flex flex-col overflow-hidden">
 
               {/* Conv header */}
-              <div className="h-14 border-b border-border px-4 flex items-center justify-between shrink-0 bg-card">
-                <div>
-                  <p className="font-semibold text-foreground text-sm">{activeConv.user_name || "Guest"}</p>
-                  <p className="text-xs text-muted-foreground">{activeConv.user_email || "No email"} · {activeConv.status}</p>
+              <div className="border-b border-border px-4 py-2 shrink-0 bg-card space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-foreground text-sm">{activeConv.user_name || "Guest"}</p>
+                    <p className="text-xs text-muted-foreground">{activeConv.user_email || "No email"} · opened {formatDistanceToNow(new Date(activeConv.created_at))} ago</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    <select value={activeConv.priority} onChange={e => setPriority(e.target.value)}
+                      className="text-xs border border-border rounded-lg px-2 py-1 bg-background text-foreground">
+                      {["low","normal","high","urgent"].map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                    {activeConv.status !== "resolved" && (
+                      <Button size="sm" onClick={() => setStatus("resolved")} className="h-7 px-2.5 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white">
+                        <CheckCircle2 size={11} /> Resolve
+                      </Button>
+                    )}
+                    {activeConv.status === "resolved" && (
+                      <Button size="sm" variant="outline" onClick={() => setStatus("open")} className="h-7 px-2.5 text-xs gap-1">
+                        <RefreshCw size={11} /> Reopen
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={() => setStatus("closed")} className="h-7 px-2.5 text-xs gap-1 text-muted-foreground">
+                      <XCircle size={11} /> Close
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* Priority */}
-                  <select value={activeConv.priority} onChange={e => setPriority(e.target.value)}
-                    className="text-xs border border-border rounded-lg px-2 py-1 bg-background text-foreground">
-                    {["low","normal","high","urgent"].map(p => <option key={p} value={p}>{p}</option>)}
+                {/* Tags row */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {(activeConv.tags || []).map(t => (
+                    <span key={t} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                      {t}
+                      <button onClick={() => removeTag(t)} className="hover:text-red-500">×</button>
+                    </span>
+                  ))}
+                  <select value="" onChange={e => { if (e.target.value) addTag(e.target.value); }}
+                    className="text-[10px] border border-dashed border-border rounded-full px-2 py-0.5 bg-background text-muted-foreground cursor-pointer">
+                    <option value="">+ tag</option>
+                    {TAGS.filter(t => !(activeConv.tags || []).includes(t)).map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
-                  {/* Status actions */}
-                  {activeConv.status !== "resolved" && (
-                    <Button size="sm" onClick={() => setStatus("resolved")} className="h-7 px-2.5 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white">
-                      <CheckCircle2 size={11} /> Resolve
-                    </Button>
-                  )}
-                  {activeConv.status === "resolved" && (
-                    <Button size="sm" variant="outline" onClick={() => setStatus("open")} className="h-7 px-2.5 text-xs gap-1">
-                      <RefreshCw size={11} /> Reopen
-                    </Button>
-                  )}
-                  <Button size="sm" variant="ghost" onClick={() => setStatus("closed")} className="h-7 px-2.5 text-xs gap-1 text-muted-foreground">
-                    <XCircle size={11} /> Close
-                  </Button>
                 </div>
               </div>
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {msgs.map(m => {
+                {filteredMsgs.map(m => {
                   const isAgent = m.role === "agent";
                   const isNote  = m.text.startsWith("📝 Internal note:");
                   return (
@@ -388,6 +494,29 @@ const SupportAgentDashboard = () => {
 
               {/* Reply box */}
               <div className="border-t border-border p-3 space-y-2 shrink-0 bg-card">
+                {/* Message search */}
+                <div className="relative">
+                  <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input value={msgSearch} onChange={e => setMsgSearch(e.target.value)} placeholder="Search messages..." className="pl-7 h-7 text-xs" />
+                </div>
+                {/* Canned responses */}
+                <div className="relative">
+                  <button onClick={() => setShowCanned(v => !v)}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    <Zap size={12} /> Canned responses {showCanned ? "▲" : "▼"}
+                  </button>
+                  {showCanned && (
+                    <div className="absolute bottom-full left-0 mb-1 w-72 bg-background border border-border rounded-xl shadow-lg overflow-hidden z-10">
+                      {CANNED.map(c => (
+                        <button key={c.label} onClick={() => { setReply(c.text); setShowCanned(false); }}
+                          className="w-full text-left px-3 py-2 hover:bg-muted text-xs border-b border-border last:border-0">
+                          <span className="font-medium text-foreground">{c.label}</span>
+                          <p className="text-muted-foreground truncate mt-0.5">{c.text}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <Textarea
                   value={reply}
                   onChange={e => setReply(e.target.value)}
@@ -397,11 +526,10 @@ const SupportAgentDashboard = () => {
                   className="resize-none text-sm"
                 />
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex gap-2">
-                    {/* Quick replies */}
-                    {["Thanks for reaching out!", "I'm looking into this for you.", "Issue has been resolved."].map(q => (
+                  <div className="flex gap-1.5 flex-wrap">
+                    {["Thanks for reaching out!", "I'm looking into this.", "Issue resolved!"].map(q => (
                       <button key={q} onClick={() => setReply(q)}
-                        className="text-xs px-2.5 py-1 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground transition-colors truncate max-w-[120px]">
+                        className="text-xs px-2.5 py-1 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground transition-colors truncate max-w-[110px]">
                         {q}
                       </button>
                     ))}
@@ -418,10 +546,10 @@ const SupportAgentDashboard = () => {
             <aside className="w-72 border-l border-border bg-card flex flex-col shrink-0 overflow-hidden">
 
               {/* Tabs */}
-              <div className="flex border-b border-border shrink-0">
-                {(["chats","user","payments","refunds"] as const).map(t => (
+              <div className="flex border-b border-border shrink-0 overflow-x-auto">
+                {(["chats","user","payments","refunds","stats"] as const).map(t => (
                   <button key={t} onClick={() => setTab(t)}
-                    className={`flex-1 py-2.5 text-xs font-medium capitalize transition-colors ${
+                    className={`flex-1 py-2.5 text-xs font-medium capitalize transition-colors whitespace-nowrap px-2 ${
                       tab === t ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"
                     }`}>
                     {t}
@@ -487,10 +615,10 @@ const SupportAgentDashboard = () => {
                             </div>
                             <div>
                               <p className="font-semibold text-foreground">{userProfile.full_name || "—"}</p>
-                              <p className="text-muted-foreground capitalize">{userProfile.role || "learner"}</p>
+                              <p className="text-muted-foreground capitalize">{(userProfile as any).role || "learner"}</p>
                             </div>
                           </div>
-                          <p><span className="text-muted-foreground">Email:</span> {userProfile.email || "—"}</p>
+                          <p><span className="text-muted-foreground">Email:</span> {(userProfile as any).email || "—"}</p>
                           <p><span className="text-muted-foreground">Country:</span> {userProfile.country || "—"}</p>
                           <p><span className="text-muted-foreground">Joined:</span> {userProfile.created_at ? format(new Date(userProfile.created_at), "PP") : "—"}</p>
                           <p><span className="text-muted-foreground">Onboarded:</span> {userProfile.onboarding_completed ? "Yes" : "No"}</p>
@@ -544,6 +672,7 @@ const SupportAgentDashboard = () => {
                           }`}>{r.status}</span>
                         </div>
                         {r.reason && <p className="text-muted-foreground line-clamp-2">{r.reason}</p>}
+                        {r.refund_method && <p className="text-muted-foreground">Method: {r.refund_method.replace(/_/g, " ")}</p>}
                         <p className="text-muted-foreground">{format(new Date(r.created_at), "PP")}</p>
                         {r.status === "pending" && (
                           <Button size="sm" onClick={() => approveRefund(r.id)} disabled={loading}
@@ -553,6 +682,29 @@ const SupportAgentDashboard = () => {
                         )}
                       </div>
                     ))}
+                  </>
+                )}
+
+                {/* ── STATS tab ── */}
+                {tab === "stats" && (
+                  <>
+                    <p className="text-xs font-semibold text-foreground">Platform Stats</p>
+                    <div className="space-y-2">
+                      {[
+                        { label: "Open conversations",    value: stats.open,     color: "text-amber-600" },
+                        { label: "Assigned",              value: stats.assigned, color: "text-blue-600" },
+                        { label: "Resolved",              value: stats.resolved, color: "text-emerald-600" },
+                        { label: "Avg resolution time",   value: stats.avgReply, color: "text-foreground" },
+                      ].map(s => (
+                        <div key={s.label} className="flex justify-between items-center p-2.5 rounded-xl border border-border bg-background">
+                          <span className="text-xs text-muted-foreground">{s.label}</span>
+                          <span className={`text-sm font-bold ${s.color}`}>{s.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <Button size="sm" variant="outline" className="w-full text-xs gap-1.5 mt-2" onClick={loadStats}>
+                      <RefreshCw size={11} /> Refresh stats
+                    </Button>
                   </>
                 )}
               </div>

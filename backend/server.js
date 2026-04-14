@@ -1481,20 +1481,102 @@ app.post("/api/refunds/approve", async (req, res) => {
     if (refund.status !== "pending") return res.status(400).json({ message: "Refund is not pending." });
 
     const amount = safeNumber(refund.amount);
-    await supabaseAdmin.from("wallets").upsert({ user_id: refund.user_id, currency: "USD", balance: 0, pending_balance: 0, available_balance: 0 }, { onConflict: "user_id", ignoreDuplicates: true });
-    const { data: wallet } = await supabaseAdmin.from("wallets").select("*").eq("user_id", refund.user_id).maybeSingle();
-    if (wallet) {
-      const newBal = safeNumber(wallet.available_balance) + amount;
-      await supabaseAdmin.from("wallets").update({ balance: safeNumber(wallet.balance) + amount, available_balance: newBal, updated_at: new Date().toISOString() }).eq("user_id", refund.user_id);
-      await supabaseAdmin.from("wallet_ledger").insert({ wallet_id: wallet.id, amount, type: "credit", description: `Refund approved for booking ${refund.booking_id || refund_id}`, balance_after: newBal });
+    let refundMethod = "original_payment";
+    let stripeRefundId = null;
+
+    // ── Try Stripe refund to original payment method first ──────────────────
+    if (stripe && refund.payment_id) {
+      try {
+        // Find the Stripe payment intent from our payments table
+        const { data: payment } = await supabaseAdmin
+          .from("payments")
+          .select("reference_id, payment_method")
+          .eq("id", refund.payment_id)
+          .maybeSingle();
+
+        if (payment?.reference_id) {
+          // Look up the Stripe PaymentIntent by our reference
+          const paymentIntents = await stripe.paymentIntents.list({ limit: 100 });
+          const pi = paymentIntents.data.find(p =>
+            p.metadata?.reference === payment.reference_id ||
+            p.id === payment.reference_id
+          );
+
+          if (pi && pi.latest_charge) {
+            const stripeRefund = await stripe.refunds.create({
+              charge: String(pi.latest_charge),
+              amount: toCents(amount),
+              reason: "requested_by_customer",
+              metadata: { refund_id, coursevia_ref: payment.reference_id },
+            });
+            stripeRefundId = stripeRefund.id;
+            refundMethod = "stripe_original";
+            console.log(`Stripe refund created: ${stripeRefundId} for $${amount}`);
+          }
+        }
+      } catch (stripeErr) {
+        console.warn("Stripe refund failed, falling back to wallet credit:", stripeErr.message);
+        refundMethod = "wallet_fallback";
+      }
+    } else {
+      refundMethod = "wallet_fallback";
     }
 
-    await supabaseAdmin.from("refunds").update({ status: "processed", processed_at: new Date().toISOString() }).eq("id", refund_id);
+    // ── Wallet fallback if Stripe refund not possible ────────────────────────
+    if (refundMethod === "wallet_fallback") {
+      await supabaseAdmin.from("wallets").upsert(
+        { user_id: refund.user_id, currency: "USD", balance: 0, pending_balance: 0, available_balance: 0 },
+        { onConflict: "user_id", ignoreDuplicates: true }
+      );
+      const { data: wallet } = await supabaseAdmin.from("wallets").select("*").eq("user_id", refund.user_id).maybeSingle();
+      if (wallet) {
+        const newBal = safeNumber(wallet.available_balance) + amount;
+        await supabaseAdmin.from("wallets").update({
+          balance: safeNumber(wallet.balance) + amount,
+          available_balance: newBal,
+          updated_at: new Date().toISOString(),
+        }).eq("user_id", refund.user_id);
+        await supabaseAdmin.from("wallet_ledger").insert({
+          wallet_id: wallet.id, amount, type: "credit",
+          description: `Refund approved — credited to wallet (original payment method unavailable)`,
+          balance_after: newBal,
+        });
+      }
+    }
+
+    // ── Mark refund processed ────────────────────────────────────────────────
+    await supabaseAdmin.from("refunds").update({
+      status: "processed",
+      processed_at: new Date().toISOString(),
+      refund_method: refundMethod,
+      stripe_refund_id: stripeRefundId,
+    }).eq("id", refund_id);
+
+    // Cancel booking if applicable
     if (refund.booking_id) {
-      await supabaseAdmin.from("bookings").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("id", refund.booking_id).in("status", ["pending", "confirmed"]);
+      await supabaseAdmin.from("bookings")
+        .update({ status: "cancelled", updated_at: new Date().toISOString() })
+        .eq("id", refund.booking_id)
+        .in("status", ["pending", "confirmed"]);
     }
 
-    return res.json({ success: true, message: "Refund approved. Learner wallet credited." });
+    // Notify user
+    const methodMsg = refundMethod === "stripe_original"
+      ? "The refund has been sent to your original payment method and should appear within 5–10 business days."
+      : "The refund has been credited to your Coursevia wallet.";
+
+    await supabaseAdmin.from("notifications").insert({
+      user_id: refund.user_id,
+      title: "Refund Approved",
+      message: `Your refund of $${amount.toFixed(2)} has been approved. ${methodMsg}`,
+      type: "refund",
+    }).catch(() => {});
+
+    const msg = refundMethod === "stripe_original"
+      ? `Refund of $${amount.toFixed(2)} sent to learner's original payment method (Stripe).`
+      : `Refund of $${amount.toFixed(2)} credited to learner's wallet (Stripe unavailable).`;
+
+    return res.json({ success: true, message: msg, refund_method: refundMethod, stripe_refund_id: stripeRefundId });
   } catch (error) {
     return res.status(500).json({ message: error instanceof Error ? error.message : "Could not approve refund." });
   }

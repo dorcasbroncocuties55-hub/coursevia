@@ -67,3 +67,7 @@ CREATE POLICY "Admins can update refunds"
   );
 
 SELECT 'Refund system migration applied successfully' AS result;
+
+-- Add refund method tracking columns
+ALTER TABLE refunds ADD COLUMN IF NOT EXISTS refund_method    text DEFAULT 'wallet_fallback';
+ALTER TABLE refunds ADD COLUMN IF NOT EXISTS stripe_refund_id text;
