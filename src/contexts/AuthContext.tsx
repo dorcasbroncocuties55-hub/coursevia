@@ -374,6 +374,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const restoreSession = async () => {
       setLoading(true);
 
+      // Skip session restoration on the auth callback page —
+      // AuthCallback.tsx handles everything there
+      if (window.location.pathname === "/auth/callback") {
+        if (mounted) setLoading(false);
+        return;
+      }
+
       const url = new URL(window.location.href);
       const code = url.searchParams.get("code");
 
@@ -434,6 +441,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!mounted) return;
+
+      // Let AuthCallback.tsx handle everything on the callback page
+      if (window.location.pathname === "/auth/callback") return;
 
       if (event === "INITIAL_SESSION" && initialSessionHandledRef.current) {
         return;
