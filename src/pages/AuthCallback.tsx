@@ -13,37 +13,34 @@ const AuthCallback = () => {
 
     const run = async () => {
       try {
-        setStatus("Step 1: Reading token...");
+        setStatus("Step 1: Getting session...");
 
-        // Read hash from sessionStorage if React Router already stripped it
-        const hash = window.location.hash || sessionStorage.getItem("oauth_hash") || "";
-        sessionStorage.removeItem("oauth_hash");
-        const params = new URLSearchParams(hash.replace("#", ""));
-        const accessToken = params.get("access_token");
-        const refreshToken = params.get("refresh_token") || "";
-
-        if (!accessToken) {
-          throw new Error("No access token in URL. Please try signing in again.");
+        // Supabase processes the hash/code automatically — just get the session
+        // Retry up to 8 times with 500ms delay to give Supabase time to process
+        let session = null;
+        for (let i = 0; i < 8; i++) {
+          const { data, error } = await supabase.auth.getSession();
+          if (error) throw error;
+          if (data.session?.user) {
+            session = data.session;
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 500));
         }
 
-        setStatus("Step 2: Setting session...");
+        if (!session?.user) {
+          throw new Error("Could not get session. Please try signing in again.");
+        }
 
-        const { data, error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
+        if (!mounted) return;
+        setStatus("Step 2: Setting up account...");
 
-        if (error) throw error;
-        if (!data.session?.user) throw new Error("Session could not be established.");
-
-        setStatus("Step 3: Setting up account...");
-
-        const userId = data.session.user.id;
-        const meta = data.session.user.user_metadata || {};
+        const userId = session.user.id;
+        const meta = session.user.user_metadata || {};
         const requestedRole = parseRole(window.localStorage.getItem("coursevia_oauth_role")) || "learner";
-        const fullName = meta.full_name || meta.name || data.session.user.email?.split("@")[0] || "User";
+        const fullName = meta.full_name || meta.name || session.user.email?.split("@")[0] || "User";
         const avatarUrl = meta.avatar_url || meta.picture || null;
-        const email = data.session.user.email || null;
+        const email = session.user.email || null;
 
         try {
           await supabase.rpc("ensure_my_profile_and_role", { p_requested_role: requestedRole } as any);
@@ -58,7 +55,7 @@ const AuthCallback = () => {
           }
         }
 
-        setStatus("Step 4: Loading profile...");
+        setStatus("Step 3: Loading profile...");
 
         const [{ data: profile }, { data: roleRows }] = await Promise.all([
           supabase.from("profiles").select("onboarding_completed, role").eq("user_id", userId).maybeSingle(),
