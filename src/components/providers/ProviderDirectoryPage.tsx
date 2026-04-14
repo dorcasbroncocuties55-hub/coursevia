@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
@@ -25,6 +25,53 @@ const asTagList = (v: unknown): string[] => {
   if (Array.isArray(v)) return v.filter(Boolean).map(String).slice(0, 5);
   if (typeof v === "string") return v.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5);
   return [];
+};
+
+// Nominatim location autocomplete (OpenStreetMap, no API key needed)
+type NominatimResult = { display_name: string; address: { city?: string; town?: string; village?: string; county?: string; country?: string; country_code?: string } };
+
+const useLocationAutocomplete = (query: string, country: string) => {
+  const [suggestions, setSuggestions] = useState<{ label: string; city: string; country: string }[]>([]);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (query.length < 2) { setSuggestions([]); return; }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const countryCode = country ? DIRECTORY_COUNTRIES.find(c => c.name === country)?.code?.toLowerCase() : "";
+        const params = new URLSearchParams({
+          q: query,
+          format: "json",
+          addressdetails: "1",
+          limit: "6",
+          featuretype: "city",
+          ...(countryCode ? { countrycodes: countryCode } : {}),
+        });
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+          headers: { "Accept-Language": "en", "User-Agent": "Coursevia/1.0" },
+        });
+        const data: NominatimResult[] = await res.json();
+        const seen = new Set<string>();
+        const results = data
+          .map((r) => {
+            const city = r.address.city || r.address.town || r.address.village || r.address.county || "";
+            const countryName = r.address.country || "";
+            const label = [city, countryName].filter(Boolean).join(", ");
+            return { label, city, country: countryName };
+          })
+          .filter((r) => {
+            if (!r.city || seen.has(r.label)) return false;
+            seen.add(r.label);
+            return true;
+          });
+        setSuggestions(results);
+      } catch { setSuggestions([]); }
+    }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [query, country]);
+
+  return { suggestions, clear: () => setSuggestions([]) };
 };
 
 const FAQ_ITEMS = (label: string) => [
@@ -69,6 +116,8 @@ const ProviderDirectoryPage = ({ role }: Props) => {
   const [selectedCountry, setSelectedCountry] = useState(pageCountry);
   const [serviceModeFilter, setServiceModeFilter] = useState<"all" | "online" | "in_person">("all");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const { suggestions, clear: clearSuggestions } = useLocationAutocomplete(searchInput, selectedCountry);
 
   useEffect(() => {
     loadProviders(role).then((r) => { setProviders(r.data || []); setError(r.error || ""); setLoading(false); });
@@ -166,11 +215,38 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                   <input
                     type="text"
                     value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                    onChange={(e) => { setSearchInput(e.target.value); setShowSuggestions(true); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { clearSuggestions(); setShowSuggestions(false); handleSearch(); } if (e.key === "Escape") setShowSuggestions(false); }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                     placeholder="City, specialty, name…"
                     className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none"
+                    autoComplete="off"
                   />
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                      {suggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setSearchInput(s.city);
+                            if (s.country && !selectedCountry) {
+                              const match = DIRECTORY_COUNTRIES.find(c => c.name.toLowerCase() === s.country.toLowerCase());
+                              if (match) setSelectedCountry(match.name);
+                            }
+                            clearSuggestions();
+                            setShowSuggestions(false);
+                          }}
+                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-slate-50"
+                        >
+                          <MapPin size={13} className="text-slate-400 shrink-0" />
+                          <span className="text-slate-800">{s.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <button onClick={handleSearch} className="rounded-xl bg-[#0b7e84] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#096a70]">
                   Search
