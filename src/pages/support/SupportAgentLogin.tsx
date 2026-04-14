@@ -20,34 +20,46 @@ const SupportAgentLogin = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { toast.error(error.message); setLoading(false); return; }
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) { toast.error(error.message); setLoading(false); return; }
 
-    // Check if they are a support agent
-    const { data: agent } = await supabase
-      .from("support_agents" as any)
-      .select("id, is_active")
-      .eq("user_id", data.user.id)
-      .maybeSingle();
+      // Check if they are a support agent
+      const { data: agent, error: agentError } = await supabase
+        .from("support_agents" as any)
+        .select("id, is_active")
+        .eq("user_id", data.user.id)
+        .maybeSingle();
 
-    if (!agent) {
-      await supabase.auth.signOut();
-      toast.error("Access denied. This account is not registered as a support agent.");
+      if (agentError) {
+        // Table may not exist yet — run SUPPORT_AGENT_MIGRATION.sql in Supabase
+        await supabase.auth.signOut();
+        toast.error("Support agent system not set up yet. Please run SUPPORT_AGENT_MIGRATION.sql in Supabase.");
+        setLoading(false);
+        return;
+      }
+
+      if (!agent) {
+        await supabase.auth.signOut();
+        toast.error("Access denied. This account is not registered as a support agent.");
+        setLoading(false);
+        return;
+      }
+      if (!(agent as any).is_active) {
+        await supabase.auth.signOut();
+        toast.error("Your support agent account has been deactivated. Contact admin.");
+        setLoading(false);
+        return;
+      }
+
+      await supabase.from("support_agents" as any).update({ is_online: true }).eq("user_id", data.user.id);
+      toast.success("Welcome back!");
+      navigate("/support-agent/dashboard", { replace: true });
+    } catch (err: any) {
+      toast.error(err?.message || "Login failed");
+    } finally {
       setLoading(false);
-      return;
     }
-    if (!agent.is_active) {
-      await supabase.auth.signOut();
-      toast.error("Your support agent account has been deactivated. Contact admin.");
-      setLoading(false);
-      return;
-    }
-
-    // Mark online
-    await supabase.from("support_agents" as any).update({ is_online: true }).eq("user_id", data.user.id);
-    toast.success("Welcome back!");
-    navigate("/support-agent/dashboard", { replace: true });
-    setLoading(false);
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -57,38 +69,49 @@ const SupportAgentLogin = () => {
     if (password !== confirm) { toast.error("Passwords do not match"); return; }
 
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: fullName.trim() } },
-    });
-    if (error) { toast.error(error.message); setLoading(false); return; }
-
-    if (data.user) {
-      // Create profile
-      await supabase.from("profiles").upsert({
-        user_id: data.user.id,
+    try {
+      const { data, error } = await supabase.auth.signUp({
         email,
-        full_name: fullName.trim(),
-        onboarding_completed: true,
-        role: "learner",
-      }, { onConflict: "user_id", ignoreDuplicates: true });
-
-      // Register as support agent
-      await supabase.from("support_agents" as any).insert({
-        user_id: data.user.id,
-        full_name: fullName.trim(),
-        email,
-        is_active: true,
-        is_online: false,
+        password,
+        options: { data: { full_name: fullName.trim() } },
       });
-    }
+      if (error) { toast.error(error.message); setLoading(false); return; }
 
-    toast.success("Account created! You can now sign in.");
-    setMode("login");
-    setPassword("");
-    setConfirm("");
-    setLoading(false);
+      if (data.user) {
+        // Create profile (only columns that exist in schema)
+        await supabase.from("profiles").upsert({
+          user_id: data.user.id,
+          full_name: fullName.trim(),
+          onboarding_completed: true,
+        }, { onConflict: "user_id", ignoreDuplicates: true });
+
+        // Register as support agent
+        const { error: agentError } = await supabase.from("support_agents" as any).insert({
+          user_id: data.user.id,
+          full_name: fullName.trim(),
+          email,
+          is_active: true,
+          is_online: false,
+        });
+
+        if (agentError) {
+          // Sign out and tell them to run the migration
+          await supabase.auth.signOut();
+          toast.error("Support agent tables not set up. Please run SUPPORT_AGENT_MIGRATION.sql in Supabase first, then try again.");
+          setLoading(false);
+          return;
+        }
+      }
+
+      toast.success("Account created! You can now sign in.");
+      setMode("login");
+      setPassword("");
+      setConfirm("");
+    } catch (err: any) {
+      toast.error(err?.message || "Signup failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
