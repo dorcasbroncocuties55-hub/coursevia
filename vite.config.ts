@@ -1,6 +1,18 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import fs from "fs";
+
+// Plugin to ensure _redirects is always in dist after build
+const ensureRedirects = () => ({
+  name: "ensure-redirects",
+  closeBundle() {
+    const content = "/*    /index.html   200\n";
+    fs.writeFileSync("dist/_redirects", content);
+    fs.writeFileSync("dist/200.html", fs.readFileSync("dist/index.html"));
+    console.log("✓ _redirects and 200.html written to dist");
+  },
+});
 
 export default defineConfig({
   server: {
@@ -10,7 +22,7 @@ export default defineConfig({
       overlay: false,
     },
   },
-  plugins: [react()],
+  plugins: [react(), ensureRedirects()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

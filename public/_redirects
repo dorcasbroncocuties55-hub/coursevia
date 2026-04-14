@@ -1,3 +1,1 @@
-# Render + Netlify SPA fallback
-# All routes serve index.html so React Router handles navigation
 /*    /index.html   200
