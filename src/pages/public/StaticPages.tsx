@@ -478,4 +478,5 @@ export const Blog = simplePage("Blog", "Coursevia publishes practical insights o
 // Contact page is now a full dedicated component — see Contact.tsx
 export { default as Contact } from "./Contact";
 
-export const HelpCenter = simplePage("Help Center", "Welcome to the Coursevia Help Center.\n\nFor account issues, payment questions, or technical support, please visit our FAQ page or contact us directly.\n\nCommon topics:\n• Account setup and verification\n• Payment and billing\n• Course access issues\n• Booking and scheduling\n• Withdrawal requests");
+// Help Centre is now a full dedicated component — see HelpCenter.tsx
+export { default as HelpCenter } from "./HelpCenter";
