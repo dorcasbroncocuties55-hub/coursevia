@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { parseRole, roleToDashboardPath } from "@/lib/authRoles";
 
-// Grab hash immediately before anything can strip it
+// Capture hash at module parse time — before React Router can strip it
 const INITIAL_HASH = window.location.hash;
 
 const AuthCallback = () => {
@@ -16,92 +16,49 @@ const AuthCallback = () => {
 
     const run = async () => {
       try {
-        setStatus("Step 1: Processing...");
-
         const url = new URL(window.location.href);
         const code = url.searchParams.get("code");
         const errorDesc = url.searchParams.get("error_description") || url.searchParams.get("error");
         if (errorDesc) throw new Error(errorDesc);
 
-        let session = null;
-
-        // Try hash token first (implicit flow — Supabase project forces this)
         const hashParams = new URLSearchParams(INITIAL_HASH.replace("#", ""));
         const accessToken = hashParams.get("access_token");
         const refreshToken = hashParams.get("refresh_token") || "";
 
+        setStatus("Setting session...");
+
+        // Try setSession with hash token
         if (accessToken) {
-          setStatus("Step 2: Setting session from token...");
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
-          if (!error && data.session) session = data.session;
+          if (!error && data.session?.user) {
+            if (!mounted) return;
+            return await finishSetup(data.session, requestedRoleFromStorage(), navigate, mounted, setStatus);
+          }
         }
 
-        // Fall back to PKCE code exchange
-        if (!session && code) {
-          setStatus("Step 2: Exchanging code...");
+        // Try PKCE code exchange
+        if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
         }
 
-        // Get session with retries
-        if (!session) {
-          setStatus("Step 3: Getting session...");
-          for (let i = 0; i < 6; i++) {
-            const { data, error } = await supabase.auth.getSession();
-            if (error) throw error;
-            if (data.session?.user) { session = data.session; break; }
-            await new Promise((r) => setTimeout(r, 500));
-          }
+        // Poll for session
+        setStatus("Getting session...");
+        let session = null;
+        for (let i = 0; i < 8; i++) {
+          const { data, error } = await supabase.auth.getSession();
+          if (error) throw error;
+          if (data.session?.user) { session = data.session; break; }
+          await new Promise((r) => setTimeout(r, 500));
         }
 
         if (!session?.user) throw new Error("Could not establish session. Please try again.");
-
-        if (!mounted) return;
-        setStatus("Setting up your account...");
-
-        const userId = session.user.id;
-        const meta = session.user.user_metadata || {};
-        const requestedRole = parseRole(window.localStorage.getItem("coursevia_oauth_role")) || "learner";
-        const fullName = meta.full_name || meta.name || session.user.email?.split("@")[0] || "User";
-        const avatarUrl = meta.avatar_url || meta.picture || null;
-        const email = session.user.email || null;
-
-        try {
-          await supabase.rpc("ensure_my_profile_and_role", { p_requested_role: requestedRole } as any);
-        } catch {
-          await supabase.from("profiles").upsert(
-            { user_id: userId, email, full_name: fullName, avatar_url: avatarUrl, onboarding_completed: false },
-            { onConflict: "user_id", ignoreDuplicates: true }
-          );
-          const { data: existingRole } = await supabase.from("user_roles").select("id").eq("user_id", userId).maybeSingle();
-          if (!existingRole) {
-            await supabase.from("user_roles").insert({ user_id: userId, role: requestedRole as any });
-          }
-        }
-
-        const [{ data: profile }, { data: roleRows }] = await Promise.all([
-          supabase.from("profiles").select("onboarding_completed, role").eq("user_id", userId).maybeSingle(),
-          supabase.from("user_roles").select("role").eq("user_id", userId),
-        ]);
-
-        window.localStorage.removeItem("coursevia_oauth_role");
         if (!mounted) return;
 
-        const resolvedRole =
-          parseRole(roleRows?.[0]?.role) ||
-          parseRole((profile as any)?.role) ||
-          parseRole(meta.requested_role) ||
-          requestedRole;
-
-        if (!profile || !profile.onboarding_completed) {
-          navigate("/onboarding", { replace: true });
-          return;
-        }
-
-        navigate(roleToDashboardPath(resolvedRole), { replace: true });
+        await finishSetup(session, requestedRoleFromStorage(), navigate, mounted, setStatus);
 
       } catch (err: any) {
         toast.error(err?.message || "Authentication failed");
@@ -121,5 +78,61 @@ const AuthCallback = () => {
     </div>
   );
 };
+
+function requestedRoleFromStorage() {
+  return parseRole(window.localStorage.getItem("coursevia_oauth_role")) || "learner";
+}
+
+async function finishSetup(
+  session: any,
+  requestedRole: string,
+  navigate: (path: string, opts?: any) => void,
+  mounted: boolean,
+  setStatus: (s: string) => void
+) {
+  setStatus("Setting up account...");
+
+  const userId = session.user.id;
+  const meta = session.user.user_metadata || {};
+  const fullName = meta.full_name || meta.name || session.user.email?.split("@")[0] || "User";
+  const avatarUrl = meta.avatar_url || meta.picture || null;
+  const email = session.user.email || null;
+
+  try {
+    await supabase.rpc("ensure_my_profile_and_role", { p_requested_role: requestedRole } as any);
+  } catch {
+    await supabase.from("profiles").upsert(
+      { user_id: userId, email, full_name: fullName, avatar_url: avatarUrl, onboarding_completed: false },
+      { onConflict: "user_id", ignoreDuplicates: true }
+    );
+    const { data: existingRole } = await supabase.from("user_roles").select("id").eq("user_id", userId).maybeSingle();
+    if (!existingRole) {
+      await supabase.from("user_roles").insert({ user_id: userId, role: requestedRole as any });
+    }
+  }
+
+  setStatus("Loading profile...");
+
+  const [{ data: profile }, { data: roleRows }] = await Promise.all([
+    supabase.from("profiles").select("onboarding_completed, role").eq("user_id", userId).maybeSingle(),
+    supabase.from("user_roles").select("role").eq("user_id", userId),
+  ]);
+
+  window.localStorage.removeItem("coursevia_oauth_role");
+  if (!mounted) return;
+
+  const resolvedRole =
+    parseRole(roleRows?.[0]?.role) ||
+    parseRole((profile as any)?.role) ||
+    parseRole(meta.requested_role) ||
+    requestedRole;
+
+  if (!profile || !profile.onboarding_completed) {
+    navigate("/onboarding", { replace: true });
+    return;
+  }
+
+  navigate(roleToDashboardPath(resolvedRole as any), { replace: true });
+}
 
 export default AuthCallback;
