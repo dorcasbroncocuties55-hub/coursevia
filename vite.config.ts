@@ -23,9 +23,12 @@ export default defineConfig({
     commonjsOptions: {
       include: [/node_modules/],
     },
-    // Split chunks to reduce individual file sizes
+    // Content-hash filenames ensure browsers always load fresh files after deploy
     rollupOptions: {
       output: {
+        entryFileNames: "assets/[name]-[hash].js",
+        chunkFileNames: "assets/[name]-[hash].js",
+        assetFileNames: "assets/[name]-[hash].[ext]",
         manualChunks: (id) => {
           if (id.includes("node_modules/react") || id.includes("node_modules/react-dom") || id.includes("node_modules/react-router-dom")) {
             return "vendor-react";
@@ -42,7 +45,6 @@ export default defineConfig({
         },
       },
     },
-    // Increase chunk size warning limit
     chunkSizeWarningLimit: 1000,
   },
 });
