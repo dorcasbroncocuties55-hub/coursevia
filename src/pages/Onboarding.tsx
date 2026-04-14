@@ -1246,10 +1246,31 @@ const Onboarding = () => {
 
       let onboardingRpcError: any = null;
 
-      // Try the RPC first, but don't fail if it doesn't work
+      // ── Step 1: Save the core profile fields (columns that exist in schema) ──
+      const coreProfile = {
+        user_id: authUser.id,
+        full_name: fullName.trim() || null,
+        avatar_url: avatarUrl || null,
+        bio: finalBio,
+        phone: fullPhoneNumber || null,
+        country: country.trim() || null,
+        onboarding_completed: true,
+      };
+
+      const { error: coreError } = await supabase
+        .from("profiles")
+        .upsert(coreProfile, { onConflict: "user_id" });
+
+      if (coreError) {
+        console.error("Core profile save error:", coreError);
+        throw new Error(`Profile save failed: ${coreError.message}`);
+      }
+      console.log("Core profile saved successfully");
+
+      // ── Step 2: Save extended fields via RPC (handles missing columns gracefully) ──
       try {
-        const { error: onboardingError } = await withTimeout(
-          supabase.rpc("complete_onboarding", {
+        await withTimeout(
+          supabase.rpc("complete_onboarding" as any, {
             p_role: enforcedRole,
             p_full_name: fullName.trim() || null,
             p_display_name: displayName.trim() || null,
@@ -1260,140 +1281,35 @@ const Onboarding = () => {
             p_city: city.trim() || null,
             p_bio: finalBio || null,
             p_profession: nextProfession,
-            p_experience:
-              enforcedRole === "learner" ? null : experience.trim() || null,
-            p_certification:
-              enforcedRole === "learner" ? null : certification.trim() || null,
-            p_specialization_type:
-              enforcedRole === "learner" ? null : resolvedSpecialization || null,
-            p_specialization_slug:
-              enforcedRole === "learner"
-                ? null
-                : resolvedSpecialization
-                ? slugify(resolvedSpecialization)
-                : null,
-            p_business_name:
-              enforcedRole === "creator" ? businessName.trim() || null : null,
-            p_business_email:
-              enforcedRole === "creator" ? businessEmail.trim() || null : null,
-            p_business_phone:
-              enforcedRole === "creator" ? businessPhone.trim() || null : null,
-            p_business_website:
-              enforcedRole === "creator" ? businessWebsite.trim() || null : null,
-            p_business_address:
-              enforcedRole === "creator" ? businessAddress.trim() || null : null,
-            p_business_description:
-              enforcedRole === "creator"
-                ? businessDescription.trim() || null
-                : null,
-            p_learner_goal:
-              enforcedRole === "learner" ? resolvedLearnerGoal || null : null,
-            p_learner_looking_forward:
-              enforcedRole === "learner"
-                ? learnerLookingForward.trim() || null
-                : null,
+            p_experience: enforcedRole === "learner" ? null : experience.trim() || null,
+            p_certification: enforcedRole === "learner" ? null : certification.trim() || null,
+            p_specialization_type: enforcedRole === "learner" ? null : resolvedSpecialization || null,
+            p_specialization_slug: enforcedRole === "learner" ? null : resolvedSpecialization ? slugify(resolvedSpecialization) : null,
+            p_business_name: enforcedRole === "creator" ? businessName.trim() || null : null,
+            p_business_email: enforcedRole === "creator" ? businessEmail.trim() || null : null,
+            p_business_phone: enforcedRole === "creator" ? businessPhone.trim() || null : null,
+            p_business_website: enforcedRole === "creator" ? businessWebsite.trim() || null : null,
+            p_business_address: enforcedRole === "creator" ? businessAddress.trim() || null : null,
+            p_business_description: enforcedRole === "creator" ? businessDescription.trim() || null : null,
+            p_learner_goal: enforcedRole === "learner" ? resolvedLearnerGoal || null : null,
+            p_learner_looking_forward: enforcedRole === "learner" ? learnerLookingForward.trim() || null : null,
             p_profile_slug: profileSlug,
             p_onboarding_completed: true,
           }),
-          30000,
-          "Onboarding RPC took too long."
+          15000,
+          "RPC timeout"
         );
-
-        if (onboardingError) {
-          onboardingRpcError = onboardingError;
-          console.warn("complete_onboarding RPC returned an error, using direct save fallback:", onboardingError);
-        } else {
-          console.log("RPC onboarding completed successfully");
-        }
-      } catch (rpcError) {
-        onboardingRpcError = rpcError;
-        console.warn("complete_onboarding RPC failed, using direct save fallback:", rpcError);
+        console.log("Extended profile saved via RPC");
+      } catch (rpcErr) {
+        onboardingRpcError = rpcErr;
+        console.warn("RPC failed (non-blocking):", rpcErr);
       }
 
-      // Always use direct save as primary method (RPC is just a bonus if it works)
-      console.log("Saving profile using direct method...");
-      
-      // Save profile using direct database operations
-      const profileData = {
-        user_id: authUser.id,
-        email: authUser.email || null,
-        full_name: fullName.trim() || null,
-        display_name: displayName.trim() || null,
-        avatar_url: avatarUrl || null,
-        role: enforcedRole,
-        bio: finalBio,
-        phone: fullPhoneNumber || null,
-        country: country.trim() || null,
-        city: city.trim() || null,
-        profession: nextProfession,
-        experience: enforcedRole === "learner" ? null : experience.trim() || null,
-        certification: enforcedRole === "learner" ? null : certification.trim() || null,
-        specialization_type: enforcedRole === "learner" ? null : resolvedSpecialization || null,
-        specialization_slug: enforcedRole === "learner" ? null : resolvedSpecialization ? slugify(resolvedSpecialization) : null,
-        business_name: enforcedRole === "creator" ? businessName.trim() || null : null,
-        business_email: enforcedRole === "creator" ? businessEmail.trim() || null : null,
-        business_phone: enforcedRole === "creator" ? businessPhone.trim() || null : null,
-        business_website: enforcedRole === "creator" ? businessWebsite.trim() || null : null,
-        business_address: enforcedRole === "creator" ? businessAddress.trim() || null : null,
-        business_description: enforcedRole === "creator" ? businessDescription.trim() || null : null,
-        learner_goal: enforcedRole === "learner" ? resolvedLearnerGoal || null : null,
-        learner_looking_forward: enforcedRole === "learner" ? learnerLookingForward.trim() || null : null,
-        profile_slug: profileSlug,
-        onboarding_completed: true,
-      };
-
-      // Add provider-specific fields
-      if (enforcedRole === "coach" || enforcedRole === "therapist") {
-        Object.assign(profileData, {
-          headline: headline.trim() || null,
-          languages: languageArray,
-          skills: expertiseArray,
-          business_name: servicesOffered.trim() || null,
-          business_description: worksWith.trim() || null,
-          business_address: serviceAreas.trim() || null,
-          service_delivery_mode: serviceDeliveryMode,
-          calendar_mode: serviceDeliveryMode === "online" ? calendarMode : "provider_calendar",
-          meeting_preference: meetingPreference.trim() || null,
-          office_address: serviceDeliveryMode === "online" ? null : officeAddress.trim() || null,
-          phone_visible_after_booking: enablePhoneRelease,
-          is_verified: false,
-        });
-      }
-
-      if (enforcedRole === "creator") {
-        Object.assign(profileData, {
-          headline: headline.trim() || null,
-          languages: languageArray,
-          skills: expertiseArray,
-        });
-      }
-
-      // Save the profile
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .upsert(profileData, { onConflict: "user_id" });
-
-      if (profileError) {
-        console.error("Profile save error:", profileError);
-        throw profileError;
-      }
-
-      console.log("Profile saved successfully");
-
-      // Save user role
-      const { error: roleError } = await supabase
+      // ── Step 3: Save user role ────────────────────────────────────────────
+      await supabase
         .from("user_roles")
-        .upsert(
-          {
-            user_id: authUser.id,
-            role: enforcedRole,
-          },
-          { onConflict: "user_id,role" }
-        );
-
-      if (roleError) {
-        console.warn("Role save warning:", roleError);
-      }
+        .upsert({ user_id: authUser.id, role: enforcedRole }, { onConflict: "user_id,role", ignoreDuplicates: true })
+        .then(({ error }) => { if (error) console.warn("Role save:", error.message); });
 
       // Update auth metadata
       try {
