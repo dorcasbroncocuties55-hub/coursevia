@@ -21,11 +21,18 @@ const AuthCallback = () => {
 
         if (authError) throw new Error(authError);
 
-        // Exchange the code for a session (PKCE flow)
+        // PKCE flow — exchange code for session
         if (code) {
           const { error: exchangeError } =
             await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError) throw exchangeError;
+        }
+
+        // Implicit flow — hash contains access_token, Supabase handles it automatically
+        // Just wait a moment for the SDK to parse the hash and set the session
+        const hash = window.location.hash;
+        if (hash && hash.includes("access_token")) {
+          await new Promise((r) => setTimeout(r, 800));
         }
 
         // Wait for the session to be available — retry up to 5 times
