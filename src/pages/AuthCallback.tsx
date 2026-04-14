@@ -12,6 +12,7 @@ const AuthCallback = () => {
     let mounted = true;
 
     const handleSession = async (session: any) => {
+      console.log("[AuthCallback] handleSession called", { user: session?.user?.id });
       if (!session?.user || !mounted) return;
 
       try {
@@ -21,6 +22,7 @@ const AuthCallback = () => {
         const requestedRole = parseRole(
           window.localStorage.getItem("coursevia_oauth_role")
         ) || "learner";
+        console.log("[AuthCallback] userId:", userId, "requestedRole:", requestedRole);
 
         const meta = session.user.user_metadata || {};
         const fullName =
@@ -30,11 +32,13 @@ const AuthCallback = () => {
 
         // Try RPC first, fall back to direct upsert
         try {
+          console.log("[AuthCallback] trying RPC...");
           await supabase.rpc("ensure_my_profile_and_role", {
             p_requested_role: requestedRole,
           } as any);
-        } catch {
-          // RPC failed — do it directly
+          console.log("[AuthCallback] RPC success");
+        } catch (rpcErr) {
+          console.warn("[AuthCallback] RPC failed, doing direct upsert:", rpcErr);
           await supabase.from("profiles").upsert(
             {
               user_id: userId,
@@ -60,6 +64,7 @@ const AuthCallback = () => {
         }
 
         // Fetch profile and roles
+        console.log("[AuthCallback] fetching profile and roles...");
         const [{ data: profile }, { data: roleRows }] = await Promise.all([
           supabase
             .from("profiles")
@@ -73,6 +78,8 @@ const AuthCallback = () => {
         ]);
 
         window.localStorage.removeItem("coursevia_oauth_role");
+
+        console.log("[AuthCallback] profile:", profile, "roleRows:", roleRows, "mounted:", mounted);
 
         if (!mounted) return;
 
@@ -100,6 +107,7 @@ const AuthCallback = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("[AuthCallback] onAuthStateChange event:", event, "session:", !!session);
       if (event === "SIGNED_IN" && session) {
         subscription.unsubscribe();
         await handleSession(session);
