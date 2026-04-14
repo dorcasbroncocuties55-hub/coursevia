@@ -10,24 +10,14 @@ const AuthCallback = () => {
 
   useEffect(() => {
     let mounted = true;
+    let done = false;
 
-    const run = async () => {
+    const handleSession = async (session: any) => {
+      if (done || !mounted) return;
+      done = true;
+
       try {
-        // Wait for Supabase to process the hash/token automatically
-        await new Promise((r) => setTimeout(r, 1000));
-
-        setStatus("Getting session...");
-
-        let session = null;
-        for (let i = 0; i < 10; i++) {
-          const { data, error } = await supabase.auth.getSession();
-          if (error) throw error;
-          if (data.session?.user) { session = data.session; break; }
-          await new Promise((r) => setTimeout(r, 500));
-        }
-
-        if (!session?.user) throw new Error("Could not get session. Please try again.");
-        if (!mounted) return;
+        if (!session?.user) throw new Error("No session. Please try again.");
 
         setStatus("Setting up account...");
 
@@ -81,8 +71,32 @@ const AuthCallback = () => {
       }
     };
 
-    run();
-    return () => { mounted = false; };
+    // detectSessionInUrl fires SIGNED_IN when it processes the hash
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        handleSession(session);
+      }
+    });
+
+    // Also check if session already exists (e.g. already processed)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) handleSession(session);
+    });
+
+    // Timeout fallback — if nothing fires in 10s, show error
+    const timeout = setTimeout(() => {
+      if (!done && mounted) {
+        toast.error("Sign in timed out. Please try again.");
+        window.localStorage.removeItem("coursevia_oauth_role");
+        navigate("/login", { replace: true });
+      }
+    }, 10000);
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, [navigate]);
 
   return (
