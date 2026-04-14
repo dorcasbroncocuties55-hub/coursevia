@@ -51,8 +51,7 @@ const Signup = () => {
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: { access_type: "online", prompt: "select_account" },
-          flowType: "implicit",
-        } as any,
+        },
       });
       if (error) throw error;
     } catch (error: any) {

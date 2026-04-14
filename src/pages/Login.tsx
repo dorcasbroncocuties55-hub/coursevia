@@ -97,13 +97,11 @@ const Login = () => {
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
-          skipBrowserRedirect: false,
           queryParams: {
             access_type: "online",
             prompt: "select_account",
           },
-          flowType: "implicit",
-        } as any,
+        },
       });
 
       if (error) throw error;
