@@ -462,17 +462,14 @@ export const RefundPolicy = () => (
 
 // ─── SIMPLE PAGES ────────────────────────────────────────────────────────────
 
-import Navbar2 from "@/components/landing/Navbar";
-import Footer2 from "@/components/landing/Footer";
-
 const simplePage = (title: string, content: string) => () => (
   <div className="min-h-screen bg-background">
-    <Navbar2 />
+    <Navbar />
     <div className="container-tight section-spacing">
       <h1 className="text-4xl font-bold text-foreground mb-6">{title}</h1>
       <div className="prose prose-sm max-w-none text-muted-foreground leading-relaxed whitespace-pre-line">{content}</div>
     </div>
-    <Footer2 />
+    <Footer />
   </div>
 );
 
