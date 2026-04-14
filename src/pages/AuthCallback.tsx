@@ -13,50 +13,36 @@ const AuthCallback = () => {
 
     const run = async () => {
       try {
-        let session = null;
+        setStatus("Step 1: Reading token...");
 
-        // Parse hash manually — Supabase v2.99+ does not auto-parse hash tokens
         const hash = window.location.hash;
-        if (hash && hash.includes("access_token")) {
-          const params = new URLSearchParams(hash.replace("#", ""));
-          const accessToken = params.get("access_token");
-          const refreshToken = params.get("refresh_token") || "";
+        const params = new URLSearchParams(hash.replace("#", ""));
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token") || "";
 
-          if (accessToken) {
-            const { data, error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            });
-            if (error) throw error;
-            session = data.session;
-          }
+        if (!accessToken) {
+          throw new Error("No access token in URL. Please try signing in again.");
         }
 
-        // PKCE flow — exchange code
-        if (!session) {
-          const code = new URL(window.location.href).searchParams.get("code");
-          if (code) {
-            const { error } = await supabase.auth.exchangeCodeForSession(code);
-            if (error) throw error;
-          }
-          const { data, error } = await supabase.auth.getSession();
-          if (error) throw error;
-          session = data.session;
-        }
+        setStatus("Step 2: Setting session...");
 
-        if (!session?.user) throw new Error("Authentication failed. Please try again.");
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
 
-        if (!mounted) return;
-        setStatus("Setting up your account...");
+        if (error) throw error;
+        if (!data.session?.user) throw new Error("Session could not be established.");
 
-        const userId = session.user.id;
-        const meta = session.user.user_metadata || {};
+        setStatus("Step 3: Setting up account...");
+
+        const userId = data.session.user.id;
+        const meta = data.session.user.user_metadata || {};
         const requestedRole = parseRole(window.localStorage.getItem("coursevia_oauth_role")) || "learner";
-        const fullName = meta.full_name || meta.name || session.user.email?.split("@")[0] || "User";
+        const fullName = meta.full_name || meta.name || data.session.user.email?.split("@")[0] || "User";
         const avatarUrl = meta.avatar_url || meta.picture || null;
-        const email = session.user.email || null;
+        const email = data.session.user.email || null;
 
-        // Try RPC, fall back to direct insert
         try {
           await supabase.rpc("ensure_my_profile_and_role", { p_requested_role: requestedRole } as any);
         } catch {
@@ -69,6 +55,8 @@ const AuthCallback = () => {
             await supabase.from("user_roles").insert({ user_id: userId, role: requestedRole as any });
           }
         }
+
+        setStatus("Step 4: Loading profile...");
 
         const [{ data: profile }, { data: roleRows }] = await Promise.all([
           supabase.from("profiles").select("onboarding_completed, role").eq("user_id", userId).maybeSingle(),
@@ -93,7 +81,6 @@ const AuthCallback = () => {
         navigate(roleToDashboardPath(resolvedRole), { replace: true });
 
       } catch (err: any) {
-        console.error("AuthCallback error:", err);
         toast.error(err?.message || "Authentication failed");
         window.localStorage.removeItem("coursevia_oauth_role");
         if (mounted) navigate("/login", { replace: true });
