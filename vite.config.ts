@@ -7,10 +7,14 @@ import fs from "fs";
 const ensureRedirects = () => ({
   name: "ensure-redirects",
   closeBundle() {
-    const content = "/*    /index.html   200\n";
-    fs.writeFileSync("dist/_redirects", content);
-    fs.writeFileSync("dist/200.html", fs.readFileSync("dist/index.html"));
-    console.log("✓ _redirects and 200.html written to dist");
+    const indexHtml = fs.readFileSync("dist/index.html");
+    // _redirects — for Netlify and Render static sites
+    fs.writeFileSync("dist/_redirects", "/*    /index.html   200\n");
+    // 200.html — Render serves this for all unmatched routes
+    fs.writeFileSync("dist/200.html", indexHtml);
+    // 404.html — must be index.html so React Router handles the route
+    fs.writeFileSync("dist/404.html", indexHtml);
+    console.log("✓ _redirects, 200.html and 404.html written to dist");
   },
 });
 
