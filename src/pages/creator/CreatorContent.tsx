@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useMemo, useState } from "react";
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Pencil, Save, X } from "lucide-react";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 type EditingState = {
   id: string;
@@ -13,7 +15,7 @@ type EditingState = {
 } | null;
 
 const CreatorContent = () => {
-  const { user, roles } = useAuth();
+  const { user, roles, loading: authLoading } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [editing, setEditing] = useState<EditingState>(null);
 
@@ -30,7 +32,10 @@ const CreatorContent = () => {
   }, [portalRole]);
 
   const loadData = async () => {
-    if (!user) return;
+    if (!user) {
+      setItems([]);
+      return;
+    }
 
     const { data } = await supabase
       .from("content_items" as any)
@@ -45,6 +50,14 @@ const CreatorContent = () => {
   useEffect(() => {
     loadData();
   }, [user, portalRole]);
+
+  if (authLoading) {
+    return <PageLoading />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   const startEdit = (id: string, price: number) => {
     setEditing({ id, value: String(price ?? 0) });

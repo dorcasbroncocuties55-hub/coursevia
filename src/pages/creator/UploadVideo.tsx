@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMemo, useRef, useState } from "react";
@@ -18,6 +19,7 @@ import {
   Upload, Film, Plus, Trash2, ImageIcon, DollarSign,
   CheckCircle2, Loader2, ChevronDown, ChevronUp, X, Play,
 } from "lucide-react";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 type EpisodeDraft = { title: string; description: string; file: File | null };
 const emptyEpisode = (): EpisodeDraft => ({ title: "", description: "", file: null });
@@ -137,7 +139,7 @@ const UploadProgress = ({ progress, label }: { progress: number; label: string }
 );
 
 const UploadVideo = () => {
-  const { user, roles } = useAuth();
+  const { user, roles, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const ownerRole = useMemo(() => {
     if (roles.includes("coach")) return "coach";
@@ -284,6 +286,14 @@ const UploadVideo = () => {
   };
 
   const validEpisodeCount = episodes.filter((ep) => ep.title.trim() && ep.file).length;
+
+  if (authLoading) {
+    return <PageLoading />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <DashboardLayout role={ownerRole as any}>

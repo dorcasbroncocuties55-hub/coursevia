@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { CreditCard, Trash2, Star, Plus, Loader2, ShieldCheck, X } from "lucide-react";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 const STRIPE_PK = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "";
 
@@ -18,7 +20,7 @@ const brandColor: Record<string, string> = {
 };
 
 const LearnerPaymentMethods = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [methods, setMethods]           = useState<any[]>([]);
   const [adding, setAdding]             = useState(false);
   const [saving, setSaving]             = useState(false);
@@ -96,7 +98,10 @@ const LearnerPaymentMethods = () => {
 
   // ── Load saved methods ───────────────────────────────────────────────────
   const load = async () => {
-    if (!user) return;
+    if (!user) {
+      setMethods([]);
+      return;
+    }
     const { data, error } = await supabase
       .from("payment_methods" as any)
       .select("*")
@@ -201,6 +206,14 @@ const LearnerPaymentMethods = () => {
     setCardComplete(false);
     setCardError("");
   };
+
+  if (authLoading) {
+    return <PageLoading />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <DashboardLayout role="learner">
