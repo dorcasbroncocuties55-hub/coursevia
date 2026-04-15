@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Star } from "lucide-react";
@@ -14,14 +14,13 @@ type ReviewRow = {
 };
 
 const CoachReviews = () => {
-  const { user } = useAuth();
+  const { user , loading: authLoading } = useAuth();
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadReviews = async () => {
-      if (!user) return;
-      try {
+            try {
         setLoading(true);
         const { data: profile } = await supabase
           .from("coach_profiles")
@@ -86,3 +85,4 @@ const CoachReviews = () => {
 };
 
 export default CoachReviews;
+

@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Input } from "@/components/ui/input";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Label } from "@/components/ui/label";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ScrollableContent } from "@/components/ui/scrollable-content";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { ScrollableContent } from "@/components/ui/scrollable-content";
 
 type Role = "coach" | "creator" | "therapist";
 
 const ProfessionalProfileSettings = ({ role }: { role: Role }) => {
-  const { user } = useAuth();
+  const { user , loading: authLoading } = useAuth();
   const [profession, setProfession] = useState("");
   const [experience, setExperience] = useState("");
   const [certification, setCertification] = useState("");
@@ -23,8 +23,7 @@ const ProfessionalProfileSettings = ({ role }: { role: Role }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
-    supabase
+        supabase
       .from("profiles")
       .select("*")
       .eq("user_id", user.id)
@@ -42,8 +41,7 @@ const ProfessionalProfileSettings = ({ role }: { role: Role }) => {
   }, [user]);
 
   const handleSave = async () => {
-    if (!user) return;
-    setLoading(true);
+        setLoading(true);
 
     const fallbackSlug = `${role}-${user.id.slice(0, 8)}`;
     const { error } = await supabase
@@ -121,3 +119,4 @@ const ProfessionalProfileSettings = ({ role }: { role: Role }) => {
 };
 
 export default ProfessionalProfileSettings;
+

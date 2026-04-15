@@ -1,9 +1,9 @@
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Bell, Check, CheckCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 
 const typeIcon: Record<string, string> = {
@@ -11,13 +11,12 @@ const typeIcon: Record<string, string> = {
 };
 
 const LearnerNotifications = () => {
-  const { user } = useAuth();
+  const { user , loading: authLoading } = useAuth();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = async () => {
-    if (!user) return;
-    const { data } = await supabase.from("notifications").select("*")
+        const { data } = await supabase.from("notifications").select("*")
       .eq("user_id", user.id).order("created_at", { ascending: false }).limit(50);
     setNotifications(data || []);
     setLoading(false);
@@ -25,8 +24,7 @@ const LearnerNotifications = () => {
 
   useEffect(() => {
     fetchNotifications();
-    if (!user) return;
-    const channel = supabase.channel("user-notifications")
+        const channel = supabase.channel("user-notifications")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
         (payload) => setNotifications(prev => [payload.new as any, ...prev]))
       .subscribe();
@@ -39,8 +37,7 @@ const LearnerNotifications = () => {
   };
 
   const markAllRead = async () => {
-    if (!user) return;
-    await supabase.from("notifications").update({ is_read: true }).eq("user_id", user.id).eq("is_read", false);
+        await supabase.from("notifications").update({ is_read: true }).eq("user_id", user.id).eq("is_read", false);
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };
 
@@ -108,3 +105,4 @@ const LearnerNotifications = () => {
   );
 };
 export default LearnerNotifications;
+
