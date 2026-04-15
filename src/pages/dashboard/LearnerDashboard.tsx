@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,9 +11,10 @@ import { WelcomeBanner } from "@/components/dashboard/WelcomeBanner";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { ScrollableContent } from "@/components/ui/scrollable-content";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 const LearnerDashboard = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [stats, setStats] = useState({ 
     courses: 0, 
     videos: 0, 
@@ -24,13 +26,23 @@ const LearnerDashboard = () => {
   });
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  // ✅ Handle auth loading state
+  if (authLoading) {
+    return <PageLoading />;
+  }
+
+  // ✅ Handle no user (shouldn't happen with ProtectedRoute, but safety check)
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   useEffect(() => {
-    if (!user) return;
+    // ✅ user is now guaranteed to be non-null
     
     const fetchDashboardData = async () => {
-      setLoading(true);
+      setDataLoading(true);
       
       try {
         const [courses, videos, bookings, notifs, paymentMethods, payments] = await Promise.all([
@@ -80,7 +92,7 @@ const LearnerDashboard = () => {
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
-        setLoading(false);
+        setDataLoading(false);
       }
     };
 
@@ -181,7 +193,7 @@ const LearnerDashboard = () => {
             icon={<BookOpen className="h-6 w-6" />}
             href="/dashboard/courses"
             color="blue"
-            loading={loading}
+            loading={dataLoading}
           />
           <DashboardCard
             title="My Videos"
@@ -190,7 +202,7 @@ const LearnerDashboard = () => {
             icon={<Video className="h-6 w-6" />}
             href="/dashboard/videos"
             color="purple"
-            loading={loading}
+            loading={dataLoading}
           />
           <DashboardCard
             title="Bookings"
@@ -199,7 +211,7 @@ const LearnerDashboard = () => {
             icon={<Calendar className="h-6 w-6" />}
             href="/dashboard/bookings"
             color="green"
-            loading={loading}
+            loading={dataLoading}
           />
           <DashboardCard
             title="Total Spent"
@@ -207,7 +219,7 @@ const LearnerDashboard = () => {
             description="All-time investment"
             icon={<TrendingUp className="h-6 w-6" />}
             color="orange"
-            loading={loading}
+            loading={dataLoading}
           />
         </div>
 
@@ -217,7 +229,7 @@ const LearnerDashboard = () => {
           <RecentActivity
             title="Recent Activity"
             items={recentActivity}
-            loading={loading}
+            loading={dataLoading}
             emptyMessage="No recent activity"
             viewAllHref="/dashboard/payments"
           />
