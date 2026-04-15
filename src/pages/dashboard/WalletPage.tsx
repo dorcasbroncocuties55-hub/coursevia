@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
   type TransactionRecord,
   type EscrowRecord,
 } from "@/lib/walletApi";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 type WalletRole = "learner" | "coach" | "creator" | "therapist";
 
@@ -29,7 +31,7 @@ const statusBadge = (s: string) => {
 };
 
 const WalletPage = ({ role = "learner" }: { role?: WalletRole }) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [wallet, setWallet] = useState<WalletRecord | null>(null);
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [escrow, setEscrow] = useState<EscrowRecord[]>([]);
@@ -68,6 +70,14 @@ const WalletPage = ({ role = "learner" }: { role?: WalletRole }) => {
 
   const withdrawRoute = `/${role}/withdrawals`;
   const bankRoute     = `/${role}/bank-accounts`;
+
+  if (authLoading) {
+    return <PageLoading />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <DashboardLayout role={role}>

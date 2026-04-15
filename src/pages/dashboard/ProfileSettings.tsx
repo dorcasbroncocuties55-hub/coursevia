@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
@@ -8,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ScrollableContent } from "@/components/ui/scrollable-content";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 const ProfileSettings = ({ role }: { role: "learner" | "coach" | "creator" }) => {
-  const { profile, user, refreshProfile } = useAuth();
+  const { profile, user, refreshProfile, loading: authLoading } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name || "");
   const [bio, setBio] = useState(profile?.bio || "");
   const [phone, setPhone] = useState(profile?.phone || "");
@@ -56,6 +58,14 @@ const ProfileSettings = ({ role }: { role: "learner" | "coach" | "creator" }) =>
       setLoading(false);
     }
   };
+
+  if (authLoading) {
+    return <PageLoading />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <DashboardLayout role={role}>

@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
@@ -8,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { Wallet, Lock, ArrowDownCircle, Clock, CheckCircle2, XCircle, Loader2, Building2, CreditCard } from "lucide-react";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 type WithdrawalRow = {
   id: string;
@@ -39,7 +41,7 @@ const statusClass = (s: string) => {
 };
 
 const WithdrawalsPage = ({ role }: { role: "coach" | "creator" | "therapist" }) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [withdrawals,    setWithdrawals]    = useState<WithdrawalRow[]>([]);
   const [bankAccounts,   setBankAccounts]   = useState<BankAccount[]>([]);
   const [wallet,         setWallet]         = useState<any>(null);
@@ -52,7 +54,13 @@ const WithdrawalsPage = ({ role }: { role: "coach" | "creator" | "therapist" }) 
   const pending   = Number(wallet?.pending_balance ?? 0);
 
   const loadData = async () => {
-    if (!user) return;
+    if (!user) {
+      setWithdrawals([]);
+      setBankAccounts([]);
+      setWallet(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [walletRes, withdrawalsRes, banksRes] = await Promise.all([
@@ -131,6 +139,14 @@ const WithdrawalsPage = ({ role }: { role: "coach" | "creator" | "therapist" }) 
       setProcessing(false);
     }
   };
+
+  if (authLoading) {
+    return <PageLoading />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <DashboardLayout role={role}>
