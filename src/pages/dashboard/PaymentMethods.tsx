@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Badge } from "@/components/ui/badge";
 import { CreditCard, Plus, Trash2, Star, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,7 +22,7 @@ interface PaymentMethod {
 }
 
 export default function PaymentMethods() {
-  const { user } = useAuth();
+  const { user , loading: authLoading } = useAuth();
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -32,9 +32,7 @@ export default function PaymentMethods() {
   }, [user]);
 
   const loadPaymentMethods = async () => {
-    if (!user) return;
-    
-    setLoading(true);
+        setLoading(true);
     try {
       const { data, error } = await supabase
         .from("payment_methods")
@@ -54,9 +52,7 @@ export default function PaymentMethods() {
   };
 
   const handleAddCard = async () => {
-    if (!user) return;
-    
-    setAdding(true);
+        setAdding(true);
     try {
       // Redirect to Checkout.com to add card
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/checkout/add-card`, {
@@ -82,9 +78,7 @@ export default function PaymentMethods() {
   };
 
   const handleSetDefault = async (methodId: string) => {
-    if (!user) return;
-
-    try {
+        try {
       const { error } = await supabase.rpc("set_default_payment_method", {
         p_user_id: user.id,
         p_method_id: methodId,
@@ -250,3 +244,4 @@ export default function PaymentMethods() {
     </div>
   );
 }
+

@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Input } from "@/components/ui/input";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Label } from "@/components/ui/label";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Shield, ExternalLink, UserCircle2, UploadCloud, CheckCircle2, BadgeCheck } from "lucide-react";
 import { createPersonaKycSession } from "@/lib/kycProvider";
-import { ScrollableContent } from "@/components/ui/scrollable-content";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { ScrollableContent } from "@/components/ui/scrollable-content";
 
 const slugify = (v: string) =>
   v.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 
 const TherapistProfile = () => {
-  const { user, refreshAll } = useAuth();
+  const { user, refreshAll , loading: authLoading } = useAuth();
 
   const [form, setForm] = useState({
     fullName: "", displayName: "", headline: "", profession: "",
@@ -40,8 +40,7 @@ const TherapistProfile = () => {
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   useEffect(() => {
-    if (!user) return;
-    const load = async () => {
+        const load = async () => {
       setDataLoading(true);
       const [profileRes, providerRes, verifyRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
@@ -98,8 +97,7 @@ const TherapistProfile = () => {
   };
 
   const handleSave = async () => {
-    if (!user) return;
-    if (!form.fullName.trim()) { toast.error("Full name is required."); return; }
+        if (!form.fullName.trim()) { toast.error("Full name is required."); return; }
     if (!form.headline.trim()) { toast.error("Headline is required."); return; }
     if (!form.bio.trim()) { toast.error("Bio is required."); return; }
 
@@ -148,8 +146,7 @@ const TherapistProfile = () => {
   };
 
   const handleKyc = async () => {
-    if (!user) return;
-    setVerifying(true);
+        setVerifying(true);
     try {
       const session = await createPersonaKycSession({ userId: user.id, email: user.email, fullName: form.fullName || null, country: form.country || null, phone: form.phone || null, role: "therapist" });
       setVerificationStatus("pending");
@@ -292,3 +289,4 @@ const TherapistProfile = () => {
 };
 
 export default TherapistProfile;
+

@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { Navigate } from 'react-router-dom';
+import { PageLoading } from '@/components/LoadingSpinner';
 import { Shield, ExternalLink, UserCircle2, UploadCloud, CheckCircle2, BadgeCheck } from "lucide-react";
 import { createPersonaKycSession } from "@/lib/kycProvider";
 import { ScrollableContent } from "@/components/ui/scrollable-content";
@@ -15,7 +17,10 @@ const slugify = (v: string) =>
   v.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 
 const CoachProfile = () => {
-  const { user, refreshAll } = useAuth();
+  const { user, refreshAll, loading: authLoading } = useAuth();
+
+  if (authLoading) return <PageLoading />;
+  if (!user) return <Navigate to="/login" replace />;
 
   const [form, setForm] = useState({
     fullName: "", displayName: "", headline: "", profession: "",
@@ -33,14 +38,24 @@ const CoachProfile = () => {
   const [verifying, setVerifying] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
 
-  const previewAvatar = useMemo(() => avatarFile ? URL.createObjectURL(avatarFile) : avatarUrl, [avatarFile, avatarUrl]);
+  const previewAvatar
+
+  // ? Handle auth loading state
+  if (authLoading) {
+    return <PageLoading />;
+  }
+
+  // ? Handle no user
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+ = useMemo(() => avatarFile ? URL.createObjectURL(avatarFile) : avatarUrl, [avatarFile, avatarUrl]);
   useEffect(() => () => { if (avatarFile) URL.revokeObjectURL(previewAvatar); }, [avatarFile]);
 
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   useEffect(() => {
-    if (!user) return;
     const load = async () => {
       setDataLoading(true);
       const [profileRes, coachRes, verifyRes] = await Promise.all([
@@ -98,8 +113,7 @@ const CoachProfile = () => {
   };
 
   const handleSave = async () => {
-    if (!user) return;
-    if (!form.fullName.trim()) { toast.error("Full name is required."); return; }
+        if (!form.fullName.trim()) { toast.error("Full name is required."); return; }
     if (!form.headline.trim()) { toast.error("Headline is required."); return; }
     if (!form.bio.trim()) { toast.error("Bio is required."); return; }
 
@@ -148,8 +162,7 @@ const CoachProfile = () => {
   };
 
   const handleKyc = async () => {
-    if (!user) return;
-    setVerifying(true);
+        setVerifying(true);
     try {
       const session = await createPersonaKycSession({ userId: user.id, email: user.email, fullName: form.fullName || null, country: form.country || null, phone: form.phone || null, role: "coach" });
       setVerificationStatus("pending");
@@ -294,3 +307,5 @@ const CoachProfile = () => {
 };
 
 export default CoachProfile;
+
+

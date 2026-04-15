@@ -1,9 +1,9 @@
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { format, differenceInHours } from "date-fns";
-import { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Video, MapPin, Clock, CheckCircle2, AlertTriangle, Flag, RefreshCw } from "lucide-react";
 import { buildBackendUrl } from "@/lib/backendApi";
@@ -31,7 +31,7 @@ type RefundModal = { bookingId: string; amount: number } | null;
 type ReportModal = { bookingId: string; providerId?: string } | null;
 
 const LearnerBookings = () => {
-  const { user } = useAuth();
+  const { user , loading: authLoading } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -43,8 +43,7 @@ const LearnerBookings = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const loadBookings = async () => {
-    if (!user) return;
-    const { data } = await supabase
+        const { data } = await supabase
       .from("bookings")
       .select("*, coach_profiles(*, profiles(*))")
       .eq("learner_id", user.id)
@@ -333,3 +332,4 @@ const LearnerBookings = () => {
 };
 
 export default LearnerBookings;
+

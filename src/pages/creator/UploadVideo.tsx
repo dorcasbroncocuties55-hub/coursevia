@@ -1,11 +1,11 @@
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Input } from "@/components/ui/input";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Label } from "@/components/ui/label";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,7 +13,7 @@ import {
 } from "@/lib/unifiedContent";
 import { uploadPrivateVideoFile } from "@/lib/videoAccess";
 import { MIN_PROVIDER_PRICE, isValidProviderPrice } from "@/lib/pricingRules";
-import { LongContentHandler } from "@/components/ui/long-content-handler";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { LongContentHandler } from "@/components/ui/long-content-handler";
 import {
   Upload, Film, Plus, Trash2, ImageIcon, DollarSign,
   CheckCircle2, Loader2, ChevronDown, ChevronUp, X, Play,
@@ -137,7 +137,7 @@ const UploadProgress = ({ progress, label }: { progress: number; label: string }
 );
 
 const UploadVideo = () => {
-  const { user, roles } = useAuth();
+  const { user, roles , loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const ownerRole = useMemo(() => {
     if (roles.includes("coach")) return "coach";
@@ -182,8 +182,7 @@ const UploadVideo = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-    if (!title.trim()) { toast.error("Title is required."); return; }
+        if (!title.trim()) { toast.error("Title is required."); return; }
 
     const numericPrice = Number(price || 0);
     if (!Number.isFinite(numericPrice) || !isValidProviderPrice(numericPrice)) {
@@ -474,3 +473,4 @@ const UploadVideo = () => {
 };
 
 export default UploadVideo;
+

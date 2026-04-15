@@ -1,9 +1,9 @@
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Pencil, Save, X } from "lucide-react";
 
@@ -13,7 +13,7 @@ type EditingState = {
 } | null;
 
 const CreatorContent = () => {
-  const { user, roles } = useAuth();
+  const { user, roles , loading: authLoading } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [editing, setEditing] = useState<EditingState>(null);
 
@@ -30,9 +30,7 @@ const CreatorContent = () => {
   }, [portalRole]);
 
   const loadData = async () => {
-    if (!user) return;
-
-    const { data } = await supabase
+        const { data } = await supabase
       .from("content_items" as any)
       .select("*, content_episodes(count)")
       .eq("owner_id", user.id)
@@ -161,3 +159,4 @@ const CreatorContent = () => {
 };
 
 export default CreatorContent;
+

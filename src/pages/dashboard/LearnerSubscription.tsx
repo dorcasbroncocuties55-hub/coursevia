@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { resolveLearnerPlan } from "@/lib/pricingRules";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";`nimport { Navigate, Navigate } from "react-router-dom";
 import { Loader2, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 
 const FALLBACK_PLANS: SubscriptionPlanSummary[] = [
@@ -38,7 +38,7 @@ const FALLBACK_PLANS: SubscriptionPlanSummary[] = [
 ];
 
 const LearnerSubscription = () => {
-  const { user } = useAuth();
+  const { user , loading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedPlan = searchParams.get("plan") === "yearly" ? "yearly" : "monthly";
 
@@ -111,8 +111,7 @@ const LearnerSubscription = () => {
   };
 
   const cancel = async () => {
-    if (!user) return;
-    setCancelling(true);
+        setCancelling(true);
     try {
       await cancelLearnerSubscription(user.id, subscription?.id);
       toast.success("Subscription cancelled. Access continues until the period ends.");
@@ -245,3 +244,4 @@ const LearnerSubscription = () => {
 };
 
 export default LearnerSubscription;
+

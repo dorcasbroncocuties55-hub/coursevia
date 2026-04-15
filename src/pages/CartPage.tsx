@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import Navbar from "@/components/landing/Navbar";
-import Footer from "@/components/landing/Footer";
-import { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport Navbar from "@/components/landing/Navbar";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport Footer from "@/components/landing/Footer";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
 import { getCartItems, removeCartItem, type CartItem } from "@/lib/cart";
 import { getDiscountedPrice, getBenefitHeadline, resolveLearnerPlan } from "@/lib/pricingRules";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const CartPage = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user , loading: authLoading } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
   const [subscription, setSubscription] = useState<any>(null);
 
@@ -20,8 +20,7 @@ const CartPage = () => {
 
   useEffect(() => {
     const loadSubscription = async () => {
-      if (!user) return;
-      const { data } = await supabase
+            const { data } = await supabase
         .from("subscriptions")
         .select("*")
         .eq("user_id", user.id)
@@ -140,3 +139,4 @@ const CartPage = () => {
 };
 
 export default CartPage;
+

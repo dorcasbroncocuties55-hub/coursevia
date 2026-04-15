@@ -1,20 +1,19 @@
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Heart, Trash2, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";`nimport { Navigate, Navigate } from "react-router-dom";
 
 const LearnerWishlist = () => {
-  const { user } = useAuth();
+  const { user , loading: authLoading } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchWishlist = async () => {
-    if (!user) return;
-    const { data } = await supabase.from("wishlists").select("*")
+        const { data } = await supabase.from("wishlists").select("*")
       .eq("user_id", user.id).order("created_at", { ascending: false });
     setItems(data || []);
     setLoading(false);
@@ -81,3 +80,4 @@ const LearnerWishlist = () => {
   );
 };
 export default LearnerWishlist;
+

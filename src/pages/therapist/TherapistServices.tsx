@@ -1,19 +1,19 @@
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Input } from "@/components/ui/input";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Label } from "@/components/ui/label";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { MIN_PROVIDER_PRICE, isValidProviderPrice } from "@/lib/pricingRules";
 import { Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { getProviderRecord, loadProviderServices } from "@/lib/dashboardQueries";
-import { ScrollableContent } from "@/components/ui/scrollable-content";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { ScrollableContent } from "@/components/ui/scrollable-content";
 
 const TherapistServices = () => {
-  const { user } = useAuth();
+  const { user , loading: authLoading } = useAuth();
   const [profileId, setProfileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [services, setServices] = useState<any[]>([]);
@@ -31,9 +31,7 @@ const TherapistServices = () => {
   };
 
   useEffect(() => {
-    if (!user) return;
-
-    const loadProfileAndServices = async () => {
+        const loadProfileAndServices = async () => {
       setLoading(true);
       const { error } = await (supabase as any).from("therapist_profiles").upsert({ user_id: user.id, is_active: true, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
       if (error) {
@@ -221,3 +219,4 @@ const TherapistServices = () => {
 };
 
 export default TherapistServices;
+

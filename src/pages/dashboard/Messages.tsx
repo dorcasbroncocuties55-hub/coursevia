@@ -1,16 +1,16 @@
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useRef, useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";`nimport { Navigate, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Send, Search, ArrowLeft, CheckCheck, Check,
   Circle, MoreVertical, Phone, Video, Smile,
 } from "lucide-react";
-import ProfileAvatar from "@/components/shared/ProfileAvatar";
-import { Button } from "@/components/ui/button";
-import { ScrollableContent } from "@/components/ui/scrollable-content";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport ProfileAvatar from "@/components/shared/ProfileAvatar";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { ScrollableContent } from "@/components/ui/scrollable-content";
 
 type DashboardRole = "learner" | "coach" | "creator" | "therapist";
 
@@ -47,7 +47,7 @@ const fmt = (v?: string | null) => {
 const BLOCKED = [/\d{7,}/, /@[a-z]/i, /https?:\/\//i, /www\./i, /whatsapp/i, /telegram/i];
 
 const Messages = ({ role }: { role: DashboardRole }) => {
-  const { user } = useAuth();
+  const { user , loading: authLoading } = useAuth();
   const [searchParams] = useSearchParams();
   const requestedUserId = searchParams.get("user");
 
@@ -84,8 +84,7 @@ const Messages = ({ role }: { role: DashboardRole }) => {
 
   // ── Load conversations ────────────────────────────────────────────────────
   const loadConversations = async () => {
-    if (!user) return;
-    setLoadingConvs(true);
+        setLoadingConvs(true);
     const { data, error } = await supabase
       .from("messages")
       .select("id, sender_id, receiver_id, content, created_at, is_read")
@@ -138,8 +137,7 @@ const Messages = ({ role }: { role: DashboardRole }) => {
 
   // ── Load messages ─────────────────────────────────────────────────────────
   const loadMessages = async (partnerId: string) => {
-    if (!user) return;
-    setLoadingMsgs(true);
+        setLoadingMsgs(true);
     const { data, error } = await supabase
       .from("messages").select("*")
       .or(`and(sender_id.eq.${user.id},receiver_id.eq.${partnerId}),and(sender_id.eq.${partnerId},receiver_id.eq.${user.id})`)
@@ -160,8 +158,7 @@ const Messages = ({ role }: { role: DashboardRole }) => {
 
   // ── Presence (online status) ──────────────────────────────────────────────
   useEffect(() => {
-    if (!user) return;
-    const channel = supabase.channel("online-users")
+        const channel = supabase.channel("online-users")
       .on("presence", { event: "sync" }, () => {
         const state = channel.presenceState();
         const online = new Set(Object.keys(state));
@@ -510,3 +507,4 @@ export const LearnerMessages   = () => <Messages role="learner" />;
 export const CoachMessages     = () => <Messages role="coach" />;
 export const CreatorMessages   = () => <Messages role="creator" />;
 export const TherapistMessages = () => <Messages role="therapist" />;
+

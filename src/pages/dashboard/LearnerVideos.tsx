@@ -1,19 +1,17 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { Link } from "react-router-dom";`nimport { Navigate, Navigate } from "react-router-dom";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ScrollableContent } from "@/components/ui/scrollable-content";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { ScrollableContent } from "@/components/ui/scrollable-content";
 
 const LearnerVideos = () => {
-  const { user } = useAuth();
+  const { user , loading: authLoading } = useAuth();
   const [items, setItems] = useState<any[]>([]);
 
   useEffect(() => {
     const load = async () => {
-      if (!user) return;
-
-      const [{ data: accessRows }, { data: completedPayments }, { data: approvedPurchases }] =
+            const [{ data: accessRows }, { data: completedPayments }, { data: approvedPurchases }] =
         await Promise.all([
           supabase
             .from("content_access")
@@ -117,3 +115,4 @@ const LearnerVideos = () => {
 };
 
 export default LearnerVideos;
+

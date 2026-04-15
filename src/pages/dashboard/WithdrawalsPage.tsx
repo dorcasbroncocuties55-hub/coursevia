@@ -1,12 +1,12 @@
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Input } from "@/components/ui/input";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";`nimport { Navigate, Navigate } from "react-router-dom";
 import { Wallet, Lock, ArrowDownCircle, Clock, CheckCircle2, XCircle, Loader2, Building2, CreditCard } from "lucide-react";
 
 type WithdrawalRow = {
@@ -39,7 +39,7 @@ const statusClass = (s: string) => {
 };
 
 const WithdrawalsPage = ({ role }: { role: "coach" | "creator" | "therapist" }) => {
-  const { user } = useAuth();
+  const { user , loading: authLoading } = useAuth();
   const [withdrawals,    setWithdrawals]    = useState<WithdrawalRow[]>([]);
   const [bankAccounts,   setBankAccounts]   = useState<BankAccount[]>([]);
   const [wallet,         setWallet]         = useState<any>(null);
@@ -52,8 +52,7 @@ const WithdrawalsPage = ({ role }: { role: "coach" | "creator" | "therapist" }) 
   const pending   = Number(wallet?.pending_balance ?? 0);
 
   const loadData = async () => {
-    if (!user) return;
-    setLoading(true);
+        setLoading(true);
     try {
       const [walletRes, withdrawalsRes, banksRes] = await Promise.all([
         supabase.from("wallets").select("*").eq("user_id", user.id).maybeSingle(),
@@ -274,3 +273,4 @@ export default WithdrawalsPage;
 export const CoachWithdrawals     = () => <WithdrawalsPage role="coach" />;
 export const CreatorWithdrawals   = () => <WithdrawalsPage role="creator" />;
 export const TherapistWithdrawals = () => <WithdrawalsPage role="therapist" />;
+

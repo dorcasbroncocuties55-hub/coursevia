@@ -1,17 +1,17 @@
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Input } from "@/components/ui/input";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Label } from "@/components/ui/label";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { getProviderRecord, loadProviderServices } from "@/lib/dashboardQueries";
 
 const CoachServices = () => {
-  const { user } = useAuth();
+  const { user , loading: authLoading } = useAuth();
   const [coachId, setCoachId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [services, setServices] = useState<any[]>([]);
@@ -27,9 +27,7 @@ const CoachServices = () => {
   };
 
   useEffect(() => {
-    if (!user) return;
-
-    const bootstrap = async () => {
+        const bootstrap = async () => {
       setLoading(true);
       const { error: upsertError } = await (supabase as any)
         .from("coach_profiles")
@@ -118,3 +116,4 @@ const CoachServices = () => {
   );
 };
 export default CoachServices;
+

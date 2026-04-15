@@ -1,19 +1,18 @@
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";`nimport { Navigate, Navigate } from "react-router-dom";
 import { BookOpen, PlayCircle, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
 
 const LearnerCourses = () => {
-  const { user } = useAuth();
+  const { user , loading: authLoading } = useAuth();
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
-    const load = async () => {
+        const load = async () => {
       const { data } = await supabase
         .from("content_access")
         .select("content_id, content_type, created_at")
@@ -96,3 +95,4 @@ const LearnerCourses = () => {
   );
 };
 export default LearnerCourses;
+

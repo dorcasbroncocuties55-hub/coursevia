@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { CreditCard, Trash2, Star, Plus, Loader2, ShieldCheck, X } from "lucide-react";
 
@@ -18,7 +18,7 @@ const brandColor: Record<string, string> = {
 };
 
 const LearnerPaymentMethods = () => {
-  const { user } = useAuth();
+  const { user , loading: authLoading } = useAuth();
   const [methods, setMethods]           = useState<any[]>([]);
   const [adding, setAdding]             = useState(false);
   const [saving, setSaving]             = useState(false);
@@ -96,8 +96,7 @@ const LearnerPaymentMethods = () => {
 
   // ── Load saved methods ───────────────────────────────────────────────────
   const load = async () => {
-    if (!user) return;
-    const { data, error } = await supabase
+        const { data, error } = await supabase
       .from("payment_methods" as any)
       .select("*")
       .eq("user_id", user.id)
@@ -375,3 +374,4 @@ const LearnerPaymentMethods = () => {
 };
 
 export default LearnerPaymentMethods;
+
