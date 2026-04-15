@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
@@ -5,14 +6,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { BookOpen, PlayCircle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 const LearnerCourses = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     const load = async () => {
       const { data } = await supabase
         .from("content_access")
@@ -33,6 +38,14 @@ const LearnerCourses = () => {
     };
     load();
   }, [user]);
+
+  if (authLoading || loading) {
+    return <PageLoading />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <DashboardLayout role="learner">

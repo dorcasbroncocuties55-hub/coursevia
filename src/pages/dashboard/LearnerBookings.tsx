@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Video, MapPin, Clock, CheckCircle2, AlertTriangle, Flag, RefreshCw } from "lucide-react";
 import { buildBackendUrl } from "@/lib/backendApi";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 const statusTone: Record<string, string> = {
   pending:           "bg-amber-50 text-amber-700 border-amber-200",
@@ -31,7 +33,7 @@ type RefundModal = { bookingId: string; amount: number } | null;
 type ReportModal = { bookingId: string; providerId?: string } | null;
 
 const LearnerBookings = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -43,7 +45,10 @@ const LearnerBookings = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const loadBookings = async () => {
-    if (!user) return;
+    if (!user) {
+      setBookings([]);
+      return;
+    }
     const { data } = await supabase
       .from("bookings")
       .select("*, coach_profiles(*, profiles(*))")
@@ -159,6 +164,14 @@ const LearnerBookings = () => {
     const diff = differenceInHours(new Date(b.scheduled_at), new Date());
     return diff <= 1 && diff >= -2; // 1hr before to 2hrs after
   };
+
+  if (authLoading) {
+    return <PageLoading />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <DashboardLayout role="learner">

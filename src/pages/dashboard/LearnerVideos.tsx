@@ -1,17 +1,21 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ScrollableContent } from "@/components/ui/scrollable-content";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 const LearnerVideos = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [items, setItems] = useState<any[]>([]);
 
   useEffect(() => {
     const load = async () => {
-      if (!user) return;
+      if (!user) {
+        setItems([]);
+        return;
+      }
 
       const [{ data: accessRows }, { data: completedPayments }, { data: approvedPurchases }] =
         await Promise.all([
@@ -75,6 +79,14 @@ const LearnerVideos = () => {
 
     load();
   }, [user]);
+
+  if (authLoading) {
+    return <PageLoading />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <DashboardLayout role="learner">

@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
@@ -11,9 +12,10 @@ import { MIN_PROVIDER_PRICE, isValidProviderPrice } from "@/lib/pricingRules";
 import { Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { getProviderRecord, loadProviderServices } from "@/lib/dashboardQueries";
 import { ScrollableContent } from "@/components/ui/scrollable-content";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 const TherapistServices = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [profileId, setProfileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [services, setServices] = useState<any[]>([]);
@@ -31,7 +33,10 @@ const TherapistServices = () => {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const loadProfileAndServices = async () => {
       setLoading(true);
@@ -127,6 +132,14 @@ const TherapistServices = () => {
     setServices((prev) => prev.filter((service) => service.id !== serviceId));
     toast.success("Therapy service removed");
   };
+
+  if (authLoading || loading) {
+    return <PageLoading />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <DashboardLayout role="therapist">

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,12 +11,13 @@ import { toast } from "sonner";
 import { Shield, ExternalLink, UserCircle2, UploadCloud, CheckCircle2, BadgeCheck } from "lucide-react";
 import { createPersonaKycSession } from "@/lib/kycProvider";
 import { ScrollableContent } from "@/components/ui/scrollable-content";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 const slugify = (v: string) =>
   v.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 
 const CoachProfile = () => {
-  const { user, refreshAll } = useAuth();
+  const { user, refreshAll, loading: authLoading } = useAuth();
 
   const [form, setForm] = useState({
     fullName: "", displayName: "", headline: "", profession: "",
@@ -40,7 +42,10 @@ const CoachProfile = () => {
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setDataLoading(false);
+      return;
+    }
     const load = async () => {
       setDataLoading(true);
       const [profileRes, coachRes, verifyRes] = await Promise.all([
@@ -162,11 +167,13 @@ const CoachProfile = () => {
     }
   };
 
-  if (dataLoading) return (
-    <DashboardLayout role="coach">
-      <div className="py-16 text-center text-slate-400">Loading profile…</div>
-    </DashboardLayout>
-  );
+  if (authLoading || dataLoading) {
+    return <PageLoading />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <DashboardLayout role="coach">

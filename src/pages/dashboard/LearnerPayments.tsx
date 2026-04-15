@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
@@ -7,6 +8,7 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { RefundRequestModal } from "@/components/shared/RefundRequestModal";
 import { RefundHistory } from "@/components/shared/RefundHistory";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 const statusStyle: Record<string, string> = {
   completed: "bg-emerald-100 text-emerald-700",
@@ -26,7 +28,7 @@ const isRefundable = (p: any) => {
 };
 
 const LearnerPayments = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"payments" | "refunds">("payments");
@@ -34,7 +36,11 @@ const LearnerPayments = () => {
   const [existingRefunds, setExistingRefunds] = useState<Set<string>>(new Set());
 
   const load = async () => {
-    if (!user) return;
+    if (!user) {
+      setPayments([]);
+      setLoading(false);
+      return;
+    }
     const [{ data: pays }, { data: refs }] = await Promise.all([
       supabase.from("payments").select("*").eq("payer_id", user.id).order("created_at", { ascending: false }),
       supabase.from("refunds" as any).select("payment_id").eq("user_id", user.id).in("status", ["pending", "processed"]),
@@ -53,6 +59,14 @@ const LearnerPayments = () => {
     { key: "payments", label: "Payment History" },
     { key: "refunds",  label: "Refund Requests" },
   ] as const;
+
+  if (authLoading || loading) {
+    return <PageLoading />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <DashboardLayout role="learner">

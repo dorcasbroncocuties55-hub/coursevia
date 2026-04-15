@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useRef, useState, useMemo } from "react";
@@ -11,6 +12,7 @@ import {
 import ProfileAvatar from "@/components/shared/ProfileAvatar";
 import { Button } from "@/components/ui/button";
 import { ScrollableContent } from "@/components/ui/scrollable-content";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 type DashboardRole = "learner" | "coach" | "creator" | "therapist";
 
@@ -47,7 +49,7 @@ const fmt = (v?: string | null) => {
 const BLOCKED = [/\d{7,}/, /@[a-z]/i, /https?:\/\//i, /www\./i, /whatsapp/i, /telegram/i];
 
 const Messages = ({ role }: { role: DashboardRole }) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [searchParams] = useSearchParams();
   const requestedUserId = searchParams.get("user");
 
@@ -84,7 +86,11 @@ const Messages = ({ role }: { role: DashboardRole }) => {
 
   // ── Load conversations ────────────────────────────────────────────────────
   const loadConversations = async () => {
-    if (!user) return;
+    if (!user) {
+      setConversations([]);
+      setLoadingConvs(false);
+      return;
+    }
     setLoadingConvs(true);
     const { data, error } = await supabase
       .from("messages")
@@ -138,7 +144,11 @@ const Messages = ({ role }: { role: DashboardRole }) => {
 
   // ── Load messages ─────────────────────────────────────────────────────────
   const loadMessages = async (partnerId: string) => {
-    if (!user) return;
+    if (!user) {
+      setMessages([]);
+      setLoadingMsgs(false);
+      return;
+    }
     setLoadingMsgs(true);
     const { data, error } = await supabase
       .from("messages").select("*")
@@ -239,6 +249,14 @@ const Messages = ({ role }: { role: DashboardRole }) => {
     setMobileShowList(false);
     inputRef.current?.focus();
   };
+
+  if (authLoading) {
+    return <PageLoading />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

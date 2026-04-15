@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
@@ -9,9 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { getProviderRecord, loadProviderServices } from "@/lib/dashboardQueries";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 const CoachServices = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [coachId, setCoachId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [services, setServices] = useState<any[]>([]);
@@ -27,7 +29,10 @@ const CoachServices = () => {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const bootstrap = async () => {
       setLoading(true);
@@ -79,6 +84,14 @@ const CoachServices = () => {
     setServices(prev => prev.filter(s => s.id !== id));
     toast.success("Service removed");
   };
+
+  if (authLoading || loading) {
+    return <PageLoading />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <DashboardLayout role="coach">
