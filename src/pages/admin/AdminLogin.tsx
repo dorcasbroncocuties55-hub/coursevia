@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Eye, EyeOff, Shield } from "lucide-react";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 type Mode = "login" | "signup";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
+  const [authLoading, setAuthLoading] = useState(true);
   const [mode, setMode] = useState<Mode>("login");
 
   const [email, setEmail] = useState("");
@@ -20,6 +22,28 @@ const AdminLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Check if already logged in as admin
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: roles } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id);
+        
+        const isAdmin = roles?.some((r) => r.role === "admin");
+        
+        if (isAdmin) {
+          navigate("/admin/dashboard", { replace: true });
+          return;
+        }
+      }
+      setAuthLoading(false);
+    };
+    checkAuth();
+  }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,6 +117,11 @@ const AdminLogin = () => {
     setPassword("");
     setConfirmPassword("");
   };
+
+  // Handle auth loading state
+  if (authLoading) {
+    return <PageLoading />;
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
