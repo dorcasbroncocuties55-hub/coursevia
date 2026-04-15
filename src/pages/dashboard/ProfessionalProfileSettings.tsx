@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
+import { PageLoading } from "@/components/LoadingSpinner";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
-import { PageLoading } from "@/components/LoadingSpinner";`nimport { Input } from "@/components/ui/input";
-import { PageLoading } from "@/components/LoadingSpinner";`nimport { Label } from "@/components/ui/label";
-import { PageLoading } from "@/components/LoadingSpinner";`nimport { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { PageLoading } from "@/components/LoadingSpinner";`nimport { ScrollableContent } from "@/components/ui/scrollable-content";
+import { ScrollableContent } from "@/components/ui/scrollable-content";
 
 type Role = "coach" | "creator" | "therapist";
 

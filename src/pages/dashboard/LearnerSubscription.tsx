@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams, Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -12,7 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { resolveLearnerPlan } from "@/lib/pricingRules";
-import { Link, useSearchParams } from "react-router-dom";`nimport { Navigate, Navigate } from "react-router-dom";
 import { Loader2, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 
 const FALLBACK_PLANS: SubscriptionPlanSummary[] = [
@@ -123,6 +123,10 @@ const LearnerSubscription = () => {
     }
   };
 
+  const planStatusText = isActive 
+    ? (currentPlanCode === "yearly" ? "Yearly" : "Monthly") + " plan active"
+    : "No active plan";
+
   return (
     <DashboardLayout role="learner">
       <div className="max-w-2xl space-y-6">
@@ -139,7 +143,7 @@ const LearnerSubscription = () => {
               : <XCircle size={20} className="text-muted-foreground" />}
             <div>
               <p className="font-semibold text-foreground">
-                {isActive ? `${currentPlanCode === "yearly" ? "Yearly" : "Monthly"} plan active` : "No active plan"}
+                {planStatusText}
               </p>
               {isActive && subscription?.ends_at && (
                 <p className="text-xs text-muted-foreground">

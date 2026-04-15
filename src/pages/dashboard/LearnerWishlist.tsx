@@ -1,11 +1,12 @@
-import { PageLoading } from "@/components/LoadingSpinner";`nimport DashboardLayout from "@/components/layouts/DashboardLayout";
-import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
+import { Link, Navigate } from "react-router-dom";
+import { PageLoading } from "@/components/LoadingSpinner";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Heart, Trash2, ExternalLink } from "lucide-react";
-import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";`nimport { Navigate, Navigate } from "react-router-dom";
 
 const LearnerWishlist = () => {
   const { user , loading: authLoading } = useAuth();

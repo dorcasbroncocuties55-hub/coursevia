@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { PageLoading } from "@/components/LoadingSpinner";`nimport Navbar from "@/components/landing/Navbar";
-import { PageLoading } from "@/components/LoadingSpinner";`nimport Footer from "@/components/landing/Footer";
-import { PageLoading } from "@/components/LoadingSpinner";`nimport { Button } from "@/components/ui/button";
+import { PageLoading } from "@/components/LoadingSpinner";
+import Navbar from "@/components/landing/Navbar";
+import Footer from "@/components/landing/Footer";
+import { Button } from "@/components/ui/button";
 import { getCartItems, removeCartItem, type CartItem } from "@/lib/cart";
 import { getDiscountedPrice, getBenefitHeadline, resolveLearnerPlan } from "@/lib/pricingRules";
 import { supabase } from "@/integrations/supabase/client";
