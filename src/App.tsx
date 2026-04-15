@@ -36,7 +36,6 @@ const CartPage = lazy(() => import("./pages/CartPage"));
 const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
 const PaymentPage = lazy(() => import("./pages/PaymentPage"));
 const FAQ = lazy(() => import("./pages/public/FAQ"));
-const StaticPages = lazy(() => import("./pages/public/StaticPages"));
 const SubscriptionCallback = lazy(() => import("./pages/billing/SubscriptionCallback"));
 
 // Learner dashboard

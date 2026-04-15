@@ -12,6 +12,7 @@ import {
   BarChart3, Filter, Star, Archive, Bell,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 type Conv = {
   id: string; user_id?: string; user_name?: string; user_email?: string;
@@ -53,6 +54,7 @@ const priorityColor: Record<string, string> = {
 
 const SupportAgentDashboard = () => {
   const navigate = useNavigate();
+  const [authLoading, setAuthLoading] = useState(true);
   const [agentId, setAgentId]         = useState<string | null>(null);
   const [agentName, setAgentName]     = useState("");
   const [convs, setConvs]             = useState<Conv[]>([]);
@@ -81,12 +83,21 @@ const SupportAgentDashboard = () => {
   useEffect(() => {
     const boot = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate("/support-agent", { replace: true }); return; }
+      if (!user) { 
+        setAuthLoading(false);
+        navigate("/support-agent", { replace: true }); 
+        return; 
+      }
       const { data: agent } = await supabase.from("support_agents" as any).select("id, full_name, is_active").eq("user_id", user.id).maybeSingle();
-      if (!agent || !agent.is_active) { navigate("/support-agent", { replace: true }); return; }
+      if (!agent || !agent.is_active) { 
+        setAuthLoading(false);
+        navigate("/support-agent", { replace: true }); 
+        return; 
+      }
       setAgentId(agent.id);
       setAgentName(agent.full_name || "Agent");
       await supabase.from("support_agents" as any).update({ is_online: true }).eq("id", agent.id);
+      setAuthLoading(false);
       loadConvs();
       loadAgents();
       loadStats();
@@ -308,6 +319,10 @@ const SupportAgentDashboard = () => {
   const openCount = convs.filter(c => c.status === "open").length;
 
   // ── Render ────────────────────────────────────────────────────────────────
+  if (authLoading) {
+    return <PageLoading />;
+  }
+
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
 

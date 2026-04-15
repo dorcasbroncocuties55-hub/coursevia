@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Eye, EyeOff, Headphones } from "lucide-react";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 const SupportAgentLogin = () => {
   const navigate = useNavigate();
+  const [authLoading, setAuthLoading] = useState(true);
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -16,6 +18,32 @@ const SupportAgentLogin = () => {
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Check if already logged in as support agent
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: agent } = await supabase
+          .from("support_agents" as any)
+          .select("id, is_active")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        
+        if (agent && agent.is_active) {
+          navigate("/support-agent/dashboard", { replace: true });
+          return;
+        }
+      }
+      setAuthLoading(false);
+    };
+    checkAuth();
+  }, [navigate]);
+
+  // Handle auth loading state
+  if (authLoading) {
+    return <PageLoading />;
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,6 +141,10 @@ const SupportAgentLogin = () => {
       setLoading(false);
     }
   };
+
+  if (authLoading) {
+    return <PageLoading />;
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
