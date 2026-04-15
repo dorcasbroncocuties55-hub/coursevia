@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,17 +12,28 @@ import { StatusIndicator } from "@/components/dashboard/StatusIndicator";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { ScrollableContent } from "@/components/ui/scrollable-content";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 const TherapistDashboard = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [stats, setStats] = useState({ bookings: 0, balance: 0, services: 0, messages: 0 });
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  // ✅ Handle auth loading state
+  if (authLoading) {
+    return <PageLoading />;
+  }
+
+  // ✅ Handle no user
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   useEffect(() => {
-    if (!user) return;
+    // ✅ user is now guaranteed to be non-null
     const run = async () => {
-      setLoading(true);
+      setDataLoading(true);
       const [bookingRes, walletRes, providerRow, unread, bookingsData] = await Promise.all([
         safeSingle<any>(supabase.from("bookings").select("id", { count: "exact", head: true }).or(`provider_id.eq.${user.id},provider_user_id.eq.${user.id}`), { count: 0 }),
         safeSingle<any>(supabase.from("wallets").select("balance,available_balance").eq("user_id", user.id).maybeSingle(), { balance: 0 }),
@@ -41,7 +52,7 @@ const TherapistDashboard = () => {
         messages: unread,
       });
       setRecentBookings(bookingsData.data || []);
-      setLoading(false);
+      setDataLoading(false);
     };
     run();
   }, [user?.id]);
@@ -176,7 +187,7 @@ const TherapistDashboard = () => {
             icon={<CalendarDays className="h-6 w-6" />}
             href="/therapist/bookings"
             color="teal"
-            loading={loading}
+            loading={dataLoading}
           />
           <DashboardCard
             title="Wallet Balance"
@@ -185,7 +196,7 @@ const TherapistDashboard = () => {
             icon={<Wallet className="h-6 w-6" />}
             href="/therapist/wallet"
             color="green"
-            loading={loading}
+            loading={dataLoading}
           />
           <DashboardCard
             title="Active Services"
@@ -194,7 +205,7 @@ const TherapistDashboard = () => {
             icon={<HeartHandshake className="h-6 w-6" />}
             href="/therapist/services"
             color="purple"
-            loading={loading}
+            loading={dataLoading}
           />
           <DashboardCard
             title="Unread Messages"
@@ -203,7 +214,7 @@ const TherapistDashboard = () => {
             icon={<MessageSquare className="h-6 w-6" />}
             href="/therapist/messages"
             color="orange"
-            loading={loading}
+            loading={dataLoading}
           />
         </div>
 
@@ -213,7 +224,7 @@ const TherapistDashboard = () => {
           <RecentActivity
             title="Recent Sessions"
             items={recentActivity}
-            loading={loading}
+            loading={dataLoading}
             emptyMessage="No sessions yet"
             viewAllHref="/therapist/bookings"
           />

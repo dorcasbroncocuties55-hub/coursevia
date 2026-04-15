@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,18 +10,29 @@ import { WelcomeBanner } from "@/components/dashboard/WelcomeBanner";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { ScrollableContent } from "@/components/ui/scrollable-content";
+import { PageLoading } from "@/components/LoadingSpinner";
 
 const CreatorDashboard = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [stats, setStats] = useState({ courses: 0, videos: 0, balance: 0, students: 0, totalEarnings: 0 });
   const [recentContent, setRecentContent] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  // ✅ Handle auth loading state
+  if (authLoading) {
+    return <PageLoading />;
+  }
+
+  // ✅ Handle no user
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   useEffect(() => {
-    if (!user) return;
+    // ✅ user is now guaranteed to be non-null
     
     const fetchDashboardData = async () => {
-      setLoading(true);
+      setDataLoading(true);
       
       try {
         const [courses, videos, wallet, payments, contentData] = await Promise.all([
@@ -58,7 +69,7 @@ const CreatorDashboard = () => {
       } catch (error) {
         console.error("Error fetching creator dashboard data:", error);
       } finally {
-        setLoading(false);
+        setDataLoading(false);
       }
     };
 
@@ -131,7 +142,7 @@ const CreatorDashboard = () => {
             icon={<BookOpen className="h-6 w-6" />}
             href="/creator/content"
             color="blue"
-            loading={loading}
+            loading={dataLoading}
           />
           <DashboardCard
             title="Video Products"
@@ -140,7 +151,7 @@ const CreatorDashboard = () => {
             icon={<Video className="h-6 w-6" />}
             href="/creator/content"
             color="purple"
-            loading={loading}
+            loading={dataLoading}
           />
           <DashboardCard
             title="Wallet Balance"
@@ -149,7 +160,7 @@ const CreatorDashboard = () => {
             icon={<Wallet className="h-6 w-6" />}
             href="/creator/wallet"
             color="green"
-            loading={loading}
+            loading={dataLoading}
           />
           <DashboardCard
             title="Total Earnings"
@@ -157,7 +168,7 @@ const CreatorDashboard = () => {
             description="All-time revenue"
             icon={<TrendingUp className="h-6 w-6" />}
             color="orange"
-            loading={loading}
+            loading={dataLoading}
           />
         </div>
 
@@ -167,7 +178,7 @@ const CreatorDashboard = () => {
           <RecentActivity
             title="Recent Content"
             items={recentContent}
-            loading={loading}
+            loading={dataLoading}
             emptyMessage="No content yet"
             viewAllHref="/creator/content"
           />
