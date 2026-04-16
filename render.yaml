@@ -1,18 +1,9 @@
 services:
   - type: web
     name: coursevia-frontend
-    runtime: static
+    runtime: node
     buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    pullRequestPreviewsEnabled: false
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: public, max-age=0, must-revalidate
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
+    startCommand: node serve.js
     envVars:
       - key: NODE_VERSION
         value: 20
