@@ -3,7 +3,7 @@ services:
     name: coursevia-frontend
     runtime: static
     buildCommand: npm install && npm run build
-    staticPublishPath: dist
+    staticPublishPath: ./dist
     pullRequestPreviewsEnabled: false
     routes:
       - type: rewrite
