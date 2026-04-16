@@ -1,9 +1,14 @@
 services:
   - type: web
     name: coursevia-frontend
-    runtime: node
-    buildCommand: npm install && npm run build
-    startCommand: node server.js
+    runtime: static
+    buildCommand: npm run build
+    staticPublishPath: dist
+    pullRequestPreviewsEnabled: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: NODE_VERSION
         value: 20
