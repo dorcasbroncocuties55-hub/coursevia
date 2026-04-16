@@ -1,21 +1,7 @@
 services:
   - type: web
     name: coursevia-frontend
-    runtime: node
+    runtime: static
     buildCommand: npm install && npm run build
-    startCommand: node serve.js
-    envVars:
-      - key: NODE_VERSION
-        value: 20
-      - key: VITE_SUPABASE_URL
-        sync: false
-      - key: VITE_SUPABASE_ANON_KEY
-        sync: false
-      - key: VITE_SUPABASE_PROJECT_ID
-        sync: false
-      - key: VITE_BACKEND_URL
-        sync: false
-      - key: VITE_STRIPE_PUBLISHABLE_KEY
-        sync: false
-      - key: VITE_CHECKOUT_PUBLIC_KEY
-        sync: false
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: false
