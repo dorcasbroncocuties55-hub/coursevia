@@ -27,6 +27,12 @@ const ensureRedirects = () => ({
       fs.copyFileSync("netlify.toml", "dist/netlify.toml");
       console.log("✓ netlify.toml copied to dist");
     }
+    
+    // Copy _headers for Render
+    if (fs.existsSync("public/_headers")) {
+      fs.copyFileSync("public/_headers", "dist/_headers");
+      console.log("✓ _headers copied to dist");
+    }
   },
 });
 
