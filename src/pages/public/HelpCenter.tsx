@@ -291,6 +291,8 @@ const ChatWidget = () => {
             read: m.role !== "user",
           });
         }
+        // Notify user with link to support agent dashboard
+        addMsg("bot", `✅ Your conversation has been created (ID: ${data.id.slice(0, 8)}…). A support agent will reply soon. Agents can view this at /support-agent/dashboard`);
       }
     } catch {}
   };
@@ -611,15 +613,12 @@ const HelpCenter = () => {
               <Button size="lg" asChild className="rounded-full px-8 bg-white text-primary hover:bg-white/90">
                 <Link to="/contact">📩 Contact Support</Link>
               </Button>
-              <button
-                onClick={() => {
-                  const btn = document.querySelector<HTMLButtonElement>('[aria-label="Open support chat"]');
-                  btn?.click();
-                }}
-                className="rounded-full px-8 py-3 border border-white/30 text-white hover:bg-white/10 transition text-sm font-semibold"
+              <Link
+                to="/support-agent"
+                className="rounded-full px-8 py-3 border border-white/30 text-white hover:bg-white/10 transition text-sm font-semibold inline-block"
               >
-                💬 Chat with Agent
-              </button>
+                🎧 Agent Dashboard
+              </Link>
             </div>
           </motion.div>
         </div>

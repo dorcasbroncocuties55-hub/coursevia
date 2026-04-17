@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
 import { pingBackend } from "./lib/backendApi";
+import Preloader from "./components/Preloader";
 
 // Wake up the backend server on load (Render free tier sleeps after inactivity)
 pingBackend().then(ok => {
@@ -27,8 +28,20 @@ window.addEventListener("unhandledrejection", (event) => {
   }
 });
 
+const Root = () => {
+  const [ready, setReady] = useState(false);
+  return (
+    <>
+      {!ready && <Preloader onDone={() => setReady(true)} />}
+      <div style={{ opacity: ready ? 1 : 0, transition: "opacity 0.4s ease" }}>
+        <App />
+      </div>
+    </>
+  );
+};
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <Root />
   </React.StrictMode>
 );
