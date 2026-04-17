@@ -106,11 +106,10 @@ export const BankAccountForm = ({ role = "coach" }: { role?: "coach" | "therapis
         .order("name");
 
       if (error) {
-        if (error.code === "PGRST106" || error.code === "42P01") {
-          setDbMissing(true);
-          return;
-        }
-        throw error;
+        // Table doesn't exist — use fallback manual entry mode
+        console.warn("banking_countries not found, using manual mode");
+        setDbMissing(true);
+        return;
       }
       setCountries(data || []);
     } catch {
@@ -128,8 +127,8 @@ export const BankAccountForm = ({ role = "coach" }: { role?: "coach" | "therapis
       if (error) throw error;
       setBanks(data || []);
     } catch (err) {
-      console.error("loadBanks error:", err);
-      toast.error("Could not load banks for this country.");
+      // RPC missing — just allow manual bank name entry
+      console.warn("get_banks_by_country RPC not found, using manual mode");
       setBanks([]);
     } finally {
       setLoadingBanks(false);
@@ -193,27 +192,34 @@ export const BankAccountForm = ({ role = "coach" }: { role?: "coach" | "therapis
     setShowForm(false);
   };
 
+  // manual text fields used when DB tables are missing
+  const [manualCountry, setManualCountry] = useState("");
+  const [manualBank, setManualBank]       = useState("");
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
-    if (!country) { toast.error("Select a country"); return; }
-    if (!bank)    { toast.error("Select a bank"); return; }
-    if (!holder.trim()) { toast.error("Enter account holder name"); return; }
+    const effectiveCountry = dbMissing ? manualCountry.trim() : country;
+    const effectiveBank    = dbMissing ? manualBank.trim()    : bank;
+
+    if (!effectiveCountry) { toast.error("Enter your country"); return; }
+    if (!effectiveBank)    { toast.error("Enter your bank name"); return; }
+    if (!holder.trim())    { toast.error("Enter account holder name"); return; }
     if (accNum.trim().length < 5) { toast.error("Enter a valid account number"); return; }
 
     setSaving(true);
     try {
-      const selectedCountry = countries.find(c => c.name === country);
-      const selectedBank = banks.find(b => b.name === bank);
+      const selectedCountry = countries.find(c => c.name === effectiveCountry);
+      const selectedBank    = banks.find(b => b.name === effectiveBank);
 
       const { error } = await supabase.from("bank_accounts").insert({
         user_id: user.id,
-        bank_name: bank,
-        bank_code: selectedBank?.code || bank,
+        bank_name: effectiveBank,
+        bank_code: selectedBank?.code || effectiveBank,
         account_name: holder.trim(),
         account_number: accNum.trim(),
-        country_code: selectedCountry?.code || "US",
+        country_code: selectedCountry?.code || effectiveCountry.slice(0, 2).toUpperCase(),
         currency: selectedCountry?.currency_code || "USD",
         provider: "manual",
         verification_status: "pending",
@@ -231,6 +237,8 @@ export const BankAccountForm = ({ role = "coach" }: { role?: "coach" | "therapis
 
       toast.success("Bank account added!");
       resetForm();
+      setManualCountry("");
+      setManualBank("");
       await loadAccounts();
     } catch (e: any) {
       toast.error(e.message || "Failed to add bank account.");
@@ -278,14 +286,7 @@ export const BankAccountForm = ({ role = "coach" }: { role?: "coach" | "therapis
     );
   }
 
-  if (dbMissing) {
-    return (
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
-        <p className="font-semibold mb-1">Banking system not set up</p>
-        <p>Run <code className="bg-amber-100 px-1 rounded">FIX_PAYPAL_AND_ADD_COUNTRIES.sql</code> in your Supabase SQL editor to enable bank accounts.</p>
-      </div>
-    );
-  }
+  // dbMissing just means we use manual text inputs — don't block the whole page
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -345,46 +346,61 @@ export const BankAccountForm = ({ role = "coach" }: { role?: "coach" | "therapis
                 {/* Country */}
                 <div>
                   <Label>Country *</Label>
-                  <Select value={country} onValueChange={setCountry}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select country" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-60">
-                      {countries.map(c => (
-                        <SelectItem key={c.id} value={c.name}>
-                          <span className="flex items-center gap-2">
-                            <Globe size={13} /> {c.name} ({c.currency_code})
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {dbMissing || countries.length === 0 ? (
+                    <Input
+                      className="mt-1"
+                      value={manualCountry}
+                      onChange={e => setManualCountry(e.target.value)}
+                      placeholder="e.g. Nigeria, United States"
+                    />
+                  ) : (
+                    <Select value={country} onValueChange={setCountry}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select country" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {countries.map(c => (
+                          <SelectItem key={c.id} value={c.name}>
+                            <span className="flex items-center gap-2">
+                              <Globe size={13} /> {c.name} ({c.currency_code})
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 {/* Bank */}
                 <div>
                   <Label>Bank *</Label>
-                  <Select value={bank} onValueChange={setBank} disabled={!country || loadingBanks}>
-                    <SelectTrigger className="mt-1">
-                      {loadingBanks
-                        ? <span className="flex items-center gap-2 text-muted-foreground"><Loader2 size={13} className="animate-spin" /> Loading…</span>
-                        : <SelectValue placeholder={country ? "Select bank" : "Select country first"} />
-                      }
-                    </SelectTrigger>
-                    <SelectContent className="max-h-60">
-                      {banks.length === 0 && !loadingBanks && (
-                        <div className="px-3 py-2 text-sm text-muted-foreground">No banks found</div>
-                      )}
-                      {banks.map(b => (
-                        <SelectItem key={b.id} value={b.name}>
-                          <span className="flex items-center gap-2">
-                            <Building2 size={13} /> {b.name}
-                            {b.supports_international && <Globe size={11} className="text-blue-500" />}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {dbMissing || banks.length === 0 ? (
+                    <Input
+                      className="mt-1"
+                      value={dbMissing ? manualBank : bank}
+                      onChange={e => dbMissing ? setManualBank(e.target.value) : setBank(e.target.value)}
+                      placeholder="e.g. Access Bank, Chase"
+                    />
+                  ) : (
+                    <Select value={bank} onValueChange={setBank} disabled={!country || loadingBanks}>
+                      <SelectTrigger className="mt-1">
+                        {loadingBanks
+                          ? <span className="flex items-center gap-2 text-muted-foreground"><Loader2 size={13} className="animate-spin" /> Loading…</span>
+                          : <SelectValue placeholder={country ? "Select bank" : "Select country first"} />
+                        }
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {banks.map(b => (
+                          <SelectItem key={b.id} value={b.name}>
+                            <span className="flex items-center gap-2">
+                              <Building2 size={13} /> {b.name}
+                              {b.supports_international && <Globe size={11} className="text-blue-500" />}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
 

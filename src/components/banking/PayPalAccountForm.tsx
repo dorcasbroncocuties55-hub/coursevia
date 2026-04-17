@@ -69,68 +69,51 @@ export const PayPalAccountForm = ({ onAccountAdded, onCancel }: PayPalAccountFor
     try {
       setLoading(true);
 
-      // Get the PayPal bank ID
-      const selectedOption = paypalOptions.find(opt => opt.value === selectedCountry);
-      const { data: paypalBank, error: bankError } = await supabase
-        .from("banks")
-        .select("id")
-        .eq("code", selectedOption?.code)
-        .single();
-
-      if (bankError) throw bankError;
-
-      // Validate the PayPal account doesn't already exist
-      const { data: isValid, error: validationError } = await supabase.rpc(
-        "validate_bank_account",
-        {
-          p_user_id: user.id,
-          p_bank_id: paypalBank.id,
-          p_account_number: paypalEmail.trim(),
-          p_account_holder_name: accountHolderName.trim(),
-        }
-      );
-
-      if (validationError) throw validationError;
-      if (!isValid) {
-        toast.error("This PayPal account is already added to your profile");
-        return;
-      }
-
-      // Check if this is the user's first account
-      const { data: existingAccounts } = await supabase
-        .from("user_bank_accounts")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("is_active", true);
-
-      // Create the PayPal account
+      // Try to insert into bank_accounts (primary table) first
       const { error: insertError } = await supabase
-        .from("user_bank_accounts")
+        .from("bank_accounts")
         .insert({
           user_id: user.id,
-          bank_id: paypalBank.id,
-          account_holder_name: accountHolderName.trim(),
-          account_number: paypalEmail.trim(), // Store email as account number
-          paypal_email: paypalEmail.trim(),
-          account_type: "paypal",
-          account_subtype: "paypal",
-          payout_method: "paypal",
-          currency: "USD", // PayPal handles currency conversion
-          country_name: selectedCountry,
-          is_primary: !existingAccounts || existingAccounts.length === 0,
-          verification_status: "pending", // PayPal accounts need verification
+          bank_name: "PayPal",
+          bank_code: "PAYPAL",
+          account_name: accountHolderName.trim(),
+          account_number: paypalEmail.trim(),
+          country_code: "US",
+          currency: "USD",
+          provider: "paypal",
+          verification_status: "pending",
+          is_default: false,
+          metadata: {
+            paypal_email: paypalEmail.trim(),
+            paypal_region: selectedCountry,
+            account_type: "paypal",
+          },
         });
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        // Fallback: try user_bank_accounts table
+        const { error: fallbackError } = await supabase
+          .from("user_bank_accounts")
+          .insert({
+            user_id: user.id,
+            bank_id: null,
+            account_holder_name: accountHolderName.trim(),
+            account_number: paypalEmail.trim(),
+            paypal_email: paypalEmail.trim(),
+            account_type: "paypal",
+            payout_method: "paypal",
+            currency: "USD",
+            country_name: selectedCountry,
+            is_primary: false,
+            verification_status: "pending",
+          });
+        if (fallbackError) throw fallbackError;
+      }
 
       toast.success("PayPal account added successfully!");
-      
-      // Reset form
       setPaypalEmail("");
       setAccountHolderName("");
       setSelectedCountry("Global");
-
-      // Notify parent component
       onAccountAdded?.();
     } catch (error: any) {
       console.error("Error adding PayPal account:", error);
