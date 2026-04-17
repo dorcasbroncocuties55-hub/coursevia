@@ -285,7 +285,7 @@ const ProviderDirectoryPage = ({ role }: Props) => {
               {/* Stats */}
               <div className="grid grid-cols-3 gap-4">
                 {[
-                  { v: `${providers.length || 0}+`, l: "Verified Profiles", icon: "👥" },
+                  { v: loading ? "..." : `${providers.length}+`, l: "Verified Profiles", icon: "👥" },
                   { v: `${DIRECTORY_COUNTRIES.length}`, l: "Countries", icon: "🌍" },
                   { v: "24/7", l: "Booking", icon: "⚡" },
                 ].map((s) => (

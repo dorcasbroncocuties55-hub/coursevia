@@ -452,27 +452,25 @@ const isObviouslyFakeText = (value: string) => {
 
 const isValidHumanName = (value: string) => {
   const cleaned = value.trim();
-  if (cleaned.length < 5) return false;
+  if (cleaned.length < 2) return false;
   if (!hasLetters(cleaned)) return false;
-  if (tooFewWords(cleaned, 2)) return false;
-  if (isObviouslyFakeText(cleaned)) return false;
+  if (repeatedCharsOnly(cleaned)) return false;
   return true;
 };
 
-const isValidShortText = (value: string, minLength = 4) => {
+const isValidShortText = (value: string, minLength = 2) => {
   const cleaned = value.trim();
   if (cleaned.length < minLength) return false;
   if (!hasLetters(cleaned)) return false;
-  if (isObviouslyFakeText(cleaned)) return false;
+  if (repeatedCharsOnly(cleaned)) return false;
   return true;
 };
 
-const isValidLongText = (value: string, minLength = 20, minWords = 4) => {
+const isValidLongText = (value: string, minLength = 10, minWords = 2) => {
   const cleaned = value.trim();
   if (cleaned.length < minLength) return false;
   if (!hasLetters(cleaned)) return false;
   if (tooFewWords(cleaned, minWords)) return false;
-  if (isObviouslyFakeText(cleaned)) return false;
   return true;
 };
 
@@ -720,14 +718,7 @@ const Onboarding = () => {
 
   const validatePersonalInfo = () => {
     if (!isValidHumanName(fullName)) {
-      toast.error(
-        "Enter your real full name. Use at least first name and last name."
-      );
-      return false;
-    }
-
-    if (displayName.trim() && !isValidShortText(displayName, 3)) {
-      toast.error("Enter a valid display name.");
+      toast.error("Enter your full name (at least 2 characters).");
       return false;
     }
 
@@ -736,21 +727,9 @@ const Onboarding = () => {
       return false;
     }
 
-    if (!isValidShortText(country, 3)) {
-      toast.error("Enter a real country name.");
+    if (!country.trim() || country.trim().length < 2) {
+      toast.error("Enter your country.");
       return false;
-    }
-
-    if (city.trim() && !isValidShortText(city, 2)) {
-      toast.error("Enter a valid city name.");
-      return false;
-    }
-
-    if (isLearner && learnerInterests.trim()) {
-      if (!isValidLongText(learnerInterests, 6, 1)) {
-        toast.error("Enter real learner interests.");
-        return false;
-      }
     }
 
     return true;
@@ -762,8 +741,8 @@ const Onboarding = () => {
       return false;
     }
 
-    if (!isValidLongText(learnerLookingForward, 20, 4)) {
-      toast.error("Tell us clearly what you are looking forward to.");
+    if (learnerLookingForward.trim() && !isValidLongText(learnerLookingForward, 5, 1)) {
+      toast.error("Tell us what you are looking forward to.");
       return false;
     }
 
@@ -785,128 +764,107 @@ const Onboarding = () => {
   };
 
   const validateCoachProfileInfo = () => {
-    if (!isValidShortText(profession, 4)) {
-      toast.error("Add a professional coaching title.");
+    if (!isValidShortText(profession, 2)) {
+      toast.error("Add your coaching title.");
       return false;
     }
-
-    if (!isValidShortText(headline, 10)) {
-      toast.error("Write a clear coaching headline.");
+    if (!isValidShortText(headline, 5)) {
+      toast.error("Write a short coaching headline.");
       return false;
     }
-
-    if (!isValidLongText(bio, 40, 8)) {
-      toast.error("Add a proper coach About section.");
+    if (!isValidLongText(bio, 10, 2)) {
+      toast.error("Add a brief coach bio (at least 10 characters).");
       return false;
     }
-
-    if (!isValidLongText(experience, 30, 6)) {
-      toast.error("Describe your coaching style and approach clearly.");
+    if (!isValidLongText(experience, 10, 2)) {
+      toast.error("Describe your coaching experience briefly.");
       return false;
     }
-
-    if (!isValidShortText(languages, 3)) {
+    if (!isValidShortText(languages, 2)) {
       toast.error("List the languages you support.");
       return false;
     }
-
     return true;
   };
 
   const validateTherapistProfileInfo = () => {
-    if (!isValidShortText(profession, 4)) {
-      toast.error("Add a professional therapist title.");
+    if (!isValidShortText(profession, 2)) {
+      toast.error("Add your therapist title.");
       return false;
     }
-
-    if (!isValidShortText(headline, 10)) {
-      toast.error("Write a clear therapist headline.");
+    if (!isValidShortText(headline, 5)) {
+      toast.error("Write a short therapist headline.");
       return false;
     }
-
-    if (!isValidLongText(bio, 40, 8)) {
-      toast.error("Add a proper therapist About section.");
+    if (!isValidLongText(bio, 10, 2)) {
+      toast.error("Add a brief therapist bio (at least 10 characters).");
       return false;
     }
-
-    if (!isValidLongText(experience, 30, 6)) {
-      toast.error("Describe your therapeutic approach clearly.");
+    if (!isValidLongText(experience, 10, 2)) {
+      toast.error("Describe your therapeutic approach briefly.");
       return false;
     }
-
-    if (!isValidShortText(languages, 3)) {
+    if (!isValidShortText(languages, 2)) {
       toast.error("List the languages you support.");
       return false;
     }
-
     return true;
   };
 
   const validateCreatorProfileInfo = () => {
-    if (!isValidShortText(profession, 4)) {
-      toast.error("Enter a real creator title.");
+    if (!isValidShortText(profession, 2)) {
+      toast.error("Enter your creator title.");
       return false;
     }
-
-    if (!isValidShortText(headline, 10)) {
-      toast.error("Write a clear creator headline.");
+    if (!isValidShortText(headline, 5)) {
+      toast.error("Write a short creator headline.");
       return false;
     }
-
-    if (!isValidLongText(bio, 30, 6)) {
-      toast.error("Write a proper creator bio.");
+    if (!isValidLongText(bio, 10, 2)) {
+      toast.error("Write a brief creator bio (at least 10 characters).");
       return false;
     }
-
-    if (!isValidLongText(experience, 20, 4)) {
-      toast.error("Describe your content background clearly.");
+    if (!isValidLongText(experience, 5, 1)) {
+      toast.error("Describe your content background briefly.");
       return false;
     }
-
-    if (!isValidShortText(languages, 3)) {
+    if (!isValidShortText(languages, 2)) {
       toast.error("List the languages you support.");
       return false;
     }
-
     return true;
   };
 
   const validateCoachProfessionalInfo = () => {
-    if (!isValidShortText(servicesOffered, 4)) {
-      toast.error("List the coaching services clients can book.");
+    if (!isValidShortText(servicesOffered, 2)) {
+      toast.error("List the coaching services you offer.");
       return false;
     }
-
-    if (!isValidShortText(worksWith, 4)) {
+    if (!isValidShortText(worksWith, 2)) {
       toast.error("Tell clients who you coach.");
       return false;
     }
-
-    if (!isValidShortText(expertiseAreas, 4)) {
+    if (!isValidShortText(expertiseAreas, 2)) {
       toast.error("Add your coaching expertise.");
       return false;
     }
-
-    if (!isValidShortText(certification, 4)) {
+    if (!isValidShortText(certification, 2)) {
       toast.error("Add your coaching certification or qualification.");
       return false;
     }
-
-    if (!isValidShortText(serviceAreas, 4)) {
+    if (!isValidShortText(serviceAreas, 2)) {
       toast.error("Add at least one service area or location.");
       return false;
     }
-
     return true;
   };
 
   const validateTherapistProfessionalInfo = () => {
-    if (!isValidShortText(servicesOffered, 4)) {
-      toast.error("List the therapy services clients can book.");
+    if (!isValidShortText(servicesOffered, 2)) {
+      toast.error("List the therapy services you offer.");
       return false;
     }
-
-    if (!isValidShortText(worksWith, 4)) {
+    if (!isValidShortText(worksWith, 2)) {
       toast.error("Tell clients who you work with.");
       return false;
     }
