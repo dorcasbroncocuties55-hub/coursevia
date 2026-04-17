@@ -334,7 +334,13 @@ const VoiceAssistant = () => {
   const finalRef = useRef("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, liveText]);
+  const msgsContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom — works on iOS Safari
+  useEffect(() => {
+    const el = msgsContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [msgs, liveText]);
 
   useEffect(() => {
     if ("speechSynthesis" in window) {
@@ -531,7 +537,19 @@ const VoiceAssistant = () => {
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} style={{ overflow: "hidden" }}>
 
                   {/* Messages */}
-                  <div className="px-3 py-3 space-y-2.5 overflow-y-auto" style={{ maxHeight: 240, scrollbarWidth: "none" }}>
+                  <div
+                    className="px-3 py-3 space-y-2.5 overflow-y-auto"
+                    ref={msgsContainerRef}
+                    style={{
+                      maxHeight: 260,
+                      minHeight: 80,
+                      overflowY: "auto",
+                      WebkitOverflowScrolling: "touch",
+                      scrollbarWidth: "thin",
+                      scrollbarColor: "rgba(16,185,129,0.3) transparent",
+                    }}
+                    ref={el => { if (el) el.scrollTop = el.scrollHeight; }}
+                  >
                     {msgs.length === 0 && <p className="text-center text-xs py-8" style={{ color: "rgba(16,185,129,0.35)" }}>Tap the mic or type below</p>}
                     {msgs.map(m => (
                       <div key={m.id}>
