@@ -137,6 +137,7 @@ const Contact = lazy(() => import("./pages/public/StaticPages").then(m => ({ def
 const HelpCenter = lazy(() => import("./pages/public/StaticPages").then(m => ({ default: m.HelpCenter })));
 
 import Preloader from "@/components/Preloader";
+import VoiceAssistant from "@/components/VoiceAssistant";
 
 // Reuse the same branded preloader for lazy-route suspense fallback
 const PageLoader = () => <Preloader onDone={() => {}} />;
@@ -152,6 +153,7 @@ const App = () => {
         <BrowserRouter>
           <AuthProvider>
             <CartProvider>
+              <VoiceAssistant />
               <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<Index />} />
