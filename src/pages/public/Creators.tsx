@@ -49,24 +49,24 @@ const Creators = () => {
       <Navbar />
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden border-b border-slate-200 bg-gradient-to-br from-violet-50 via-white to-purple-50 px-4 py-16 lg:py-24">
+      <section className="relative overflow-hidden border-b border-slate-200 bg-gradient-to-br from-primary/10 via-white to-primary/5 px-4 py-16 lg:py-24">
         {/* Decorative elements */}
         <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))] -z-10" />
-        <div className="absolute right-0 top-0 h-96 w-96 bg-violet-200 rounded-full blur-3xl opacity-20 -z-10" />
-        <div className="absolute left-0 bottom-0 h-96 w-96 bg-purple-200 rounded-full blur-3xl opacity-20 -z-10" />
+        <div className="absolute right-0 top-0 h-96 w-96 bg-primary/20 rounded-full blur-3xl opacity-20 -z-10" />
+        <div className="absolute left-0 bottom-0 h-96 w-96 bg-primary/30 rounded-full blur-3xl opacity-20 -z-10" />
 
         <div className="container-wide relative">
           <div className="mx-auto max-w-4xl text-center">
             {/* Badge */}
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-white border border-violet-200 px-4 py-2 shadow-sm">
-              <Sparkles size={16} className="text-violet-600" />
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-white border border-primary/20 px-4 py-2 shadow-sm">
+              <Sparkles size={16} className="text-primary" />
               <span className="text-sm font-semibold text-slate-700">Premium Creator Marketplace</span>
             </div>
 
             {/* Heading */}
             <h1 className="text-5xl font-bold tracking-tight text-slate-950 sm:text-6xl lg:text-7xl">
               Learn from the{" "}
-              <span className="bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                 best creators
               </span>
             </h1>
@@ -78,8 +78,8 @@ const Creators = () => {
             {/* Stats */}
             <div className="mt-10 flex flex-wrap items-center justify-center gap-8 text-sm">
               <div className="flex items-center gap-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100">
-                  <Users size={18} className="text-violet-600" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                  <Users size={18} className="text-primary" />
                 </div>
                 <div className="text-left">
                   <div className="font-bold text-slate-900">{stats.creators}+</div>
@@ -120,7 +120,7 @@ const Creators = () => {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search creators by name, niche, or expertise..."
-                className="w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 py-4 text-sm shadow-sm outline-none transition focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
+                className="w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 py-4 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
               />
             </div>
 
@@ -132,7 +132,7 @@ const Creators = () => {
                   onClick={() => setTopic(chip)}
                   className={`rounded-full px-5 py-2 text-sm font-medium transition-all ${
                     topic === chip
-                      ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-md shadow-violet-200"
+                      ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-md shadow-primary/20"
                       : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                   }`}
                 >
@@ -185,7 +185,7 @@ const Creators = () => {
               <Link
                 key={creator.user_id}
                 to={`/profile/${creator.profile_slug || creator.user_id}`}
-                className="group relative flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-violet-100"
+                className="group relative flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 {/* Verified Badge */}
@@ -201,14 +201,14 @@ const Creators = () => {
                     <ProfileAvatar 
                       src={creator.avatar_url} 
                       name={creator.full_name} 
-                      className="h-16 w-16 shrink-0 ring-2 ring-slate-100 group-hover:ring-violet-200 transition" 
+                      className="h-16 w-16 shrink-0 ring-2 ring-slate-100 group-hover:ring-primary/20 transition" 
                     />
-                    <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-violet-600 shadow-md">
+                    <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-primary shadow-md">
                       <Play size={10} className="text-white fill-white ml-0.5" />
                     </div>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="truncate font-bold text-slate-900 group-hover:text-violet-700 transition">
+                    <h3 className="truncate font-bold text-slate-900 group-hover:text-primary transition">
                       {creator.full_name || "Unnamed Creator"}
                     </h3>
                     <p className="truncate text-sm text-slate-500">
@@ -228,7 +228,7 @@ const Creators = () => {
                     {creator.country || "Global"}
                   </span>
                   {creator.specialization && (
-                    <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700">
+                    <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
                       {creator.specialization}
                     </span>
                   )}
@@ -241,7 +241,7 @@ const Creators = () => {
                     <span className="text-sm font-bold text-slate-900">{Number(creator.rating || 5).toFixed(1)}</span>
                     <span className="text-xs text-slate-400">({creator.review_count || 0})</span>
                   </div>
-                  <span className="flex items-center gap-1.5 text-sm font-semibold text-violet-600 group-hover:gap-2 transition-all">
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-primary group-hover:gap-2 transition-all">
                     View profile <ArrowRight size={14} />
                   </span>
                 </div>
@@ -252,19 +252,19 @@ const Creators = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="border-t border-slate-200 bg-gradient-to-br from-violet-600 to-purple-600 px-4 py-16 lg:py-20">
+      <section className="border-t border-slate-200 bg-gradient-to-br from-primary to-primary/80 px-4 py-16 lg:py-20">
         <div className="container-wide text-center">
           <TrendingUp size={48} className="mx-auto mb-6 text-white/80" />
           <h2 className="text-3xl font-bold text-white sm:text-4xl">
             Ready to share your expertise?
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-violet-100">
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-white/90">
             Join our community of creators and start earning by teaching what you love. 
             Build your audience and make an impact.
           </p>
           <Link
             to="/signup"
-            className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-8 py-4 font-semibold text-violet-600 shadow-xl transition hover:scale-105 hover:shadow-2xl"
+            className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-8 py-4 font-semibold text-primary shadow-xl transition hover:scale-105 hover:shadow-2xl"
           >
             Become a Creator <ArrowRight size={18} />
           </Link>

@@ -38,6 +38,7 @@ const Login = () => {
   // falling back to primaryRole only if profile.role isn't set yet.
   const getDestination = () => {
     if (typeof location.state?.from === "string") return location.state.from;
+    // If onboarding not completed, always go to onboarding
     if (profile && !profile.onboarding_completed) return "/onboarding";
     const role = profile?.role || primaryRole || "learner";
     return roleToDashboardPath(role);
