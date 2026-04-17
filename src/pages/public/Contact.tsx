@@ -20,8 +20,9 @@ import {
   Loader2, Paperclip, X, ShieldCheck, Zap, Users,
 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
-const FORM_ENDPOINT = "https://formsubmit.co/davikdigitals@gmail.com";
+const SUPPORT_EMAIL = "support@coursevia.com";
 
 const subjectOptions = [
   { value: "Support",          label: "Support" },
@@ -115,44 +116,58 @@ const Contact = () => {
     setLoading(true);
 
     try {
-      // FormSubmit requires multipart/form-data — do NOT set Content-Type header manually
-      const formData = new FormData();
-      formData.append("name",           fullName.trim());
-      formData.append("email",          email.trim());
-      formData.append("_replyto",       email.trim());
-      formData.append("subject",        `[Coursevia] ${subject} — from ${fullName.trim()}`);
-      formData.append("message",        message.trim());
-      formData.append("_captcha",       "false");
-      formData.append("_template",      "table");
-      formData.append("_next",          window.location.href);
-      formData.append("_autoresponse",
-        `Hi ${fullName.trim()},\n\nThank you for reaching out to Coursevia. We've received your message and our team will respond within 24 hours.\n\nBest regards,\nCoursevia Support Team`
-      );
-      if (attachment) formData.append("attachment", attachment);
+      // 1. Save to support_conversations so agents can see it in the dashboard
+      const { data: conv, error: convError } = await supabase
+        .from("support_conversations" as any)
+        .insert({
+          user_id: user?.id || null,
+          user_name: fullName.trim(),
+          user_email: email.trim(),
+          status: "open",
+          priority: "normal",
+          subject: `[${subject}] ${fullName.trim()}`,
+          department: subject.toLowerCase().replace(/\s+/g, "_"),
+          tags: [subject.toLowerCase()],
+        })
+        .select("id")
+        .single();
 
-      // Use no-cors mode to avoid CORS preflight issues with FormSubmit
-      const res = await fetch(FORM_ENDPOINT, {
-        method: "POST",
-        body: formData,
-      });
+      if (convError) throw convError;
 
-      // FormSubmit returns 200 on success even with redirect
-      if (res.ok || res.type === "opaque") {
-        setSent(true);
-        setMessage("");
-        setSubject("");
-        setAttachment(null);
-        toast.success("Message sent! We'll get back to you shortly.");
-      } else {
-        throw new Error("Submission failed");
+      // 2. Save the message
+      if (conv?.id) {
+        await supabase.from("support_messages" as any).insert({
+          conversation_id: conv.id,
+          sender_name: fullName.trim(),
+          role: "user",
+          text: `From: ${email.trim()}\nSubject: ${subject}\n\n${message.trim()}`,
+          read: false,
+        });
       }
-    } catch {
-      // FormSubmit sometimes throws due to redirect — treat as success if form was valid
+
+      // 3. Also try sending via backend email notification (non-blocking)
+      try {
+        await fetch(`${import.meta.env.VITE_BACKEND_URL || "https://coursevia-backend.onrender.com"}/api/notifications/contact`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: fullName.trim(),
+            email: email.trim(),
+            subject,
+            message: message.trim(),
+          }),
+        });
+      } catch { /* email is optional — don't block */ }
+
       setSent(true);
       setMessage("");
       setSubject("");
       setAttachment(null);
-      toast.success("Message sent! We'll get back to you shortly.");
+      toast.success("Message sent! We'll get back to you within 24 hours.");
+    } catch (err: any) {
+      console.error("Contact form error:", err);
+      // Fallback: even if Supabase fails, show success and log it
+      toast.error("Failed to send message. Please email us directly at " + SUPPORT_EMAIL);
     } finally {
       setLoading(false);
     }
