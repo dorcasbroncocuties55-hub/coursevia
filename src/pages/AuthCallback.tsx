@@ -81,10 +81,15 @@ const AuthCallback = () => {
         const onboardingDone = finalProfile?.onboarding_completed === true;
         const role = finalProfile?.role || existingRole?.role || "learner";
 
+        console.log("AuthCallback: onboarding_completed =", onboardingDone, "role =", role);
+
         if (!onboardingDone) {
+          console.log("AuthCallback: Redirecting to /onboarding");
           window.location.href = "/onboarding";
         } else {
-          window.location.href = roleToDashboardPath(role as any);
+          const dashboardPath = roleToDashboardPath(role as any);
+          console.log("AuthCallback: Redirecting to", dashboardPath);
+          window.location.href = dashboardPath;
         }
       } catch (err: any) {
         console.error("AuthCallback error:", err);

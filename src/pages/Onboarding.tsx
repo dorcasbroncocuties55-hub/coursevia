@@ -575,6 +575,18 @@ const Onboarding = () => {
 
   const [loading, setLoading] = useState(false);
   const [didInitializeRole, setDidInitializeRole] = useState(false);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+
+  // Timeout fallback if auth loading takes too long
+  useEffect(() => {
+    if (authLoading) {
+      const timer = setTimeout(() => {
+        console.warn("Auth loading timeout - forcing render");
+        setLoadingTimeout(true);
+      }, 5000); // 5 second timeout
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading]);
 
   const currentSpecializationConfig = useMemo(
     () => specializationConfig[selectedRole],
@@ -1468,18 +1480,30 @@ const Onboarding = () => {
     return "Complete your account";
   }, [isLearner, isCoach, isTherapist, isCreator, step]);
 
-  // Show loading while auth is initializing
-  if (authLoading) {
+  // Show loading while auth is initializing (with timeout)
+  if (authLoading && !loadingTimeout) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+          <p className="text-sm text-muted-foreground">Loading your profile...</p>
+        </div>
       </div>
     );
   }
 
   // Redirect if no user
   if (!user) {
+    console.log("Onboarding: No user, redirecting to login");
     navigate("/login", { replace: true });
+    return null;
+  }
+
+  // If onboarding is already completed, redirect to dashboard
+  if (profile?.onboarding_completed) {
+    console.log("Onboarding: Already completed, redirecting to dashboard");
+    const role = profile.role || "learner";
+    navigate(roleToDashboardPath(role as any), { replace: true });
     return null;
   }
 
