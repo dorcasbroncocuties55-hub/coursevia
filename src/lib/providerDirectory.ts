@@ -452,34 +452,48 @@ export const detectLocation = async (): Promise<GeolocationResult> => {
   if (typeof window === "undefined") {
     return { ok: false, error: "Window is not available." };
   }
-  if (!("geolocation" in navigator)) {
-    return { ok: false, error: "Geolocation is not supported on this device/browser.", inferredCountry: inferCountryFromBrowser() };
+
+  // ── 1. Try IP-based geolocation first (no permission needed, works everywhere) ──
+  try {
+    const res = await Promise.race([
+      fetch("https://ipapi.co/json/", { headers: { "Accept": "application/json" } }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 4000)),
+    ]) as Response;
+    if (res.ok) {
+      const data = await res.json();
+      const countryName = data.country_name as string | undefined;
+      if (countryName) {
+        const match = DIRECTORY_COUNTRIES.find(c =>
+          c.name.toLowerCase() === countryName.toLowerCase()
+        );
+        if (match) {
+          return { ok: true, inferredCountry: match.name };
+        }
+      }
+    }
+  } catch {}
+
+  // ── 2. Try browser geolocation (requires permission) ──
+  if ("geolocation" in navigator) {
+    const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    const isSecure = window.location.protocol === "https:";
+    if (isSecure || isLocalhost) {
+      const geoResult = await new Promise<GeolocationResult>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => resolve({ ok: true, latitude: position.coords.latitude, longitude: position.coords.longitude, inferredCountry: inferCountryFromBrowser() }),
+          (err) => {
+            const inferredCountry = inferCountryFromBrowser();
+            if (err.code === 1) return resolve({ ok: false, error: "Location permission denied.", inferredCountry });
+            resolve({ ok: false, error: "Could not get location.", inferredCountry });
+          },
+          { enableHighAccuracy: false, timeout: 6000, maximumAge: 600000 },
+        );
+      });
+      if (geoResult.ok || geoResult.inferredCountry) return geoResult;
+    }
   }
 
-  const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-  const isSecure = window.location.protocol === "https:";
-  if (!isSecure && !isLocalhost) {
-    return { ok: false, error: "Geolocation requires HTTPS outside local development.", inferredCountry: inferCountryFromBrowser() };
-  }
-
-  return new Promise<GeolocationResult>((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          ok: true,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          inferredCountry: inferCountryFromBrowser(),
-        });
-      },
-      (err) => {
-        const inferredCountry = inferCountryFromBrowser();
-        if (err.code === 1) return resolve({ ok: false, error: "Location permission was denied.", inferredCountry });
-        if (err.code === 2) return resolve({ ok: false, error: "Location is unavailable.", inferredCountry });
-        if (err.code === 3) return resolve({ ok: false, error: "Location request timed out.", inferredCountry });
-        resolve({ ok: false, error: "Could not get your location.", inferredCountry });
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
-    );
-  });
+  // ── 3. Fallback: timezone inference ──
+  const inferredCountry = inferCountryFromBrowser();
+  return { ok: false, error: "Could not determine location.", inferredCountry };
 };

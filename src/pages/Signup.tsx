@@ -90,8 +90,8 @@ const Signup = () => {
       if (error) throw error;
 
       if (data.session) {
-        await refreshAll?.();
-        toast.success("Account created successfully");
+        // Don't wait for refreshAll — navigate immediately, AuthContext will sync
+        toast.success("Account created successfully!");
         navigate("/onboarding", { replace: true });
         return;
       }

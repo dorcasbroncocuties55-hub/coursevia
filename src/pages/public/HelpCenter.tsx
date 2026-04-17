@@ -220,61 +220,120 @@ const ChatWidget = () => {
     const dept = detectDepartment(text);
     setDepartment(dept);
 
+    // If already escalated to human agent — just save message, agent sees it live
     if (escalated) {
-      if (convId) await saveMsg(convId, "user", text, profile?.full_name || user?.email || "Guest");
+      if (convId) {
+        saveMsg(convId, "user", text, profile?.full_name || user?.email || "Guest");
+      } else {
+        // No conv yet — create one and save
+        const cid = await ensureConv("high", `${dept} support`);
+        if (cid) saveMsg(cid, "user", text, profile?.full_name || user?.email || "Guest");
+      }
       return;
     }
 
     setTyping(true);
-    await new Promise(r => setTimeout(r, 700 + Math.random() * 500));
+    // Human-like typing delay
+    await new Promise(r => setTimeout(r, 600 + Math.random() * 400));
     setTyping(false);
 
-    const ctx: BotContext = { userId: user?.id, userEmail: user?.email || undefined, userName: profile?.full_name || undefined };
-    const result = await getIntelligentReply(text, ctx);
+    let result: { text: string; action?: string } = {
+      text: "I'm here to help! Could you give me a bit more detail about your issue?",
+    };
+
+    try {
+      const ctx: BotContext = {
+        userId: user?.id,
+        userEmail: user?.email || undefined,
+        userName: profile?.full_name || undefined,
+      };
+      result = await getIntelligentReply(text, ctx);
+    } catch (err) {
+      console.error("Bot error:", err);
+      result = { text: "I ran into a small issue processing that. Could you rephrase your question? Or I can connect you with a human agent right now." };
+    }
+
     addMsg("bot", result.text);
 
+    // Auto-escalate if bot says so
     if (result.action?.startsWith("escalate")) {
       const deptId = result.action.replace("escalate_", "") || dept;
-      setTimeout(() => escalateToAgent(deptId), 1200);
+      setTimeout(() => escalateToAgent(deptId), 1000);
       return;
     }
 
-    const cid = await ensureConv("normal", `${dept} support`);
-    if (cid) {
-      await saveMsg(cid, "user", text, profile?.full_name || user?.email || "Guest");
-      await saveMsg(cid, "bot", result.text, "AI Assistant");
-    }
+    // Save conversation to DB (fire and forget — don't block UI)
+    ensureConv("normal", `${dept} support`).then(cid => {
+      if (cid) {
+        saveMsg(cid, "user", text, profile?.full_name || user?.email || "Guest");
+        saveMsg(cid, "bot", result.text, "AI Assistant");
+      }
+    });
   };
 
   const escalateToAgent = async (deptId?: string) => {
     const dept = deptId || department;
     setEscalated(true);
     const deptLabel = DEPARTMENTS.find(d => d.id === dept)?.label || "Support";
-    addMsg("bot", `Connecting you to our ${deptLabel} team... 👨‍💻 A human agent will be with you shortly. Keep typing — they'll see everything.`);
+    addMsg("bot", `Connecting you to our ${deptLabel} team... 👨‍💻 A human agent will be with you shortly. You can keep typing — they'll see everything.`);
 
     try {
       let cid = convId;
+
       if (!cid) {
-        const { data } = await supabase.from("support_conversations" as any).insert({
+        // Create new conversation
+        const { data, error } = await supabase.from("support_conversations" as any).insert({
           user_id: user?.id || null,
           user_name: profile?.full_name || user?.email || "Guest",
           user_email: user?.email || null,
-          status: "open", priority: "high",
+          status: "open",
+          priority: "high",
           subject: `${deptLabel} - Live chat`,
           department: dept,
           tags: [dept, "live-chat"],
         }).select("id").single();
-        if (data?.id) { cid = data.id; setConvId(data.id); }
-      } else {
-        await supabase.from("support_conversations" as any).update({ priority: "high", department: dept, status: "open", updated_at: new Date().toISOString() }).eq("id", cid);
-      }
-      if (cid) {
-        for (const m of msgs) {
-          await saveMsg(cid, m.role, m.text, m.role === "user" ? (profile?.full_name || user?.email || "Guest") : m.role === "agent" ? (agentName || "Agent") : "AI Assistant");
+
+        if (error) throw error;
+        if (data?.id) {
+          cid = data.id;
+          setConvId(data.id);
         }
-        await saveMsg(cid, "bot", `🔔 User requested human agent. Department: ${deptLabel}. User: ${profile?.full_name || user?.email || "Guest"}`, "System");
+      } else {
+        // Update existing conversation to high priority
+        await supabase.from("support_conversations" as any).update({
+          priority: "high",
+          department: dept,
+          status: "open",
+          updated_at: new Date().toISOString(),
+        }).eq("id", cid);
       }
-    } catch {}
+
+      if (cid) {
+        // Save full chat history so agent sees context
+        const currentMsgs = msgs.filter(m => !m.text.includes("Connecting you to our"));
+        for (const m of currentMsgs) {
+          await saveMsg(
+            cid,
+            m.role,
+            m.text,
+            m.role === "user"
+              ? (profile?.full_name || user?.email || "Guest")
+              : m.role === "agent"
+              ? (agentName || "Agent")
+              : "AI Assistant"
+          );
+        }
+        // System alert for agents
+        await saveMsg(cid, "bot",
+          `🔔 LIVE CHAT — User needs human support\nDepartment: ${deptLabel}\nUser: ${profile?.full_name || user?.email || "Guest"}\nEmail: ${user?.email || "Not signed in"}`,
+          "System"
+        );
+      }
+    } catch (err) {
+      console.error("Escalation error:", err);
+      addMsg("bot", "I had trouble connecting you. Please try the department buttons above or email support@coursevia.com directly.");
+      setEscalated(false);
+    }
   };
 
   return (

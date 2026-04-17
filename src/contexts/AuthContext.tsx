@@ -284,6 +284,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (syncingRef.current) return;
     syncingRef.current = true;
 
+    // Hard timeout — never block UI for more than 5 seconds
+    const timeout = setTimeout(() => {
+      syncingRef.current = false;
+      setLoading(false);
+    }, 5000);
+
     try {
       setSession(nextSession ?? null);
       setUser(nextSession?.user ?? null);
@@ -315,6 +321,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("syncAuthState error:", err);
     } finally {
+      clearTimeout(timeout);
       syncingRef.current = false;
     }
   };
@@ -336,17 +343,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    setLoading(true);
     clearStoredRequestedRole();
-
-    try {
-      await supabase.auth.signOut({ scope: "local" });
-    } catch (error) {
-      console.error("logout error:", error);
-    }
-
     clearAuthState();
-    setLoading(false);
+    // Sign out in background — don't block UI
+    supabase.auth.signOut({ scope: "local" }).catch(() => {});
     window.location.href = "/login";
   };
 

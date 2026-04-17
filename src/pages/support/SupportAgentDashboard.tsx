@@ -270,8 +270,9 @@ const SupportAgentDashboard = () => {
   };
 
   const logout = async () => {
-    if (agentId) await supabase.from("support_agents" as any).update({ is_online: false }).eq("id", agentId);
-    await supabase.auth.signOut();
+    // Fire-and-forget — don't block UI
+    if (agentId) supabase.from("support_agents" as any).update({ is_online: false }).eq("id", agentId).then(() => {});
+    supabase.auth.signOut().then(() => {});
     navigate("/support-agent", { replace: true });
   };
 
