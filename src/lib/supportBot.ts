@@ -297,9 +297,10 @@ export const getIntelligentReply = async (
   }
 
   // ── Contact / speak to human ───────────────────────────────────────────────
-  if (lower.includes("speak to") || lower.includes("talk to") || lower.includes("human") || lower.includes("real person") || lower.includes("agent") || lower.includes("support team")) {
+  if (lower.includes("speak to") || lower.includes("talk to") || lower.includes("human") || lower.includes("real person") || lower.includes("agent") || lower.includes("support team") || lower.includes("connect me")) {
     return {
-      text: `Of course! I'll connect you with a human agent right now. 👨‍💻\n\nWhich department do you need?\n• 💳 Billing & Payments\n• 💰 Refunds\n• 🔧 Technical Support\n• 👤 Account & Security\n\nOr just click one of the department buttons above and I'll route you there instantly.`,
+      text: `Connecting you to a human agent now... 👨‍💻`,
+      action: "escalate_general",
     };
   }
 

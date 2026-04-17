@@ -219,22 +219,32 @@ const ChatWidget = () => {
     addMsg("user", text);
     const dept = detectDepartment(text);
     setDepartment(dept);
+    const lower = text.toLowerCase();
 
-    // If already escalated to human agent — just save message, agent sees it live
+    // If already escalated — just forward to agent
     if (escalated) {
-      if (convId) {
-        saveMsg(convId, "user", text, profile?.full_name || user?.email || "Guest");
-      } else {
-        // No conv yet — create one and save
+      if (convId) saveMsg(convId, "user", text, profile?.full_name || user?.email || "Guest");
+      else {
         const cid = await ensureConv("high", `${dept} support`);
         if (cid) saveMsg(cid, "user", text, profile?.full_name || user?.email || "Guest");
       }
       return;
     }
 
+    // ── Direct escalation triggers — no bot needed ──
+    const escalationPhrases = [
+      "connect me", "connect me to", "talk to human", "talk to agent",
+      "speak to human", "speak to agent", "real person", "human agent",
+      "live agent", "live support", "transfer me", "escalate",
+      "i need help", "urgent", "not working", "still broken",
+    ];
+    if (escalationPhrases.some(p => lower.includes(p))) {
+      escalateToAgent(dept);
+      return;
+    }
+
     setTyping(true);
-    // Human-like typing delay
-    await new Promise(r => setTimeout(r, 600 + Math.random() * 400));
+    await new Promise(r => setTimeout(r, 500 + Math.random() * 400));
     setTyping(false);
 
     let result: { text: string; action?: string } = {
@@ -250,19 +260,19 @@ const ChatWidget = () => {
       result = await getIntelligentReply(text, ctx);
     } catch (err) {
       console.error("Bot error:", err);
-      result = { text: "I ran into a small issue processing that. Could you rephrase your question? Or I can connect you with a human agent right now." };
+      result = { text: "I had a small hiccup. Could you rephrase? Or I can connect you with a human agent right now — just say 'connect me'." };
     }
 
     addMsg("bot", result.text);
 
-    // Auto-escalate if bot says so
+    // Auto-escalate if bot returns an action
     if (result.action?.startsWith("escalate")) {
       const deptId = result.action.replace("escalate_", "") || dept;
-      setTimeout(() => escalateToAgent(deptId), 1000);
+      setTimeout(() => escalateToAgent(deptId), 800);
       return;
     }
 
-    // Save conversation to DB (fire and forget — don't block UI)
+    // Save to DB in background
     ensureConv("normal", `${dept} support`).then(cid => {
       if (cid) {
         saveMsg(cid, "user", text, profile?.full_name || user?.email || "Guest");
