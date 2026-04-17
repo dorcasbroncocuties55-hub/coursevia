@@ -524,7 +524,7 @@ const getDashboardRoute = (role: RoleOption) => roleToDashboardPath(role);
 
 const Onboarding = () => {
   const navigate = useNavigate();
-  const { user, profile, refreshProfile, refreshRoles, refreshAll } = useAuth();
+  const { user, profile, refreshProfile, refreshRoles, refreshAll, loading: authLoading } = useAuth();
 
   const [selectedRole, setSelectedRole] = useState<RoleOption>("learner");
   const [step, setStep] = useState(1);
@@ -1467,6 +1467,21 @@ const Onboarding = () => {
 
     return "Complete your account";
   }, [isLearner, isCoach, isTherapist, isCreator, step]);
+
+  // Show loading while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  // Redirect if no user
+  if (!user) {
+    navigate("/login", { replace: true });
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.10),_transparent_35%),linear-gradient(180deg,#f8fafc_0%,#ffffff_48%,#f8fafc_100%)] px-4 py-10">
