@@ -13,6 +13,8 @@ import {
   ChevronRight, ThumbsUp, ThumbsDown, MessageCircle, X, Send,
   Bot, User, Loader2, ArrowRight, HelpCircle, Zap,
 } from "lucide-react";
+import { getIntelligentReply, detectDepartment, DEPARTMENTS } from "@/lib/supportBot";
+import type { BotContext } from "@/lib/supportBot";
 
 // ─── HELP DATA ────────────────────────────────────────────────────────────────
 
@@ -147,121 +149,7 @@ const articles: Article[] = [
   },
 ];
 
-// ─── CHAT BOT ─────────────────────────────────────────────────────────────────
-
-// ─── DEPARTMENTS ──────────────────────────────────────────────────────────────
-const DEPARTMENTS = [
-  { id: "billing",   label: "💳 Billing",    keywords: ["payment","pay","charge","invoice","billing","subscription","plan","cancel","refund","money","price","cost","fee"] },
-  { id: "technical", label: "🔧 Technical",  keywords: ["error","bug","crash","not working","broken","loading","blank","slow","video","playback","upload","fail"] },
-  { id: "refunds",   label: "💰 Refunds",    keywords: ["refund","money back","return","reimburse","chargeback"] },
-  { id: "account",   label: "👤 Account",    keywords: ["account","login","password","email","profile","delete","banned","locked","access","sign in","sign up"] },
-  { id: "general",   label: "💬 General",    keywords: [] },
-];
-
-const detectDepartment = (text: string): string => {
-  const lower = text.toLowerCase();
-  for (const dept of DEPARTMENTS) {
-    if (dept.keywords.some(k => lower.includes(k))) return dept.id;
-  }
-  return "general";
-};
-
-type BotContext = { userId?: string; userEmail?: string; userName?: string };
-
-const getIntelligentReply = async (msg: string, ctx: BotContext): Promise<{ text: string; action?: string }> => {
-  const lower = msg.toLowerCase();
-  const dept = detectDepartment(msg);
-
-  if (/^(hi|hello|hey|good morning|good afternoon|howdy)\b/.test(lower)) {
-    const name = ctx.userName?.split(" ")[0] || "";
-    return { text: `Hey${name ? ` ${name}` : ""}! 👋 I'm Coursevia's AI assistant. I can look up your account, check payments, and solve most issues instantly. What's going on?` };
-  }
-
-  if (dept === "refunds" || lower.includes("refund")) {
-    if (ctx.userId) {
-      try {
-        const { data: payments } = await supabase.from("payments").select("id,amount,status,payment_type,created_at").eq("payer_id", ctx.userId).eq("status","success").order("created_at",{ascending:false}).limit(3);
-        if (payments && payments.length > 0) {
-          const latest = payments[0] as any;
-          const daysSince = Math.floor((Date.now() - new Date(latest.created_at).getTime()) / 86400000);
-          if (daysSince <= 7) {
-            return { text: `I can see your most recent payment of $${latest.amount} made ${daysSince} day${daysSince !== 1 ? "s" : ""} ago. You're within the 7-day refund window! ✅\n\nTo request a refund:\n1. Go to Dashboard → Payments\n2. Click "Request Refund" next to the payment\n3. Select a reason and submit\n\nOur team reviews within 24–48 hours. Want me to connect you with our Refunds team?` };
-          } else {
-            return { text: `Your last payment was ${daysSince} days ago — outside the standard 7-day window. However, we review exceptions case-by-case.\n\nI'm connecting you with our Refunds team now.`, action: "escalate_refunds" };
-          }
-        }
-      } catch {}
-    }
-    return { text: "To request a refund, go to Dashboard → Payments → click 'Request Refund'. Refunds are reviewed within 24–48 hours. Are you signed in? If so, I can look up your payments directly." };
-  }
-
-  if (lower.includes("password") || lower.includes("forgot") || lower.includes("can't log in") || lower.includes("locked out")) {
-    if (ctx.userId) return { text: `Since you're already signed in, your account is active. ✅\n\nIf you need to reset your password:\n1. Go to the login page\n2. Click "Forgot Password"\n3. Enter your email (${ctx.userEmail || "your registered email"})\n4. Check your inbox for the reset link` };
-    return { text: `To reset your password:\n1. Go to the login page\n2. Click "Forgot Password"\n3. Enter your email address\n4. Check your inbox (and spam folder)\n\nThe link expires in 1 hour. Still having trouble? I can connect you with our Account team.` };
-  }
-
-  if (lower.includes("can't access") || lower.includes("course not showing") || lower.includes("purchased") || lower.includes("not in my courses")) {
-    if (ctx.userId) {
-      try {
-        const { data: purchases } = await supabase.from("payments").select("id,amount,payment_type,status,created_at").eq("payer_id", ctx.userId).eq("payment_type","course").eq("status","success").order("created_at",{ascending:false}).limit(5);
-        if (purchases && purchases.length > 0) {
-          return { text: `I can see ${purchases.length} course purchase${purchases.length > 1 ? "s" : ""} on your account. ✅\n\nIf a course isn't showing:\n1. Go to Dashboard → My Courses\n2. Try logging out and back in\n3. Clear your browser cache\n\nStill missing? I'll escalate to our Technical team with your purchase details.` };
-        } else {
-          return { text: `I don't see any completed course purchases on your account. This could mean:\n• The payment is still processing\n• The payment didn't complete\n\nCheck Dashboard → Payments to see your payment status. If you were charged but don't have access, I'll connect you with Billing right away.` };
-        }
-      } catch {}
-    }
-    return { text: "To access your courses, go to Dashboard → My Courses. If a purchased course isn't showing, try logging out and back in. Still having issues? I can connect you with our Technical team." };
-  }
-
-  if (lower.includes("subscription") || lower.includes("cancel") || lower.includes("plan") || lower.includes("membership")) {
-    if (ctx.userId) {
-      try {
-        const { data: sub } = await supabase.from("subscriptions").select("plan,status,ends_at").eq("user_id", ctx.userId).maybeSingle();
-        if (sub) {
-          const endsAt = (sub as any).ends_at ? new Date((sub as any).ends_at).toLocaleDateString() : "unknown";
-          return { text: `Your subscription: ${(sub as any).plan} plan — Status: ${(sub as any).status}${(sub as any).ends_at ? ` (renews ${endsAt})` : ""}.\n\nTo manage: Dashboard → Subscription. You can cancel anytime — access continues until the billing period ends.` };
-        }
-      } catch {}
-    }
-    return { text: "Manage your subscription from Dashboard → Subscription. You can cancel anytime — access continues until the end of your billing period." };
-  }
-
-  if (lower.includes("wallet") || lower.includes("withdraw") || lower.includes("payout") || lower.includes("earnings") || lower.includes("balance")) {
-    if (ctx.userId) {
-      try {
-        const { data: wallet } = await supabase.from("wallets").select("balance,available_balance,pending_balance").eq("user_id", ctx.userId).maybeSingle();
-        if (wallet) {
-          return { text: `Your wallet:\n• Available: $${(wallet as any).available_balance || 0}\n• Pending: $${(wallet as any).pending_balance || 0}\n• Total: $${(wallet as any).balance || 0}\n\nFunds become available after 8 days. To withdraw: Dashboard → Withdrawals.` };
-        }
-      } catch {}
-    }
-    return { text: "To withdraw earnings:\n1. Dashboard → Bank Accounts — add your bank\n2. Dashboard → Withdrawals — enter amount\n\nFunds take 3–5 business days. Pending balance becomes available after 8 days." };
-  }
-
-  if (lower.includes("booking") || lower.includes("session") || lower.includes("appointment")) {
-    if (ctx.userId) {
-      try {
-        const { data: bookings } = await supabase.from("bookings").select("id,status,scheduled_at").eq("learner_id", ctx.userId).order("created_at",{ascending:false}).limit(3);
-        if (bookings && bookings.length > 0) {
-          return { text: `I can see ${bookings.length} booking${bookings.length > 1 ? "s" : ""} on your account.\n\nFor booking issues, go to Dashboard → Bookings. What specifically is the problem?` };
-        }
-      } catch {}
-    }
-    return { text: "For booking issues, go to Dashboard → Bookings. You can view, manage, and join sessions from there. Need more help?" };
-  }
-
-  if (lower.includes("upload") || lower.includes("creator") || lower.includes("publish")) {
-    return { text: "To upload content:\n1. Creator Dashboard → Upload Video\n2. Add title, description, price\n3. Upload your video (MP4/MOV, max 2GB)\n4. Click Publish\n\nIf upload is failing, check file size is under 2GB and your connection is stable." };
-  }
-
-  if (/^(thanks|thank you|thx|ty|great|perfect|awesome|solved|got it)\b/.test(lower)) {
-    return { text: "You're welcome! 😊 Is there anything else I can help you with?" };
-  }
-
-  const deptLabel = DEPARTMENTS.find(d => d.id === dept)?.label || "Support";
-  return { text: `I want to make sure I give you the right help. This looks like a ${deptLabel} issue.\n\nCould you give me a bit more detail?\n• What exactly happened?\n• When did it start?\n\nOr I can connect you directly with our ${deptLabel} team right now.` };
-};
+// ─── BOT ──────────────────────────────────────────────────────────────────────
 
 type ChatMsg = { id: string; role: "user" | "bot" | "agent"; text: string; ts: Date };
 
