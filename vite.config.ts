@@ -9,30 +9,8 @@ const ensureRedirects = () => ({
   closeBundle() {
     const indexHtml = fs.readFileSync("dist/index.html");
     
-    // _redirects — for Netlify and Render static sites
-    const redirectsContent = "/*    /index.html   200\n";
-    fs.writeFileSync("dist/_redirects", redirectsContent);
-    console.log("✓ _redirects written to dist");
-    
-    // 200.html — Render serves this for all unmatched routes
-    fs.writeFileSync("dist/200.html", indexHtml);
-    console.log("✓ 200.html written to dist");
-    
-    // 404.html — must be index.html so React Router handles the route
-    fs.writeFileSync("dist/404.html", indexHtml);
-    console.log("✓ 404.html written to dist");
-    
-    // Also copy netlify.toml if it exists
-    if (fs.existsSync("netlify.toml")) {
-      fs.copyFileSync("netlify.toml", "dist/netlify.toml");
-      console.log("✓ netlify.toml copied to dist");
-    }
-    
-    // Copy _headers for Render
-    if (fs.existsSync("public/_headers")) {
-      fs.copyFileSync("public/_headers", "dist/_headers");
-      console.log("✓ _headers copied to dist");
-    }
+    // Not needed for Render Web Service with Node.js server
+    // The server.js handles all routing
   },
 });
 

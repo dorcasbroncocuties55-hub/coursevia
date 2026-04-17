@@ -11,8 +11,8 @@ const PORT = process.env.PORT || 10000;
 // Serve static files from dist folder
 app.use(express.static(join(__dirname, 'dist')));
 
-// SPA fallback - serve index.html for all routes
-app.get('/*', (req, res) => {
+// SPA fallback - serve index.html for all non-static routes
+app.use((req, res) => {
   res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 
