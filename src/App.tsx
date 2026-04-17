@@ -138,67 +138,8 @@ const HelpCenter = lazy(() => import("./pages/public/StaticPages").then(m => ({ 
 
 import Preloader from "@/components/Preloader";
 
-const PageLoader = () => (
-  <div
-    className="fixed inset-0 z-50 flex flex-col items-center justify-center"
-    style={{ background: "linear-gradient(135deg, #0a0a0a 0%, #111827 50%, #0a0a0a 100%)" }}
-  >
-    {/* Grid */}
-    <div className="absolute inset-0 opacity-10"
-      style={{
-        backgroundImage: `linear-gradient(rgba(16,185,129,0.3) 1px, transparent 1px),
-                          linear-gradient(90deg, rgba(16,185,129,0.3) 1px, transparent 1px)`,
-        backgroundSize: "60px 60px",
-      }}
-    />
-    {/* Orb */}
-    <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full opacity-20 blur-3xl animate-pulse"
-      style={{ background: "radial-gradient(circle, #10b981, transparent)" }} />
-
-    <div className="relative z-10 flex flex-col items-center gap-5">
-      {/* Logo */}
-      <div className="relative">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-2xl"
-          style={{ background: "linear-gradient(135deg, #10b981, #0d9488)" }}>
-          <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
-            <path d="M8 20C8 13.373 13.373 8 20 8s12 5.373 12 12-5.373 12-12 12S8 26.627 8 20z"
-              stroke="white" strokeWidth="2.5" fill="none" />
-            <path d="M14 20l4 4 8-8" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
-        <div className="absolute -inset-2 rounded-[24px] border-2 border-transparent animate-spin"
-          style={{ borderTopColor: "#10b981", animationDuration: "1.2s" }} />
-        <div className="absolute inset-0 rounded-2xl blur-xl opacity-60"
-          style={{ background: "linear-gradient(135deg, #10b981, #0d9488)" }} />
-      </div>
-
-      {/* Name */}
-      <h1 className="text-4xl font-black tracking-tight"
-        style={{
-          background: "linear-gradient(135deg, #ffffff 0%, #d1fae5 40%, #10b981 100%)",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          backgroundClip: "text",
-        }}>
-        Coursevia
-      </h1>
-
-      {/* Animated bar */}
-      <div className="w-40 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
-        <div className="h-full rounded-full animate-pulse"
-          style={{ background: "linear-gradient(90deg, #10b981, #0d9488)", boxShadow: "0 0 12px #10b981", width: "100%" }} />
-      </div>
-
-      {/* Dots */}
-      <div className="flex gap-2">
-        {[0, 1, 2].map(i => (
-          <div key={i} className="w-1.5 h-1.5 rounded-full animate-bounce"
-            style={{ background: "#10b981", animationDelay: `${i * 0.15}s`, opacity: 0.7 }} />
-        ))}
-      </div>
-    </div>
-  </div>
-);
+// Reuse the same branded preloader for lazy-route suspense fallback
+const PageLoader = () => <Preloader onDone={() => {}} />;
 
 const queryClient = new QueryClient();
 

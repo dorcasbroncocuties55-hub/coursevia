@@ -4,119 +4,183 @@ const Preloader = ({ onDone }: { onDone: () => void }) => {
   const [phase, setPhase] = useState<"enter" | "hold" | "exit">("enter");
 
   useEffect(() => {
-    // enter → hold after 600ms, hold → exit after 2000ms, then call onDone
-    const t1 = setTimeout(() => setPhase("hold"), 600);
-    const t2 = setTimeout(() => setPhase("exit"), 2200);
-    const t3 = setTimeout(onDone, 2800);
+    const t1 = setTimeout(() => setPhase("hold"), 400);
+    const t2 = setTimeout(() => setPhase("exit"), 2000);
+    const t3 = setTimeout(onDone, 2600);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, [onDone]);
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden"
       style={{
-        background: "linear-gradient(135deg, #0a0a0a 0%, #111827 50%, #0a0a0a 100%)",
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#ffffff",
         opacity: phase === "exit" ? 0 : 1,
-        transform: phase === "exit" ? "scale(1.04)" : "scale(1)",
-        transition: "opacity 0.6s ease, transform 0.6s ease",
+        transform: phase === "exit" ? "scale(1.03)" : "scale(1)",
+        transition: "opacity 0.55s ease, transform 0.55s ease",
         pointerEvents: phase === "exit" ? "none" : "all",
       }}
     >
-      {/* Animated background grid */}
-      <div className="absolute inset-0 opacity-10"
-        style={{
-          backgroundImage: `linear-gradient(rgba(16,185,129,0.3) 1px, transparent 1px),
-                            linear-gradient(90deg, rgba(16,185,129,0.3) 1px, transparent 1px)`,
-          backgroundSize: "60px 60px",
-        }}
-      />
-
-      {/* Glowing orbs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-20 blur-3xl animate-pulse"
-        style={{ background: "radial-gradient(circle, #10b981, transparent)" }} />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full opacity-15 blur-3xl animate-pulse"
-        style={{ background: "radial-gradient(circle, #0d9488, transparent)", animationDelay: "0.8s" }} />
+      {/* Soft radial glow behind logo */}
+      <div style={{
+        position: "absolute",
+        width: 420,
+        height: 420,
+        borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%)",
+        pointerEvents: "none",
+      }} />
 
       {/* Main content */}
       <div
-        className="relative z-10 flex flex-col items-center gap-6"
         style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 20,
           opacity: phase === "enter" ? 0 : 1,
-          transform: phase === "enter" ? "translateY(24px)" : "translateY(0)",
-          transition: "opacity 0.7s ease, transform 0.7s ease",
+          transform: phase === "enter" ? "translateY(20px)" : "translateY(0)",
+          transition: "opacity 0.6s ease, transform 0.6s ease",
         }}
       >
-        {/* Logo mark */}
-        <div className="relative">
-          <div className="w-20 h-20 rounded-3xl flex items-center justify-center shadow-2xl"
-            style={{ background: "linear-gradient(135deg, #10b981, #0d9488)" }}>
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-              <path d="M8 20C8 13.373 13.373 8 20 8s12 5.373 12 12-5.373 12-12 12S8 26.627 8 20z"
-                stroke="white" strokeWidth="2.5" fill="none" />
-              <path d="M14 20l4 4 8-8" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+        {/* favicon.ico as the icon */}
+        <div style={{ position: "relative" }}>
+          <div style={{
+            width: 80,
+            height: 80,
+            borderRadius: 22,
+            background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 20px 60px rgba(16,185,129,0.35), 0 4px 16px rgba(16,185,129,0.2)",
+          }}>
+            <img
+              src="/favicon.ico"
+              alt="Coursevia"
+              style={{ width: 44, height: 44, objectFit: "contain" }}
+              onError={(e) => {
+                // fallback: show "C" letter if favicon fails
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+            {/* Fallback "C" shown via CSS if image fails */}
+            <span style={{
+              position: "absolute",
+              fontSize: 36,
+              fontWeight: 900,
+              color: "white",
+              fontFamily: "system-ui, sans-serif",
+              lineHeight: 1,
+              display: "none",
+            }} className="favicon-fallback">C</span>
           </div>
+
           {/* Spinning ring */}
-          <div className="absolute -inset-2 rounded-[28px] border-2 border-transparent animate-spin"
-            style={{
-              borderTopColor: "#10b981",
-              borderRightColor: "transparent",
-              borderBottomColor: "transparent",
-              borderLeftColor: "transparent",
-              animationDuration: "1.2s",
-            }}
-          />
-          {/* Glow */}
-          <div className="absolute inset-0 rounded-3xl blur-xl opacity-60"
-            style={{ background: "linear-gradient(135deg, #10b981, #0d9488)" }} />
+          <div style={{
+            position: "absolute",
+            inset: -6,
+            borderRadius: 28,
+            border: "2.5px solid transparent",
+            borderTopColor: "#10b981",
+            borderRightColor: "rgba(16,185,129,0.3)",
+            animation: "coursevia-spin 1.1s linear infinite",
+          }} />
+
+          {/* Glow pulse */}
+          <div style={{
+            position: "absolute",
+            inset: -2,
+            borderRadius: 24,
+            background: "linear-gradient(135deg, #10b981, #059669)",
+            opacity: 0.25,
+            filter: "blur(14px)",
+            animation: "coursevia-pulse 1.8s ease-in-out infinite",
+          }} />
         </div>
 
-        {/* Brand name */}
-        <div className="text-center">
-          <h1 className="text-5xl font-black tracking-tight"
-            style={{
-              background: "linear-gradient(135deg, #ffffff 0%, #d1fae5 40%, #10b981 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
+        {/* Brand name — exactly as in Navbar */}
+        <div style={{ textAlign: "center" }}>
+          <div style={{
+            fontSize: 42,
+            fontWeight: 800,
+            letterSpacing: "-0.03em",
+            fontFamily: "system-ui, -apple-system, sans-serif",
+            background: "linear-gradient(135deg, #111827 0%, #10b981 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            lineHeight: 1.1,
+          }}>
             Coursevia
-          </h1>
-          <p className="mt-2 text-sm font-medium tracking-[0.3em] uppercase"
-            style={{ color: "#6ee7b7" }}>
+          </div>
+          <div style={{
+            marginTop: 6,
+            fontSize: 12,
+            fontWeight: 600,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "#6ee7b7",
+            fontFamily: "system-ui, sans-serif",
+          }}>
             Learn · Grow · Connect
-          </p>
+          </div>
         </div>
 
         {/* Progress bar */}
-        <div className="w-48 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
-          <div
-            className="h-full rounded-full"
-            style={{
-              background: "linear-gradient(90deg, #10b981, #0d9488)",
-              width: phase === "hold" || phase === "exit" ? "100%" : "0%",
-              transition: "width 1.4s cubic-bezier(0.4, 0, 0.2, 1)",
-              boxShadow: "0 0 12px #10b981",
-            }}
-          />
+        <div style={{
+          width: 160,
+          height: 3,
+          borderRadius: 99,
+          background: "rgba(16,185,129,0.15)",
+          overflow: "hidden",
+          marginTop: 4,
+        }}>
+          <div style={{
+            height: "100%",
+            borderRadius: 99,
+            background: "linear-gradient(90deg, #10b981, #059669)",
+            boxShadow: "0 0 10px rgba(16,185,129,0.6)",
+            width: phase === "hold" || phase === "exit" ? "100%" : "0%",
+            transition: "width 1.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          }} />
         </div>
 
-        {/* Dots */}
-        <div className="flex gap-2">
+        {/* Bouncing dots */}
+        <div style={{ display: "flex", gap: 6, marginTop: -4 }}>
           {[0, 1, 2].map(i => (
-            <div
-              key={i}
-              className="w-1.5 h-1.5 rounded-full animate-bounce"
-              style={{
-                background: "#10b981",
-                animationDelay: `${i * 0.15}s`,
-                opacity: 0.7,
-              }}
-            />
+            <div key={i} style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: "#10b981",
+              opacity: 0.6,
+              animation: `coursevia-bounce 0.9s ease-in-out ${i * 0.15}s infinite`,
+            }} />
           ))}
         </div>
       </div>
+
+      {/* Keyframes injected inline */}
+      <style>{`
+        @keyframes coursevia-spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes coursevia-pulse {
+          0%, 100% { opacity: 0.2; }
+          50% { opacity: 0.4; }
+        }
+        @keyframes coursevia-bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-6px); }
+        }
+      `}</style>
     </div>
   );
 };
