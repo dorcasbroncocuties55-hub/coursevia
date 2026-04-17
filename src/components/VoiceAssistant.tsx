@@ -104,14 +104,19 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
 
     if (role) {
       try {
+        // Extract name — words that are capitalised or after "called/named"
+        const nameMatch = q.match(/(?:called|named|find|search for|look for)\s+([a-z][a-z\s]{1,30}?)(?:\s+who|\s+that|\s+in|\s+with|$)/i);
+        const nameQuery = nameMatch?.[1]?.trim();
+
         let dbq = supabase
           .from("profiles")
           .select("user_id,full_name,headline,city,country,kyc_status,is_verified,booking_price,session_price,skills,service_delivery_mode")
           .eq("onboarding_completed", true)
           .or(`role.eq.${role},provider_type.eq.${role}`)
-          .limit(5);
+          .limit(6);
 
         if (location) dbq = dbq.ilike("country", `%${location}%`);
+        if (nameQuery && !specialty) dbq = dbq.ilike("full_name", `%${nameQuery}%`);
         if (specialty) dbq = dbq.or(`skills.ilike.%${specialty}%,headline.ilike.%${specialty}%,bio.ilike.%${specialty}%`);
 
         const { data } = await dbq;
@@ -122,7 +127,7 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
             href: `/directory/${role}s/${p.user_id}`,
             tag: (p.kyc_status === "approved" || p.is_verified) ? "Verified" : undefined,
           }));
-          const label = specialty ? ` specializing in ${specialty}` : "";
+          const label = specialty ? ` specializing in ${specialty}` : nameQuery ? ` named "${nameQuery}"` : "";
           const loc = location ? ` in ${location}` : "";
           return {
             reply: `Found ${data.length} ${role}${data.length > 1 ? "s" : ""}${label}${loc}. Here they are:`,
@@ -154,13 +159,16 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
     }
 
     if (wantsCreator) {
+      const nameQ = q.replace(/find|search|look for|show me|i need|i want|creator|creators/g, "").trim();
       try {
-        const { data } = await supabase
+        let dbq = supabase
           .from("profiles")
           .select("user_id,full_name,headline,country,is_verified")
           .eq("onboarding_completed", true)
           .or("role.eq.creator,provider_type.eq.creator")
           .limit(5);
+        if (nameQ) dbq = dbq.ilike("full_name", `%${nameQ}%`);
+        const { data } = await dbq;
         if (data && data.length > 0) {
           const cards = (data as any[]).map(p => ({ title: p.full_name || "Creator", sub: p.headline || p.country || "", href: `/profile/${p.user_id}`, tag: p.is_verified ? "Verified" : undefined }));
           return { reply: `Found ${data.length} creator${data.length > 1 ? "s" : ""}:`, cards, nav: "/creators" };
