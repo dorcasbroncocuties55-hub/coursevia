@@ -1492,19 +1492,24 @@ const Onboarding = () => {
     );
   }
 
-  // Redirect if no user
-  if (!user) {
+  // After timeout or if not loading, check for user
+  if (!user && !loadingTimeout) {
     console.log("Onboarding: No user, redirecting to login");
     navigate("/login", { replace: true });
     return null;
   }
 
-  // If onboarding is already completed, redirect to dashboard
-  if (profile?.onboarding_completed) {
+  // If we have a user but profile shows onboarding is complete, redirect
+  if (user && profile?.onboarding_completed) {
     console.log("Onboarding: Already completed, redirecting to dashboard");
     const role = profile.role || "learner";
     navigate(roleToDashboardPath(role as any), { replace: true });
     return null;
+  }
+
+  // If timeout occurred but we have a user, continue to onboarding form
+  if (loadingTimeout && user) {
+    console.log("Onboarding: Timeout occurred but user exists, rendering form");
   }
 
   return (
