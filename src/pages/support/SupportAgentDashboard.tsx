@@ -52,6 +52,10 @@ const priorityColor: Record<string, string> = {
   urgent: "text-red-500",
 };
 
+const DEPT_LABELS: Record<string, string> = {
+  billing: "💳 Billing", technical: "🔧 Technical", refunds: "💰 Refunds", account: "👤 Account", general: "💬 General",
+};
+
 const SupportAgentDashboard = () => {
   const navigate = useNavigate();
   const [authLoading, setAuthLoading] = useState(true);
@@ -65,6 +69,7 @@ const SupportAgentDashboard = () => {
   const [search, setSearch]           = useState("");
   const [msgSearch, setMsgSearch]     = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterDept, setFilterDept]     = useState<string>("all");
   const [tab, setTab]                 = useState<"chats"|"user"|"payments"|"refunds"|"stats">("chats");
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userPayments, setUserPayments] = useState<Payment[]>([]);
@@ -305,12 +310,13 @@ const SupportAgentDashboard = () => {
   // ── Filtered convs ────────────────────────────────────────────────────────
   const filtered = useMemo(() => convs.filter(c => {
     const matchStatus = filterStatus === "all" || c.status === filterStatus;
+    const matchDept   = filterDept === "all" || (c as any).department === filterDept;
     const matchSearch = !search ||
       (c.user_name || "").toLowerCase().includes(search.toLowerCase()) ||
       (c.user_email || "").toLowerCase().includes(search.toLowerCase()) ||
       (c.subject || "").toLowerCase().includes(search.toLowerCase());
-    return matchStatus && matchSearch;
-  }), [convs, filterStatus, search]);
+    return matchStatus && matchDept && matchSearch;
+  }), [convs, filterStatus, filterDept, search]);
 
   const filteredMsgs = useMemo(() => msgSearch
     ? msgs.filter(m => m.text.toLowerCase().includes(msgSearch.toLowerCase()))
@@ -370,6 +376,17 @@ const SupportAgentDashboard = () => {
                 </button>
               ))}
             </div>
+            {/* Department filter */}
+            <div className="flex gap-1 flex-wrap">
+              {["all", "billing", "technical", "refunds", "account", "general"].map(d => (
+                <button key={d} onClick={() => setFilterDept(d)}
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+                    filterDept === d ? "bg-primary/20 text-primary border border-primary/30" : "bg-muted/50 text-muted-foreground hover:text-foreground"
+                  }`}>
+                  {d === "all" ? "All depts" : DEPT_LABELS[d] || d}
+                </button>
+              ))}
+            </div>
             {selected.size > 0 && (
               <div className="flex gap-1.5 pt-1">
                 <button onClick={() => bulkAction("resolve")} className="flex-1 text-xs bg-emerald-600 text-white rounded-lg py-1.5 font-medium">Resolve {selected.size}</button>
@@ -407,6 +424,9 @@ const SupportAgentDashboard = () => {
                       </div>
                     )}
                     {c.agent?.full_name && <p className="text-[10px] text-muted-foreground mt-0.5">👤 {c.agent.full_name}</p>}
+                    {(c as any).department && (c as any).department !== "general" && (
+                      <p className="text-[10px] text-primary mt-0.5">{DEPT_LABELS[(c as any).department] || (c as any).department}</p>
+                    )}
                   </button>
                 </div>
               );

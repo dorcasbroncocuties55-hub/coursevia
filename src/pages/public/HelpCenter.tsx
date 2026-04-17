@@ -149,94 +149,179 @@ const articles: Article[] = [
 
 // ─── CHAT BOT ─────────────────────────────────────────────────────────────────
 
-const BOT_RESPONSES: Record<string, string> = {
-  default: "I'm here to help! Could you describe your issue in more detail? You can also browse our help categories above.",
-  refund: "To request a refund, go to your Learner Dashboard → Payments → click 'Request Refund' next to the payment. Refunds are reviewed within 24–48 hours.",
-  course: "To access your courses, go to Dashboard → My Courses. If you can't see a purchased course, try logging out and back in.",
-  upload: "To upload a course, go to Creator Dashboard → Upload Video. Add your title, description, price, and video file, then publish.",
-  payment: "Payments on Coursevia are processed securely. Creators receive 95% of each sale after an 8-day escrow period. Learners can request refunds within 7 days.",
-  login: "If you can't log in, try resetting your password via the 'Forgot Password' link on the login page. Check your spam folder for the reset email.",
-  password: "Click 'Forgot Password' on the login page, enter your email, and follow the reset link sent to your inbox.",
-  account: "You can manage your account settings from your Dashboard → Profile. To delete your account, contact support@coursevia.com.",
-  subscription: "Manage your subscription from Dashboard → Subscription. You can cancel anytime — access continues until the end of your billing period.",
+// ─── DEPARTMENTS ──────────────────────────────────────────────────────────────
+const DEPARTMENTS = [
+  { id: "billing",   label: "💳 Billing",    keywords: ["payment","pay","charge","invoice","billing","subscription","plan","cancel","refund","money","price","cost","fee"] },
+  { id: "technical", label: "🔧 Technical",  keywords: ["error","bug","crash","not working","broken","loading","blank","slow","video","playback","upload","fail"] },
+  { id: "refunds",   label: "💰 Refunds",    keywords: ["refund","money back","return","reimburse","chargeback"] },
+  { id: "account",   label: "👤 Account",    keywords: ["account","login","password","email","profile","delete","banned","locked","access","sign in","sign up"] },
+  { id: "general",   label: "💬 General",    keywords: [] },
+];
+
+const detectDepartment = (text: string): string => {
+  const lower = text.toLowerCase();
+  for (const dept of DEPARTMENTS) {
+    if (dept.keywords.some(k => lower.includes(k))) return dept.id;
+  }
+  return "general";
 };
 
-const getBotReply = (msg: string): string => {
+type BotContext = { userId?: string; userEmail?: string; userName?: string };
+
+const getIntelligentReply = async (msg: string, ctx: BotContext): Promise<{ text: string; action?: string }> => {
   const lower = msg.toLowerCase();
-  if (lower.includes("refund")) return BOT_RESPONSES.refund;
-  if (lower.includes("course") || lower.includes("access") || lower.includes("watch")) return BOT_RESPONSES.course;
-  if (lower.includes("upload") || lower.includes("creator") || lower.includes("sell")) return BOT_RESPONSES.upload;
-  if (lower.includes("payment") || lower.includes("pay") || lower.includes("money") || lower.includes("earn")) return BOT_RESPONSES.payment;
-  if (lower.includes("login") || lower.includes("sign in") || lower.includes("log in")) return BOT_RESPONSES.login;
-  if (lower.includes("password") || lower.includes("reset")) return BOT_RESPONSES.password;
-  if (lower.includes("account") || lower.includes("profile") || lower.includes("delete")) return BOT_RESPONSES.account;
-  if (lower.includes("subscription") || lower.includes("plan") || lower.includes("cancel")) return BOT_RESPONSES.subscription;
-  return BOT_RESPONSES.default;
+  const dept = detectDepartment(msg);
+
+  if (/^(hi|hello|hey|good morning|good afternoon|howdy)\b/.test(lower)) {
+    const name = ctx.userName?.split(" ")[0] || "";
+    return { text: `Hey${name ? ` ${name}` : ""}! 👋 I'm Coursevia's AI assistant. I can look up your account, check payments, and solve most issues instantly. What's going on?` };
+  }
+
+  if (dept === "refunds" || lower.includes("refund")) {
+    if (ctx.userId) {
+      try {
+        const { data: payments } = await supabase.from("payments").select("id,amount,status,payment_type,created_at").eq("payer_id", ctx.userId).eq("status","success").order("created_at",{ascending:false}).limit(3);
+        if (payments && payments.length > 0) {
+          const latest = payments[0] as any;
+          const daysSince = Math.floor((Date.now() - new Date(latest.created_at).getTime()) / 86400000);
+          if (daysSince <= 7) {
+            return { text: `I can see your most recent payment of $${latest.amount} made ${daysSince} day${daysSince !== 1 ? "s" : ""} ago. You're within the 7-day refund window! ✅\n\nTo request a refund:\n1. Go to Dashboard → Payments\n2. Click "Request Refund" next to the payment\n3. Select a reason and submit\n\nOur team reviews within 24–48 hours. Want me to connect you with our Refunds team?` };
+          } else {
+            return { text: `Your last payment was ${daysSince} days ago — outside the standard 7-day window. However, we review exceptions case-by-case.\n\nI'm connecting you with our Refunds team now.`, action: "escalate_refunds" };
+          }
+        }
+      } catch {}
+    }
+    return { text: "To request a refund, go to Dashboard → Payments → click 'Request Refund'. Refunds are reviewed within 24–48 hours. Are you signed in? If so, I can look up your payments directly." };
+  }
+
+  if (lower.includes("password") || lower.includes("forgot") || lower.includes("can't log in") || lower.includes("locked out")) {
+    if (ctx.userId) return { text: `Since you're already signed in, your account is active. ✅\n\nIf you need to reset your password:\n1. Go to the login page\n2. Click "Forgot Password"\n3. Enter your email (${ctx.userEmail || "your registered email"})\n4. Check your inbox for the reset link` };
+    return { text: `To reset your password:\n1. Go to the login page\n2. Click "Forgot Password"\n3. Enter your email address\n4. Check your inbox (and spam folder)\n\nThe link expires in 1 hour. Still having trouble? I can connect you with our Account team.` };
+  }
+
+  if (lower.includes("can't access") || lower.includes("course not showing") || lower.includes("purchased") || lower.includes("not in my courses")) {
+    if (ctx.userId) {
+      try {
+        const { data: purchases } = await supabase.from("payments").select("id,amount,payment_type,status,created_at").eq("payer_id", ctx.userId).eq("payment_type","course").eq("status","success").order("created_at",{ascending:false}).limit(5);
+        if (purchases && purchases.length > 0) {
+          return { text: `I can see ${purchases.length} course purchase${purchases.length > 1 ? "s" : ""} on your account. ✅\n\nIf a course isn't showing:\n1. Go to Dashboard → My Courses\n2. Try logging out and back in\n3. Clear your browser cache\n\nStill missing? I'll escalate to our Technical team with your purchase details.` };
+        } else {
+          return { text: `I don't see any completed course purchases on your account. This could mean:\n• The payment is still processing\n• The payment didn't complete\n\nCheck Dashboard → Payments to see your payment status. If you were charged but don't have access, I'll connect you with Billing right away.` };
+        }
+      } catch {}
+    }
+    return { text: "To access your courses, go to Dashboard → My Courses. If a purchased course isn't showing, try logging out and back in. Still having issues? I can connect you with our Technical team." };
+  }
+
+  if (lower.includes("subscription") || lower.includes("cancel") || lower.includes("plan") || lower.includes("membership")) {
+    if (ctx.userId) {
+      try {
+        const { data: sub } = await supabase.from("subscriptions").select("plan,status,ends_at").eq("user_id", ctx.userId).maybeSingle();
+        if (sub) {
+          const endsAt = (sub as any).ends_at ? new Date((sub as any).ends_at).toLocaleDateString() : "unknown";
+          return { text: `Your subscription: ${(sub as any).plan} plan — Status: ${(sub as any).status}${(sub as any).ends_at ? ` (renews ${endsAt})` : ""}.\n\nTo manage: Dashboard → Subscription. You can cancel anytime — access continues until the billing period ends.` };
+        }
+      } catch {}
+    }
+    return { text: "Manage your subscription from Dashboard → Subscription. You can cancel anytime — access continues until the end of your billing period." };
+  }
+
+  if (lower.includes("wallet") || lower.includes("withdraw") || lower.includes("payout") || lower.includes("earnings") || lower.includes("balance")) {
+    if (ctx.userId) {
+      try {
+        const { data: wallet } = await supabase.from("wallets").select("balance,available_balance,pending_balance").eq("user_id", ctx.userId).maybeSingle();
+        if (wallet) {
+          return { text: `Your wallet:\n• Available: $${(wallet as any).available_balance || 0}\n• Pending: $${(wallet as any).pending_balance || 0}\n• Total: $${(wallet as any).balance || 0}\n\nFunds become available after 8 days. To withdraw: Dashboard → Withdrawals.` };
+        }
+      } catch {}
+    }
+    return { text: "To withdraw earnings:\n1. Dashboard → Bank Accounts — add your bank\n2. Dashboard → Withdrawals — enter amount\n\nFunds take 3–5 business days. Pending balance becomes available after 8 days." };
+  }
+
+  if (lower.includes("booking") || lower.includes("session") || lower.includes("appointment")) {
+    if (ctx.userId) {
+      try {
+        const { data: bookings } = await supabase.from("bookings").select("id,status,scheduled_at").eq("learner_id", ctx.userId).order("created_at",{ascending:false}).limit(3);
+        if (bookings && bookings.length > 0) {
+          return { text: `I can see ${bookings.length} booking${bookings.length > 1 ? "s" : ""} on your account.\n\nFor booking issues, go to Dashboard → Bookings. What specifically is the problem?` };
+        }
+      } catch {}
+    }
+    return { text: "For booking issues, go to Dashboard → Bookings. You can view, manage, and join sessions from there. Need more help?" };
+  }
+
+  if (lower.includes("upload") || lower.includes("creator") || lower.includes("publish")) {
+    return { text: "To upload content:\n1. Creator Dashboard → Upload Video\n2. Add title, description, price\n3. Upload your video (MP4/MOV, max 2GB)\n4. Click Publish\n\nIf upload is failing, check file size is under 2GB and your connection is stable." };
+  }
+
+  if (/^(thanks|thank you|thx|ty|great|perfect|awesome|solved|got it)\b/.test(lower)) {
+    return { text: "You're welcome! 😊 Is there anything else I can help you with?" };
+  }
+
+  const deptLabel = DEPARTMENTS.find(d => d.id === dept)?.label || "Support";
+  return { text: `I want to make sure I give you the right help. This looks like a ${deptLabel} issue.\n\nCould you give me a bit more detail?\n• What exactly happened?\n• When did it start?\n\nOr I can connect you directly with our ${deptLabel} team right now.` };
 };
 
 type ChatMsg = { id: string; role: "user" | "bot" | "agent"; text: string; ts: Date };
 
 const ChatWidget = () => {
   const { user, profile } = useAuth();
-  const [open, setOpen]       = useState(false);
-  const [input, setInput]     = useState("");
-  const [msgs, setMsgs]       = useState<ChatMsg[]>([
-    { id: "0", role: "bot", text: "👋 Hi! How can we help you today? Ask me anything about Coursevia.", ts: new Date() },
+  const [open, setOpen]           = useState(false);
+  const [input, setInput]         = useState("");
+  const [msgs, setMsgs]           = useState<ChatMsg[]>([
+    { id: "0", role: "bot", text: "👋 Hi! I'm Coursevia's AI assistant. I can look up your account, check payments, and solve most issues instantly. What can I help you with?", ts: new Date() },
   ]);
-  const [typing, setTyping]   = useState(false);
+  const [typing, setTyping]       = useState(false);
   const [escalated, setEscalated] = useState(false);
-  const [convId, setConvId]   = useState<string | null>(null);
+  const [department, setDepartment] = useState("general");
+  const [convId, setConvId]       = useState<string | null>(null);
+  const [agentName, setAgentName] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [msgs, typing]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, typing]);
 
-  // Listen for agent replies in real-time
+  // Real-time agent replies
   useEffect(() => {
     if (!convId) return;
     const ch = supabase.channel(`chat-${convId}`)
-      .on("postgres_changes", {
-        event: "INSERT", schema: "public", table: "support_messages",
-        filter: `conversation_id=eq.${convId}`,
-      }, (payload: any) => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: `conversation_id=eq.${convId}` }, (payload: any) => {
         const m = payload.new;
         if (m.role === "agent") {
           setMsgs(prev => [...prev, { id: m.id, role: "agent", text: m.text, ts: new Date(m.created_at) }]);
+          setAgentName(m.sender_name || "Agent");
         }
-      })
-      .subscribe();
+      }).subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [convId]);
 
   const addMsg = (role: ChatMsg["role"], text: string) => {
     const msg: ChatMsg = { id: Date.now().toString(), role, text, ts: new Date() };
     setMsgs(prev => [...prev, msg]);
-    return msg;
   };
 
-  const saveToSupabase = async (userMsg: string, botReply: string) => {
+  const saveMsg = async (cid: string, role: string, text: string, senderName: string) => {
     try {
-      let cid = convId;
-      if (!cid) {
-        const { data } = await supabase.from("support_conversations" as any).insert({
-          user_id: user?.id || null,
-          user_name: profile?.full_name || user?.email || "Guest",
-          user_email: user?.email || null,
-          status: "open",
-          priority: "normal",
-        }).select("id").single();
-        if (data?.id) { cid = data.id; setConvId(data.id); }
-      }
-      if (cid) {
-        await supabase.from("support_messages" as any).insert([
-          { conversation_id: cid, sender_name: profile?.full_name || user?.email || "Guest", role: "user", text: userMsg, read: false },
-          { conversation_id: cid, sender_name: "Bot", role: "bot", text: botReply, read: true },
-        ]);
-        // Update conversation timestamp so agents see it
-        await supabase.from("support_conversations" as any).update({ updated_at: new Date().toISOString() }).eq("id", cid);
-      }
-    } catch { /* silent */ }
+      await supabase.from("support_messages" as any).insert({ conversation_id: cid, sender_name: senderName, role, text, read: role !== "user" });
+      await supabase.from("support_conversations" as any).update({ updated_at: new Date().toISOString() }).eq("id", cid);
+    } catch {}
+  };
+
+  const ensureConv = async (priority = "normal", subject?: string): Promise<string | null> => {
+    if (convId) return convId;
+    try {
+      const { data } = await supabase.from("support_conversations" as any).insert({
+        user_id: user?.id || null,
+        user_name: profile?.full_name || user?.email || "Guest",
+        user_email: user?.email || null,
+        status: "open", priority,
+        subject: subject || "Chat support",
+        department,
+        tags: [department],
+      }).select("id").single();
+      if (data?.id) { setConvId(data.id); return data.id; }
+    } catch {}
+    return null;
   };
 
   const send = async () => {
@@ -244,151 +329,142 @@ const ChatWidget = () => {
     if (!text) return;
     setInput("");
     addMsg("user", text);
+    const dept = detectDepartment(text);
+    setDepartment(dept);
 
     if (escalated) {
-      // Save to DB for agent to see
-      try {
-        if (convId) {
-          await supabase.from("support_messages" as any).insert({ conversation_id: convId, role: "user", text });
-          await supabase.from("support_conversations" as any).update({ status: "open", updated_at: new Date().toISOString() }).eq("id", convId);
-        }
-      } catch {}
-      addMsg("bot", "✅ Your message has been sent to our support team. We'll reply as soon as possible.");
+      if (convId) await saveMsg(convId, "user", text, profile?.full_name || user?.email || "Guest");
       return;
     }
 
     setTyping(true);
-    await new Promise(r => setTimeout(r, 900));
+    await new Promise(r => setTimeout(r, 700 + Math.random() * 500));
     setTyping(false);
 
-    const reply = getBotReply(text);
-    addMsg("bot", reply);
-    saveToSupabase(text, reply);
+    const ctx: BotContext = { userId: user?.id, userEmail: user?.email || undefined, userName: profile?.full_name || undefined };
+    const result = await getIntelligentReply(text, ctx);
+    addMsg("bot", result.text);
+
+    if (result.action?.startsWith("escalate")) {
+      const deptId = result.action.replace("escalate_", "") || dept;
+      setTimeout(() => escalateToAgent(deptId), 1200);
+      return;
+    }
+
+    const cid = await ensureConv("normal", `${dept} support`);
+    if (cid) {
+      await saveMsg(cid, "user", text, profile?.full_name || user?.email || "Guest");
+      await saveMsg(cid, "bot", result.text, "AI Assistant");
+    }
   };
 
-  const escalate = async () => {
+  const escalateToAgent = async (deptId?: string) => {
+    const dept = deptId || department;
     setEscalated(true);
-    addMsg("bot", "Connecting you to a human agent... 👨‍💻 Our team will respond shortly. You can keep typing your message below.");
+    const deptLabel = DEPARTMENTS.find(d => d.id === dept)?.label || "Support";
+    addMsg("bot", `Connecting you to our ${deptLabel} team... 👨‍💻 A human agent will be with you shortly. Keep typing — they'll see everything.`);
+
     try {
-      const { data } = await supabase.from("support_conversations" as any).insert({
-        user_id: user?.id || null,
-        user_name: profile?.full_name || user?.email || "Guest",
-        user_email: user?.email || null,
-        status: "open",
-        priority: "high",
-        subject: "Live chat escalation",
-      }).select("id").single();
-      if (data?.id) {
-        setConvId(data.id);
-        // Save existing chat history
-        const history = msgs.filter(m => m.role !== "bot" || !m.text.includes("👋"));
-        for (const m of history) {
-          await supabase.from("support_messages" as any).insert({
-            conversation_id: data.id,
-            sender_name: m.role === "user" ? (profile?.full_name || user?.email || "Guest") : "Bot",
-            role: m.role,
-            text: m.text,
-            read: m.role !== "user",
-          });
+      let cid = convId;
+      if (!cid) {
+        const { data } = await supabase.from("support_conversations" as any).insert({
+          user_id: user?.id || null,
+          user_name: profile?.full_name || user?.email || "Guest",
+          user_email: user?.email || null,
+          status: "open", priority: "high",
+          subject: `${deptLabel} - Live chat`,
+          department: dept,
+          tags: [dept, "live-chat"],
+        }).select("id").single();
+        if (data?.id) { cid = data.id; setConvId(data.id); }
+      } else {
+        await supabase.from("support_conversations" as any).update({ priority: "high", department: dept, status: "open", updated_at: new Date().toISOString() }).eq("id", cid);
+      }
+      if (cid) {
+        for (const m of msgs) {
+          await saveMsg(cid, m.role, m.text, m.role === "user" ? (profile?.full_name || user?.email || "Guest") : m.role === "agent" ? (agentName || "Agent") : "AI Assistant");
         }
-        // Notify user with link to support agent dashboard
-        addMsg("bot", `✅ Your conversation has been created (ID: ${data.id.slice(0, 8)}…). A support agent will reply soon. Agents can view this at /support-agent/dashboard`);
+        await saveMsg(cid, "bot", `🔔 User requested human agent. Department: ${deptLabel}. User: ${profile?.full_name || user?.email || "Guest"}`, "System");
       }
     } catch {}
   };
 
   return (
     <>
-      {/* Floating button */}
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-all"
-        aria-label="Open support chat"
-      >
+      <button onClick={() => setOpen(v => !v)} className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-all" aria-label="Open support chat">
         {open ? <X size={22} /> : <MessageCircle size={22} />}
       </button>
 
-      {/* Chat window */}
       <AnimatePresence>
         {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
-            className="fixed bottom-24 right-6 z-50 w-[340px] sm:w-[380px] rounded-2xl border border-border bg-background shadow-2xl flex flex-col overflow-hidden"
-            style={{ maxHeight: "520px" }}
-          >
+          <motion.div initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.95 }} transition={{ duration: 0.2 }}
+            className="fixed bottom-24 right-6 z-50 w-[340px] sm:w-[390px] rounded-2xl border border-border bg-background shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: "560px" }}>
+
             {/* Header */}
-            <div className="bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between">
+            <div className="bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
-                  <Bot size={16} />
-                </div>
+                <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center"><Bot size={16} /></div>
                 <div>
                   <p className="font-semibold text-sm">Coursevia Support</p>
-                  <p className="text-xs text-primary-foreground/70">{escalated ? "Agent connected" : "AI Assistant • Online"}</p>
+                  <p className="text-xs text-primary-foreground/70">
+                    {escalated ? agentName ? `💬 ${agentName} is here` : "⏳ Connecting to agent..." : "🤖 AI Assistant • Online"}
+                  </p>
                 </div>
               </div>
-              <button onClick={() => setOpen(false)} className="text-primary-foreground/70 hover:text-primary-foreground">
-                <X size={18} />
-              </button>
+              <button onClick={() => setOpen(false)} className="text-primary-foreground/70 hover:text-primary-foreground"><X size={18} /></button>
             </div>
+
+            {/* Department quick-connect pills */}
+            {!escalated && (
+              <div className="px-3 pt-2 pb-1.5 flex gap-1.5 flex-wrap shrink-0 border-b border-border bg-muted/30">
+                <span className="text-[10px] text-muted-foreground self-center">Jump to:</span>
+                {DEPARTMENTS.filter(d => d.id !== "general").map(d => (
+                  <button key={d.id} onClick={() => escalateToAgent(d.id)}
+                    className="text-[10px] px-2.5 py-1 rounded-full bg-background border border-border hover:border-primary hover:text-primary text-muted-foreground transition-colors font-medium">
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ minHeight: 0 }}>
               {msgs.map(m => (
                 <div key={m.id} className={`flex gap-2 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
-                  <div className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${
-                    m.role === "user" ? "bg-primary/10" : "bg-primary/10"
-                  }`}>
-                    {m.role === "user" ? <User size={13} className="text-primary" /> : <Bot size={13} className="text-primary" />}
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${m.role === "user" ? "bg-primary/10 text-primary" : m.role === "agent" ? "bg-emerald-100 text-emerald-700" : "bg-primary/10 text-primary"}`}>
+                    {m.role === "user" ? <User size={13} className="text-primary" /> : m.role === "agent" ? (agentName?.[0] || "A") : <Bot size={13} className="text-primary" />}
                   </div>
-                  <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
-                    m.role === "user"
-                      ? "bg-primary text-primary-foreground rounded-tr-sm"
-                      : "bg-muted text-foreground rounded-tl-sm"
+                  <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-line ${
+                    m.role === "user" ? "bg-primary text-primary-foreground rounded-tr-sm" :
+                    m.role === "agent" ? "bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-tl-sm" :
+                    "bg-muted text-foreground rounded-tl-sm"
                   }`}>
+                    {m.role === "agent" && <p className="text-[10px] font-semibold text-emerald-600 mb-1">{agentName || "Agent"}</p>}
                     {m.text}
                   </div>
                 </div>
               ))}
               {typing && (
                 <div className="flex gap-2">
-                  <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Bot size={13} className="text-primary" />
-                  </div>
+                  <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center"><Bot size={13} className="text-primary" /></div>
                   <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3 flex gap-1">
-                    {[0,1,2].map(i => (
-                      <span key={i} className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
-                    ))}
+                    {[0,1,2].map(i => <span key={i} className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}
                   </div>
                 </div>
               )}
               <div ref={bottomRef} />
             </div>
 
-            {/* Escalate button */}
             {!escalated && msgs.length > 2 && (
-              <div className="px-4 pb-2">
-                <button onClick={escalate} className="w-full text-xs text-primary hover:underline text-center py-1">
-                  Talk to a human agent →
-                </button>
+              <div className="px-4 pb-2 shrink-0">
+                <button onClick={() => escalateToAgent()} className="w-full text-xs text-primary hover:underline text-center py-1">Talk to a human agent →</button>
               </div>
             )}
 
-            {/* Input */}
-            <div className="border-t border-border p-3 flex gap-2">
-              <Input
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
-                placeholder="Type your message..."
-                className="flex-1 h-9 text-sm"
-              />
-              <Button size="sm" onClick={send} disabled={!input.trim()} className="h-9 w-9 p-0">
-                <Send size={14} />
-              </Button>
+            <div className="border-t border-border p-3 flex gap-2 shrink-0">
+              <Input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
+                placeholder={escalated ? "Message the agent..." : "Ask me anything..."} className="flex-1 h-9 text-sm" />
+              <Button size="sm" onClick={send} disabled={!input.trim()} className="h-9 w-9 p-0"><Send size={14} /></Button>
             </div>
           </motion.div>
         )}
