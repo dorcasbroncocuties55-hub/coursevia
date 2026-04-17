@@ -538,17 +538,14 @@ const VoiceAssistant = () => {
 
                   {/* Messages */}
                   <div
-                    className="px-3 py-3 space-y-2.5 overflow-y-auto"
+                    className="px-3 py-3 space-y-2.5 overflow-y-auto cv-scroll"
                     ref={msgsContainerRef}
                     style={{
                       maxHeight: 260,
                       minHeight: 80,
                       overflowY: "auto",
                       WebkitOverflowScrolling: "touch",
-                      scrollbarWidth: "thin",
-                      scrollbarColor: "rgba(16,185,129,0.3) transparent",
                     }}
-                    ref={el => { if (el) el.scrollTop = el.scrollHeight; }}
                   >
                     {msgs.length === 0 && <p className="text-center text-xs py-8" style={{ color: "rgba(16,185,129,0.35)" }}>Tap the mic or type below</p>}
                     {msgs.map(m => (

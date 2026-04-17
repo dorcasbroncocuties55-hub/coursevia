@@ -205,4 +205,23 @@
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
   }
+
+  /* ── Coursevia AI bot scrollbar — Windows Chrome/Edge ── */
+  .cv-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(16,185,129,0.35) transparent;
+  }
+  .cv-scroll::-webkit-scrollbar {
+    width: 4px;
+  }
+  .cv-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .cv-scroll::-webkit-scrollbar-thumb {
+    background: rgba(16,185,129,0.35);
+    border-radius: 99px;
+  }
+  .cv-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(16,185,129,0.6);
+  }
 }
