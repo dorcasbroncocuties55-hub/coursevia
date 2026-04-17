@@ -420,7 +420,7 @@ const ProviderDirectoryPage = ({ role }: Props) => {
           </div>
 
         ) : (
-          /* ── HOME PAGE ── */}
+          /* ── HOME PAGE ── */
           <>
             {/* Country grid */}
             <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground shadow-2xl">
