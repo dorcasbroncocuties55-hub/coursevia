@@ -82,25 +82,40 @@ const AuthCallback = () => {
 
         // Upsert profile (ignoreDuplicates keeps existing onboarding_completed)
         console.log("AuthCallback: Upserting profile");
-        await supabase.from("profiles").upsert(
+        const { error: profileError } = await supabase.from("profiles").upsert(
           { user_id: userId, email, full_name: fullName, avatar_url: avatarUrl },
           { onConflict: "user_id", ignoreDuplicates: true }
         );
+        
+        if (profileError) {
+          console.warn("AuthCallback: Profile upsert error (continuing anyway):", profileError);
+        }
 
         // Ensure role row exists
         console.log("AuthCallback: Checking user role");
-        const { data: existingRole } = await supabase
+        const { data: existingRole, error: roleCheckError } = await supabase
           .from("user_roles").select("role").eq("user_id", userId).maybeSingle();
 
-        if (!existingRole) {
+        if (roleCheckError) {
+          console.warn("AuthCallback: Role check error:", roleCheckError);
+        }
+
+        if (!existingRole && !roleCheckError) {
           console.log("AuthCallback: Creating default learner role");
-          await supabase.from("user_roles").insert({ user_id: userId, role: "learner" });
+          const { error: roleInsertError } = await supabase.from("user_roles").insert({ user_id: userId, role: "learner" });
+          if (roleInsertError) {
+            console.warn("AuthCallback: Role insert error (continuing anyway):", roleInsertError);
+          }
         }
 
         // Fresh profile fetch to get real onboarding state
         console.log("AuthCallback: Fetching final profile");
-        const { data: finalProfile } = await supabase
+        const { data: finalProfile, error: profileFetchError } = await supabase
           .from("profiles").select("onboarding_completed, role").eq("user_id", userId).maybeSingle();
+
+        if (profileFetchError) {
+          console.warn("AuthCallback: Profile fetch error:", profileFetchError);
+        }
 
         if (!mounted) return;
 
