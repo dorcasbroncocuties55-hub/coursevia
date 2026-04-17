@@ -575,18 +575,6 @@ const Onboarding = () => {
 
   const [loading, setLoading] = useState(false);
   const [didInitializeRole, setDidInitializeRole] = useState(false);
-  const [loadingTimeout, setLoadingTimeout] = useState(false);
-
-  // Timeout fallback if auth loading takes too long
-  useEffect(() => {
-    if (authLoading) {
-      const timer = setTimeout(() => {
-        console.warn("Auth loading timeout - forcing render");
-        setLoadingTimeout(true);
-      }, 5000); // 5 second timeout
-      return () => clearTimeout(timer);
-    }
-  }, [authLoading]);
 
   const currentSpecializationConfig = useMemo(
     () => specializationConfig[selectedRole],
@@ -1480,8 +1468,8 @@ const Onboarding = () => {
     return "Complete your account";
   }, [isLearner, isCoach, isTherapist, isCreator, step]);
 
-  // Show loading while auth is initializing (with timeout)
-  if (authLoading && !loadingTimeout) {
+  // Show loading while auth is initializing
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -1492,24 +1480,19 @@ const Onboarding = () => {
     );
   }
 
-  // After timeout or if not loading, check for user
-  if (!user && !loadingTimeout) {
+  // Redirect if no user
+  if (!user) {
     console.log("Onboarding: No user, redirecting to login");
     navigate("/login", { replace: true });
     return null;
   }
 
-  // If we have a user but profile shows onboarding is complete, redirect
-  if (user && profile?.onboarding_completed) {
+  // If onboarding is already completed, redirect to dashboard
+  if (profile?.onboarding_completed) {
     console.log("Onboarding: Already completed, redirecting to dashboard");
     const role = profile.role || "learner";
     navigate(roleToDashboardPath(role as any), { replace: true });
     return null;
-  }
-
-  // If timeout occurred but we have a user, continue to onboarding form
-  if (loadingTimeout && user) {
-    console.log("Onboarding: Timeout occurred but user exists, rendering form");
   }
 
   return (

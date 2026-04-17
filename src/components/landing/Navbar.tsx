@@ -42,12 +42,16 @@ const Navbar = () => {
   }, []);
 
   const dashboardHref = useMemo(() => {
+    // If user hasn't completed onboarding, always go to onboarding
+    if (user && profile && !profile.onboarding_completed) {
+      return "/onboarding";
+    }
     // Always use profile.role first - it's the user's actual chosen role
     const role = profile?.role || primaryRole;
     if (role) return roleToDashboardPath(role);
     if (user) return "/onboarding";
     return "/";
-  }, [primaryRole, profile?.role, user]);
+  }, [primaryRole, profile?.role, profile?.onboarding_completed, user]);
 
   const accountName =
     profile?.full_name || user?.email?.split("@")[0] || "My account";

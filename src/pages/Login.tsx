@@ -21,18 +21,6 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [loadingTimeout, setLoadingTimeout] = useState(false);
-
-  // Timeout fallback if auth loading takes too long
-  useEffect(() => {
-    if (authLoading) {
-      const timer = setTimeout(() => {
-        console.warn("Login: Auth loading timeout");
-        setLoadingTimeout(true);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [authLoading]);
 
   // Resolve the correct dashboard using profile.role first (the user's chosen role),
   // falling back to primaryRole only if profile.role isn't set yet.
@@ -45,12 +33,12 @@ const Login = () => {
   };
 
   useEffect(() => {
-    if (authLoading && !loadingTimeout) return;
+    if (authLoading) return;
     if (!user) return;
     // Wait until profile has loaded before redirecting
-    if (!profile && roles.length === 0 && !loadingTimeout) return;
+    if (!profile && roles.length === 0) return;
     navigate(getDestination(), { replace: true });
-  }, [user, roles, primaryRole, profile, authLoading, loadingTimeout]);
+  }, [user, roles, primaryRole, profile, authLoading]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,7 +112,7 @@ const Login = () => {
   };
 
   // Show loading spinner if auth is loading
-  if (authLoading && !loadingTimeout) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
