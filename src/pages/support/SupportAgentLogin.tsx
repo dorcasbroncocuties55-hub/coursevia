@@ -105,46 +105,63 @@ const SupportAgentLogin = () => {
       });
       if (error) { toast.error(error.message); setLoading(false); return; }
 
-      if (data.user) {
-        // Create profile (only columns that exist in schema)
-        await supabase.from("profiles").upsert({
-          user_id: data.user.id,
-          full_name: fullName.trim(),
-          onboarding_completed: true,
-        }, { onConflict: "user_id", ignoreDuplicates: true });
+      // Supabase may require email confirmation — handle both cases
+      const userId = data.user?.id || data.session?.user?.id;
 
-        // Register as support agent
-        const { error: agentError } = await supabase.from("support_agents" as any).insert({
-          user_id: data.user.id,
-          full_name: fullName.trim(),
-          email,
-          is_active: true,
-          is_online: false,
-        });
-
-        if (agentError) {
-          // Sign out and tell them to run the migration
-          await supabase.auth.signOut();
-          toast.error("Support agent tables not set up. Please run SUPPORT_AGENT_MIGRATION.sql in Supabase first, then try again.");
-          setLoading(false);
-          return;
-        }
+      if (!userId) {
+        // Email confirmation required — tell user to confirm then sign in
+        toast.success("Account created! Check your email to confirm, then sign in.");
+        setMode("login");
+        setPassword("");
+        setConfirm("");
+        setLoading(false);
+        return;
       }
 
-      toast.success("Account created! You can now sign in.");
-      setMode("login");
-      setPassword("");
-      setConfirm("");
+      // User is immediately active (email confirmation disabled) — set up agent
+      await supabase.from("profiles").upsert({
+        user_id: userId,
+        full_name: fullName.trim(),
+        email,
+        onboarding_completed: true,
+      }, { onConflict: "user_id", ignoreDuplicates: true });
+
+      const { error: agentError } = await supabase.from("support_agents" as any).insert({
+        user_id: userId,
+        full_name: fullName.trim(),
+        email,
+        is_active: true,
+        is_online: false,
+      });
+
+      if (agentError) {
+        // Table doesn't exist — still created auth account, just can't be agent yet
+        toast.error("Account created but support agent table not set up. Run SUPPORT_AGENT_MIGRATION.sql in Supabase, then sign in.");
+        await supabase.auth.signOut();
+        setMode("login");
+        setLoading(false);
+        return;
+      }
+
+      toast.success("Agent account created! Signing you in...");
+
+      // Auto sign in
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        toast.success("Account created! Please sign in.");
+        setMode("login");
+        setPassword("");
+        setConfirm("");
+      } else {
+        await supabase.from("support_agents" as any).update({ is_online: true }).eq("user_id", userId);
+        navigate("/support-agent/dashboard", { replace: true });
+      }
     } catch (err: any) {
       toast.error(err?.message || "Signup failed");
     } finally {
       setLoading(false);
     }
   };
-
-  if (authLoading) {
-    return <PageLoading />;
-  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">

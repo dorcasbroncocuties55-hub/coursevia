@@ -23,13 +23,14 @@ const footerLinks = {
 const Footer = () => {
   return (
     <footer className="border-t border-border bg-secondary/30">
-      <div className="container-wide py-12 lg:py-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-          <div className="col-span-2 md:col-span-1">
+      <div className="container-wide py-10 lg:py-16">
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Brand */}
+          <div className="sm:col-span-2 lg:col-span-1">
             <Link to="/" className="text-xl font-bold text-foreground">
               Coursevia
             </Link>
-            <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
+            <p className="text-sm text-muted-foreground mt-3 leading-relaxed max-w-xs">
               The all-in-one platform for learning, coaching, and creating.
             </p>
           </div>
@@ -37,12 +38,12 @@ const Footer = () => {
           {Object.entries(footerLinks).map(([category, links]) => (
             <div key={category}>
               <h4 className="text-sm font-semibold text-foreground mb-4">{category}</h4>
-              <ul className="space-y-2.5">
+              <ul className="space-y-3">
                 {links.map((link) => (
                   <li key={link.href}>
                     <Link
                       to={link.href}
-                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors active:text-foreground"
                     >
                       {link.label}
                     </Link>
@@ -53,7 +54,7 @@ const Footer = () => {
           ))}
         </div>
 
-        <div className="mt-12 pt-6 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="mt-10 pt-6 border-t border-border flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
           <p className="text-xs text-muted-foreground">
             © {new Date().getFullYear()} Coursevia. All rights reserved.
           </p>

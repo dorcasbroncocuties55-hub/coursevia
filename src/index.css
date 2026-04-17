@@ -93,6 +93,16 @@
 @layer base {
   * {
     @apply border-border;
+    /* iOS Safari: prevent tap highlight flash */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    /* iOS Safari: prevent font size inflation on orientation change */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Smooth scrolling everywhere */
+    scroll-behavior: smooth;
   }
 
   body {
@@ -100,16 +110,77 @@
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* iOS Safari: prevent horizontal overflow */
+    overflow-x: hidden;
+    /* iOS Safari: full viewport height */
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+
+  /* iOS Safari: fix 100vh not accounting for browser chrome */
+  #root {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
     letter-spacing: -0.04em;
     font-weight: 600;
+    /* iOS Safari: prevent text from overflowing */
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
 
   p {
     line-height: 1.6;
     text-wrap: pretty;
+    overflow-wrap: break-word;
+  }
+
+  /* iOS Safari: fix input zoom (font-size must be >= 16px) */
+  input, textarea, select {
+    font-size: 16px !important;
+    /* iOS Safari: remove inner shadow on inputs */
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 0;
+  }
+
+  /* iOS Safari: fix button styling */
+  button {
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+  }
+
+  /* iOS Safari: fix backdrop-filter */
+  .backdrop-blur-md {
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+  .backdrop-blur-sm {
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+  }
+
+  /* iOS Safari: fix sticky positioning */
+  .sticky {
+    position: -webkit-sticky;
+    position: sticky;
+  }
+
+  /* iOS Safari: fix overflow scroll */
+  .overflow-y-auto,
+  .overflow-auto,
+  .overflow-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* iOS Safari: fix gradient text clipping */
+  .bg-clip-text {
+    -webkit-background-clip: text;
+    background-clip: text;
   }
 
   .font-mono {
