@@ -156,7 +156,7 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
         if (specialty) dbq = dbq.or(`skills.ilike.%${specialty}%,headline.ilike.%${specialty}%,bio.ilike.%${specialty}%`);
         const { data } = await dbq;
         if (data && data.length > 0) {
-          const cards = (data as any[]).map(p => ({ title: p.full_name || "Provider", sub: [p.city, p.country].filter(Boolean).join(", ") || p.headline || "", href: `/directory/${role}/${p.user_id}`, tag: (p.kyc_status === "approved" || p.is_verified) ? "Verified" : undefined }));
+          const cards = (data as any[]).map(p => ({ title: p.full_name || "Provider", sub: [p.city, p.country].filter(Boolean).join(", ") || p.headline || "", href: `/directory/${role}s/${p.user_id}`, tag: (p.kyc_status === "approved" || p.is_verified) ? "Verified" : undefined }));
           const label = specialty ? ` specializing in ${specialty}` : nameQuery ? ` named "${nameQuery}"` : "";
           const loc = location ? ` in ${location}` : "";
           return { reply: `Found ${data.length} ${role}${data.length > 1 ? "s" : ""}${label}${loc}:`, nav: `/${role}s`, cards };
@@ -251,48 +251,37 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
     return { reply: "You are not signed in. Say open login to sign in.", nav: "/login" };
   }
 
-  // Role-aware path helper
-  const rp = (learner: string, coach: string, therapist: string, creator: string) =>
-    ctx.role === "coach" ? coach : ctx.role === "therapist" ? therapist : ctx.role === "creator" ? creator : learner;
-
   const navMap: [string[], string, string][] = [
-    [["home","homepage","main page","landing"], "/", "Taking you home."],
-    [["courses","course","learn","learning","classes"], "/courses", "Opening courses."],
-    [["coaches","coach","coaching directory","find coach"], "/coaches", "Opening coaches."],
-    [["therapists","therapist","therapy directory","find therapist"], "/therapists", "Opening therapists."],
-    [["creators","creator","content creators"], "/creators", "Opening creators."],
+    [["home","homepage","main page"], "/", "Taking you home."],
+    [["courses","course","learn","learning"], "/courses", "Opening courses."],
+    [["coaches","coach","coaching directory"], "/coaches", "Opening coaches."],
+    [["therapists","therapist","therapy directory"], "/therapists", "Opening therapists."],
+    [["creators","creator"], "/creators", "Opening creators."],
     [["videos","video"], "/videos", "Opening videos."],
-    [["pricing","price","plans","subscription plans"], "/pricing", "Opening pricing."],
-    [["dashboard","my dashboard","home dashboard"], rp("/dashboard","/coach/dashboard","/therapist/dashboard","/creator/dashboard"), "Opening your dashboard."],
-    [["login","sign in","log in","signin"], "/login", "Opening login."],
-    [["signup","sign up","register","create account","create an account"], "/signup", "Opening signup."],
-    [["help","help center","support center"], "/help", "Opening help center."],
-    [["contact","contact us","contact page"], "/contact", "Opening contact page."],
-    [["about","about us","about coursevia"], "/about", "Opening about page."],
-    [["blog","articles","news"], "/blog", "Opening blog."],
-    [["cart","shopping cart","my cart"], "/cart", "Opening cart."],
-    [["my bookings","bookings","my sessions","sessions"], rp("/dashboard/bookings","/coach/bookings","/therapist/bookings","/dashboard/bookings"), "Opening bookings."],
-    [["messages","inbox","my messages"], rp("/dashboard/messages","/coach/messages","/therapist/messages","/creator/messages"), "Opening messages."],
-    [["payments","payment history","my payments"], "/dashboard/payments", "Opening payments."],
-    [["wallet","my wallet","my balance"], rp("/dashboard/wallet","/coach/wallet","/therapist/wallet","/creator/wallet"), "Opening wallet."],
-    [["subscription","my plan","my subscription"], "/dashboard/subscription", "Opening subscription."],
-    [["profile","my profile","profile settings","account settings"], rp("/dashboard/profile","/coach/profile","/therapist/profile","/dashboard/profile"), "Opening profile."],
-    [["notifications","my notifications"], "/dashboard/notifications", "Opening notifications."],
-    [["wishlist","saved","my wishlist"], "/dashboard/wishlist", "Opening wishlist."],
-    [["withdrawals","withdraw","payout","my withdrawals"], rp("/dashboard","/coach/withdrawals","/therapist/withdrawals","/creator/withdrawals"), "Opening withdrawals."],
-    [["bank account","bank accounts","add bank","payout method"], rp("/dashboard","/coach/bank-accounts","/therapist/bank-accounts","/creator/bank-accounts"), "Opening bank accounts."],
-    [["kyc","verification","identity verification"], rp("/dashboard/kyc","/coach/kyc","/therapist/kyc","/dashboard/kyc"), "Opening KYC."],
-    [["services","my services"], rp("/dashboard","/coach/services","/therapist/services","/dashboard"), "Opening services."],
-    [["calendar","my calendar","availability"], rp("/dashboard","/coach/calendar","/therapist/calendar","/dashboard"), "Opening calendar."],
-    [["clients","my clients"], rp("/dashboard","/coach/clients","/therapist/clients","/dashboard"), "Opening clients."],
-    [["content","my content","my videos"], rp("/dashboard","/coach/content","/therapist/content","/creator/content"), "Opening content."],
-    [["upload","upload video","upload course"], rp("/dashboard","/coach/upload-video","/therapist/upload-video","/creator/upload-video"), "Opening upload."],
-    [["analytics","my analytics","stats"], rp("/dashboard","/dashboard","/dashboard","/creator/analytics"), "Opening analytics."],
-    [["reviews","my reviews"], rp("/dashboard","/coach/reviews","/dashboard","/dashboard"), "Opening reviews."],
-    [["faq","frequently asked questions"], "/faq", "Opening FAQ."],
-    [["terms","terms of service","terms and conditions"], "/terms", "Opening terms."],
-    [["privacy","privacy policy"], "/privacy", "Opening privacy policy."],
-    [["refund policy","refund"], "/refund-policy", "Opening refund policy."],
+    [["pricing","price","plans"], "/pricing", "Opening pricing."],
+    [["dashboard","my dashboard"], ctx.role === "coach" ? "/coach/dashboard" : ctx.role === "therapist" ? "/therapist/dashboard" : ctx.role === "creator" ? "/creator/dashboard" : "/dashboard", "Opening your dashboard."],
+    [["login","sign in","log in"], "/login", "Opening login."],
+    [["signup","sign up","register","create account"], "/signup", "Opening signup."],
+    [["help","help center","support"], "/help", "Opening help center."],
+    [["contact","contact us"], "/contact", "Opening contact page."],
+    [["about","about us"], "/about", "Opening about page."],
+    [["blog","articles"], "/blog", "Opening blog."],
+    [["cart","shopping cart"], "/cart", "Opening cart."],
+    [["bookings","my bookings","sessions"], "/dashboard/bookings", "Opening bookings."],
+    [["messages","inbox"], "/dashboard/messages", "Opening messages."],
+    [["payments","payment history"], "/dashboard/payments", "Opening payments."],
+    [["wallet","my wallet"], "/dashboard/wallet", "Opening wallet."],
+    [["subscription","my plan"], "/dashboard/subscription", "Opening subscription."],
+    [["profile","my profile","settings"], "/dashboard/profile", "Opening profile."],
+    [["notifications"], "/dashboard/notifications", "Opening notifications."],
+    [["wishlist","saved"], "/dashboard/wishlist", "Opening wishlist."],
+    [["withdrawals","withdraw","payout"], ctx.role === "coach" ? "/coach/withdrawals" : ctx.role === "therapist" ? "/therapist/withdrawals" : "/creator/withdrawals", "Opening withdrawals."],
+    [["bank account","bank accounts","add bank"], ctx.role === "coach" ? "/coach/bank-accounts" : ctx.role === "therapist" ? "/therapist/bank-accounts" : "/creator/bank-accounts", "Opening bank accounts."],
+    [["kyc","verification"], "/dashboard/kyc", "Opening KYC."],
+    [["faq"], "/faq", "Opening FAQ."],
+    [["terms"], "/terms", "Opening terms."],
+    [["privacy"], "/privacy", "Opening privacy policy."],
+    [["refund policy"], "/refund-policy", "Opening refund policy."],
   ];
 
   const navTriggers = ["go to","open","take me to","navigate to","show me","bring me to","launch","i want to go to","i want to see"];

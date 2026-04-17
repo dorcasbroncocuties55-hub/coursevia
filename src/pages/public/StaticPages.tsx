@@ -41,15 +41,23 @@ export const Terms = () => (
       </PolicyCard>
 
       <PolicyCard id="eligibility" title="Eligibility">
-        <p>To use Coursevia, you must:</p>
-        <ul className="space-y-1.5 mt-1">
-          {["Be at least 18 years old", "Provide accurate registration information", "Use the platform in compliance with all applicable laws"].map((item) => (
+        <p>Coursevia is open to everyone. You may create an account if you meet the following conditions:</p>
+        <ul className="space-y-1.5 mt-2">
+          {[
+            "You are 18 years of age or older, OR",
+            "You are between 13 and 17 years old and have obtained verifiable parental or guardian consent",
+            "You provide accurate and truthful registration information",
+            "You use the platform in compliance with all applicable laws in your country",
+            "You are not prohibited from using the platform under any applicable law",
+          ].map((item) => (
             <li key={item} className="flex items-start gap-2">
               <span className="text-primary mt-1">•</span><span>{item}</span>
             </li>
           ))}
         </ul>
-        <p className="mt-2">We reserve the right to suspend or terminate accounts that violate these conditions.</p>
+        <p className="mt-3"><strong className="text-foreground">Anyone can create a free account</strong> to browse courses, coaches, therapists, and creators. No subscription is required to sign up.</p>
+        <p className="mt-2">Coaches, therapists, and creators who wish to receive payments must complete KYC (identity verification) and must be 18 years or older.</p>
+        <p className="mt-2">We reserve the right to suspend or terminate accounts that violate these conditions or provide false information.</p>
       </PolicyCard>
 
       <PolicyCard id="accounts" title="User Accounts">
@@ -289,8 +297,9 @@ export const Privacy = () => (
       </PolicyCard>
 
       <PolicyCard id="children" title="Children's Privacy">
-        <p>Coursevia is not intended for individuals under the age of 18. We do not knowingly collect personal data from children.</p>
-        <p className="mt-2">If we become aware that we have inadvertently collected data from a minor, we will take immediate steps to delete that information. Please contact privacy@coursevia.com if you believe this has occurred.</p>
+        <p>Coursevia welcomes users of all ages. Users between 13 and 17 years old may create an account with verifiable parental or guardian consent.</p>
+        <p className="mt-2">We do not knowingly collect personal data from children under the age of 13. If we become aware that we have inadvertently collected data from a child under 13, we will take immediate steps to delete that information.</p>
+        <p className="mt-2">Parents or guardians who believe their child under 13 has created an account should contact us at privacy@coursevia.com and we will promptly remove the account and associated data.</p>
       </PolicyCard>
 
       <PolicyCard id="policy-changes" title="Changes to This Policy">
