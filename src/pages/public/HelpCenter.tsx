@@ -124,8 +124,8 @@ const articles: Article[] = [
     lastUpdated: "April 2026",
     steps: [
       "When a learner purchases your content, the payment is held in escrow.",
-      "Coursevia takes a 5% platform fee from each transaction.",
-      "Your 95% share is held in pending balance for 8 days.",
+      "Coursevia takes a small platform fee from each transaction.",
+      "Your share is held in pending balance for 8 days.",
       "After 8 days, funds move to your available balance.",
       "You can withdraw to your bank account from the Withdrawals page.",
       "Payouts are processed within 3–5 business days.",

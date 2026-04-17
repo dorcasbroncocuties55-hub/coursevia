@@ -226,7 +226,7 @@ const subscriptionPlans = [
       "Save a payment method for faster checkout",
       "Priority booking support and direct learner messaging",
       "Certificate downloads where the content includes certificates",
-      "5% off eligible paid bookings and paid content",
+      "Member discounts on eligible paid bookings and paid content",
     ],
     featured: true,
   },
@@ -240,7 +240,7 @@ const subscriptionPlans = [
     benefits: [
       "Everything in monthly membership",
       "Longer uninterrupted access for heavy learners",
-      "10% off eligible paid bookings and paid content",
+      "Enhanced member discounts on eligible paid bookings and paid content",
     ],
   },
 ];

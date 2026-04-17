@@ -34,7 +34,7 @@ export const pricingPlans = [
       "Save a payment method for faster checkout",
       "Priority booking support and direct learner messaging",
       "Certificate downloads where the content includes certificates",
-      "5% off eligible paid bookings and paid content",
+      "Member discounts on eligible paid bookings and paid content",
     ],
     ruleSummary:
       "Monthly membership gives platform benefits. Paid content from creators, coaches, and therapists still follows the normal checkout rules.",
@@ -49,7 +49,7 @@ export const pricingPlans = [
       "Everything in monthly membership",
       "Longer uninterrupted access for heavy learners",
       "Priority booking support and direct learner messaging",
-      "10% off eligible paid bookings and paid content",
+      "Enhanced member discounts on eligible paid bookings and paid content",
     ],
     ruleSummary:
       "Yearly membership keeps the same learner benefits for a longer billing cycle and improves member savings on eligible items.",
@@ -89,11 +89,11 @@ export const getDiscountedPrice = (basePrice: number, planId: LearnerPlanId) => 
 
 export const getBenefitHeadline = (planId: LearnerPlanId) => {
   if (planId === "yearly") {
-    return "Yearly member pricing applies: 10% off eligible paid content and bookings.";
+    return "Yearly member pricing applies: Enhanced discounts on eligible paid content and bookings.";
   }
 
   if (planId === "monthly") {
-    return "Monthly member pricing applies: 5% off eligible paid content and bookings.";
+    return "Monthly member pricing applies: Member discounts on eligible paid content and bookings.";
   }
 
   return "Starter access lets you browse and preview content before purchase.";

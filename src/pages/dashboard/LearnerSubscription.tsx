@@ -23,7 +23,7 @@ const FALLBACK_PLANS: SubscriptionPlanSummary[] = [
     priceLabel: "$10",
     currency: "USD",
     intervalLabel: "/month",
-    benefits: ["5% off bookings & content", "Priority support", "Certificate downloads"],
+    benefits: ["Member discounts on bookings & content", "Priority support", "Certificate downloads"],
     featured: true,
   },
   {
@@ -33,7 +33,7 @@ const FALLBACK_PLANS: SubscriptionPlanSummary[] = [
     priceLabel: "$120",
     currency: "USD",
     intervalLabel: "/year",
-    benefits: ["10% off bookings & content", "Everything in monthly", "Best value"],
+    benefits: ["Enhanced member discounts on bookings & content", "Everything in monthly", "Best value"],
   },
 ];
 
