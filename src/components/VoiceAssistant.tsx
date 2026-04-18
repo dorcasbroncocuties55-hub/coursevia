@@ -62,10 +62,11 @@ const say = async (raw: string, onDone?: () => void) => {
         a.play().catch(() => browserSay(clean, onDone));
         return;
       }
+      // 401/500 = key issue — fall through to browser TTS silently
     } catch {}
   }
 
-  // Fallback: browser TTS
+  // Fallback: browser TTS (always works)
   browserSay(clean, onDone);
 };
 
