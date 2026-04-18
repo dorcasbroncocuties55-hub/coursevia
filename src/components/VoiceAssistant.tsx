@@ -120,7 +120,124 @@ const Avatar = ({ state }: { state: VoiceState }) => {
   );
 };
 
-// ── Brain ─────────────────────────────────────────────────────────────────────
+// Smart intent classifier — understands natural language meaning
+// Maps what people SAY to what they MEAN, regardless of exact words
+const classifyIntent = (q: string): string => {
+  // Navigation intents — what people say vs what they mean
+  const intentMap: [RegExp, string][] = [
+    // Home
+    [/\b(home|main page|start|beginning|front page|landing|go back home|take me home|homepage)\b/, "home"],
+
+    // Auth
+    [/\b(log ?in|sign ?in|login page|signin|access my account|enter my account)\b/, "login"],
+    [/\b(sign ?up|register|create.*(account|profile)|join|get started|new account|make.*account)\b/, "signup"],
+
+    // Courses
+    [/\b(course|courses|class|classes|lesson|lessons|tutorial|tutorials|learn something|study|education|training|programme|program)\b/, "courses"],
+
+    // Coaches
+    [/\b(coach|coaches|coaching|mentor|mentors|mentoring|trainer|trainers|life coach|business coach|career coach|executive coach|personal development)\b/, "coaches"],
+
+    // Therapists
+    [/\b(therapist|therapists|therapy|counsell|psycholog|mental health|emotional support|wellness professional|psychiatr|counselor|counsellor|talk therapy|cbt|cognitive)\b/, "therapists"],
+
+    // Creators
+    [/\b(creator|creators|instructor|instructors|content maker|video maker|teacher|educator)\b/, "creators"],
+
+    // Videos
+    [/\b(video|videos|watch|stream|media|clip|clips)\b/, "videos"],
+
+    // Pricing
+    [/\b(pric|cost|fee|fees|how much|subscription plan|membership plan|package|packages|plan|plans|afford|cheap|expensive|value)\b/, "pricing"],
+
+    // Dashboard
+    [/\b(dashboard|overview|home screen|my area|my space|control panel|my page|my hub)\b/, "dashboard"],
+
+    // Bookings
+    [/\b(booking|bookings|appointment|appointments|session|sessions|scheduled|upcoming|reservation|reservations|my schedule|booked)\b/, "my bookings"],
+
+    // Wallet
+    [/\b(wallet|balance|money|funds|earnings|income|revenue|how much.*have|available.*funds|my.*cash|my.*money|financial|finances)\b/, "wallet"],
+
+    // Payments
+    [/\b(payment|payments|paid|transaction|transactions|invoice|invoices|receipt|receipts|charge|charges|billing history|purchase history|what.*paid|payment.*history)\b/, "payments"],
+
+    // Messages
+    [/\b(message|messages|inbox|chat|chats|conversation|conversations|talk to|communicate|direct message|dm)\b/, "messages"],
+
+    // Profile
+    [/\b(profile|my profile|account settings|personal info|edit.*profile|update.*profile|my info|my details|my account|account page)\b/, "profile"],
+
+    // Subscription
+    [/\b(subscription|my plan|my membership|current plan|active plan|cancel.*plan|upgrade|downgrade|billing plan)\b/, "subscription"],
+
+    // Notifications
+    [/\b(notification|notifications|alert|alerts|updates|what.*new|any.*news|bell)\b/, "notifications"],
+
+    // Wishlist
+    [/\b(wishlist|wish list|saved|favourites|favorites|saved items|liked|bookmarked)\b/, "wishlist"],
+
+    // Withdrawals
+    [/\b(withdraw|withdrawal|withdrawals|cash out|payout|pay out|transfer.*money|get.*money|send.*money|bank transfer)\b/, "withdrawals"],
+
+    // Bank accounts
+    [/\b(bank|bank account|bank accounts|add bank|payout method|payment method|account number|routing|iban|swift)\b/, "bank account"],
+
+    // KYC
+    [/\b(kyc|verify|verified|verification|identity|id check|id verification|document|passport|prove.*identity|am i verified)\b/, "kyc"],
+
+    // Help
+    [/\b(help|support|assistance|assist|problem|issue|trouble|stuck|confused|how do i|how to|guide|faq|question)\b/, "help"],
+
+    // Contact
+    [/\b(contact|reach out|get in touch|email.*team|talk to.*team|speak to.*team|contact.*support|write to)\b/, "contact"],
+
+    // About
+    [/\b(about|about.*coursevia|who.*coursevia|what.*coursevia|company|team|mission|story)\b/, "about"],
+
+    // Blog
+    [/\b(blog|article|articles|post|posts|read|news|latest|updates)\b/, "blog"],
+
+    // Cart
+    [/\b(cart|basket|shopping cart|checkout|items.*cart|what.*cart)\b/, "cart"],
+
+    // Services (provider)
+    [/\b(service|services|my services|what.*offer|offering|offerings)\b/, "services"],
+
+    // Calendar
+    [/\b(calendar|availability|available.*times|schedule|time slots|when.*available|set.*availability)\b/, "calendar"],
+
+    // Clients
+    [/\b(client|clients|my clients|people.*booked|who.*booked|learner list)\b/, "clients"],
+
+    // Content management
+    [/\b(my content|manage.*content|my videos|uploaded|my uploads|content.*list)\b/, "content"],
+
+    // Upload
+    [/\b(upload|add.*video|add.*course|publish|create.*course|new.*video|post.*video)\b/, "upload"],
+
+    // Analytics
+    [/\b(analytics|stats|statistics|performance|views|revenue.*stats|how.*performing|insights)\b/, "analytics"],
+
+    // Reviews
+    [/\b(review|reviews|rating|ratings|feedback|testimonial|what.*people.*say|my.*rating)\b/, "reviews"],
+
+    // Refund policy
+    [/\b(refund policy|refund.*terms|return policy|money back.*policy)\b/, "refund policy"],
+
+    // Terms
+    [/\b(terms|terms of service|terms and conditions|legal|tos)\b/, "terms"],
+
+    // Privacy
+    [/\b(privacy|privacy policy|data.*policy|gdpr|my data|data protection)\b/, "privacy"],
+  ];
+
+  for (const [pattern, intent] of intentMap) {
+    if (pattern.test(q)) return intent;
+  }
+  return "";
+};
+
 const think = async (text: string, ctx: Ctx): Promise<Result> => {
   const q = text.toLowerCase().trim();
   const uid = ctx.uid;
@@ -133,11 +250,11 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
     return { reply: "I can search coaches, therapists, creators and courses by name or specialty. I can check your bookings, wallet, payments, subscription and KYC. I can navigate any page and answer questions about Coursevia.", cards: [{ title: "Find a coach" }, { title: "Find a therapist" }, { title: "Browse courses" }, { title: "My account" }] };
   }
 
-  const wantsCoach = q.includes("coach") || q.includes("coaching") || q.includes("mentor") || q.includes("trainer");
-  const wantsTherapist = q.includes("therapist") || q.includes("therapy") || q.includes("counsell") || q.includes("psycholog") || q.includes("mental health");
-  const wantsCreator = q.includes("creator") || q.includes("instructor");
-  const wantsCourse = q.includes("course") || q.includes("class") || q.includes("lesson") || q.includes("tutorial") || q.includes("learn");
-  const isSearch = q.includes("find") || q.includes("search") || q.includes("look for") || q.includes("show me") || q.includes("i need") || q.includes("i want") || q.includes("get me") || q.includes("recommend") || q.includes("named") || q.includes("called");
+  const wantsCoach = /\b(coach|coaching|mentor|trainer|life coach|business coach|career coach|executive|leadership|mindset|fitness coach|relationship coach|parenting coach)\b/.test(q);
+  const wantsTherapist = /\b(therapist|therapy|counsell|psycholog|mental health|emotional|wellness|psychiatr|cbt|cognitive|anxiety|depression|trauma|grief|stress|ptsd|couples therapy|family therapy)\b/.test(q);
+  const wantsCreator = /\b(creator|instructor|content maker|teacher|educator|video creator)\b/.test(q);
+  const wantsCourse = /\b(course|class|lesson|tutorial|learn|study|training|programme|program|certification|certificate)\b/.test(q);
+  const isSearch = /\b(find|search|look for|show|need|want|get|recommend|suggest|who|where|any|looking for|seeking|i want to|i need|can you find|help me find|discover|browse)\b/.test(q);
 
   if (isSearch && (wantsCoach || wantsTherapist || wantsCreator || wantsCourse)) {
     const role = wantsTherapist ? "therapist" : wantsCreator ? "creator" : wantsCoach ? "coach" : null;
@@ -186,11 +303,11 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
     }
   }
 
-  if (q.includes("book") || q.includes("schedule") || q.includes("appointment")) {
+  if (/\b(book|schedule|appointment|reserve|set up.*session|arrange.*session|i want to book|can i book|how do i book)\b/.test(q)) {
     if (!uid) return { reply: "You need to sign in first to book a session.", nav: "/login" };
     return { reply: `Taking you to the ${wantsTherapist ? "therapist" : "coach"} directory to book.`, nav: wantsTherapist ? "/therapists" : "/coaches" };
   }
-  if (q.includes("my booking") || q.includes("my session") || q.includes("upcoming session") || q.includes("next session")) {
+  if (/\b(my booking|my session|upcoming session|next session|my appointment|when.*session|scheduled session|booked session|what.*booked)\b/.test(q)) {
     if (!uid) return { reply: "Please sign in to see your bookings.", nav: "/login" };
     try {
       const { data } = await supabase.from("bookings").select("id,status,scheduled_at").eq("learner_id", uid).order("scheduled_at", { ascending: true }).limit(5);
@@ -202,7 +319,7 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
       return { reply: "No bookings found yet.", nav: "/dashboard/bookings" };
     } catch { return { reply: "Opening your bookings.", nav: "/dashboard/bookings" }; }
   }
-  if (q.includes("wallet") || q.includes("balance") || q.includes("my money") || q.includes("earnings") || q.includes("how much do i have")) {
+  if (/\b(wallet|balance|my money|earnings|income|how much.*have|available.*funds|my.*cash|my.*balance|what.*balance|check.*balance|funds|my.*earnings)\b/.test(q)) {
     if (!uid) return { reply: "Please sign in to check your wallet.", nav: "/login" };
     try {
       const { data } = await supabase.from("wallets").select("balance,available_balance,pending_balance").eq("user_id", uid).maybeSingle();
@@ -210,7 +327,7 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
     } catch {}
     return { reply: "Opening your wallet.", nav: "/dashboard/wallet" };
   }
-  if (q.includes("my payment") || q.includes("payment history") || q.includes("last payment") || q.includes("my transactions")) {
+  if (/\b(my payment|payment history|last payment|my transactions|what.*paid|recent.*payment|payment.*record|billing history|purchase history)\b/.test(q)) {
     if (!uid) return { reply: "Please sign in to see your payments.", nav: "/login" };
     try {
       const { data } = await supabase.from("payments").select("amount,payment_type,status,created_at").eq("payer_id", uid).order("created_at", { ascending: false }).limit(3);
@@ -218,7 +335,7 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
       return { reply: "No payments found.", nav: "/dashboard/payments" };
     } catch { return { reply: "Opening payments.", nav: "/dashboard/payments" }; }
   }
-  if (q.includes("subscription") || q.includes("my plan") || q.includes("membership")) {
+  if (/\b(subscription|my plan|membership|current plan|active plan|what plan|which plan|am i subscribed|my subscription)\b/.test(q)) {
     if (!uid) return { reply: "Please sign in to check your subscription.", nav: "/login" };
     try {
       const { data } = await supabase.from("subscriptions").select("plan,status,ends_at").eq("user_id", uid).maybeSingle();
@@ -226,7 +343,7 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
       return { reply: "No active subscription. Say open pricing to see plans.", nav: "/pricing" };
     } catch { return { reply: "Opening subscription.", nav: "/dashboard/subscription" }; }
   }
-  if (q.includes("kyc") || q.includes("verification") || q.includes("am i verified")) {
+  if (/\b(kyc|verify|verified|verification|identity|id check|am i verified|my verification|document.*status|check.*verification)\b/.test(q)) {
     if (!uid) return { reply: "Please sign in to check verification.", nav: "/login" };
     try {
       const { data } = await supabase.from("verification_requests").select("status").eq("user_id", uid).order("created_at", { ascending: false }).limit(1).maybeSingle();
@@ -234,7 +351,7 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
       return { reply: "No verification request found. Go to your dashboard to start KYC.", nav: "/dashboard/kyc" };
     } catch { return { reply: "Opening KYC.", nav: "/dashboard/kyc" }; }
   }
-  if (q.includes("refund") || q.includes("money back") || q.includes("charged wrongly")) {
+  if (/\b(refund|money back|charged wrongly|wrong charge|overcharged|dispute|get.*money back|want.*refund|request.*refund)\b/.test(q)) {
     if (!uid) return { reply: "Please sign in to request a refund.", nav: "/login" };
     try {
       const { data } = await supabase.from("payments").select("id,amount,status,payment_type,created_at").eq("payer_id", uid).eq("status", "success").order("created_at", { ascending: false }).limit(3);
@@ -246,7 +363,7 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
       return { reply: "No payments found to refund.", nav: "/dashboard/payments" };
     } catch { return { reply: "Opening payments.", nav: "/dashboard/payments" }; }
   }
-  if (q.includes("who am i") || q.includes("my account") || q.includes("am i logged in") || q.includes("am i signed in")) {
+  if (/\b(who am i|my account|am i logged in|am i signed in|my profile info|what.*my account|check.*account|account details|my details)\b/.test(q)) {
     if (uid) return { reply: `You are signed in as ${ctx.name || ctx.email || "a user"}. Your role is ${ctx.role || "learner"}.` };
     return { reply: "You are not signed in. Say open login to sign in.", nav: "/login" };
   }
@@ -306,27 +423,39 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
     }
   }
 
-  if (q.includes("scroll down")) { window.scrollBy({ top: 500, behavior: "smooth" }); return { reply: "Scrolling down." }; }
-  if (q.includes("scroll up")) { window.scrollBy({ top: -500, behavior: "smooth" }); return { reply: "Scrolling up." }; }
-  if (q.includes("scroll to top") || q.includes("back to top")) { window.scrollTo({ top: 0, behavior: "smooth" }); return { reply: "Back to top." }; }
-  if (q.includes("go back") || q.includes("previous page")) { window.history.back(); return { reply: "Going back." }; }
-  if (q.includes("refresh") || q.includes("reload")) { window.location.reload(); return { reply: "Refreshing." }; }
+  if (/\b(scroll down|scroll more|go down|move down|page down)\b/.test(q)) { window.scrollBy({ top: 500, behavior: "smooth" }); return { reply: "Scrolling down." }; }
+  if (/\b(scroll up|go up|move up|page up)\b/.test(q)) { window.scrollBy({ top: -500, behavior: "smooth" }); return { reply: "Scrolling up." }; }
+  if (/\b(scroll to top|back to top|go to top|top of page|beginning of page)\b/.test(q)) { window.scrollTo({ top: 0, behavior: "smooth" }); return { reply: "Back to top." }; }
+  if (/\b(go back|previous page|last page|back)\b/.test(q)) { window.history.back(); return { reply: "Going back." }; }
+  if (/\b(refresh|reload|update page)\b/.test(q)) { window.location.reload(); return { reply: "Refreshing." }; }
 
-  if (q.includes("what is coursevia") || q.includes("about coursevia")) return { reply: "Coursevia is an all-in-one platform for learning, coaching, and creating. You can buy courses, book sessions with verified coaches and therapists, and access premium video content from creators worldwide." };
-  if ((q.includes("how much") || q.includes("cost") || q.includes("price")) && (q.includes("plan") || q.includes("subscription"))) return { reply: "Coursevia has a free plan, a monthly plan at $10 per month, and a yearly plan at $120 per year. Say open pricing for full details.", nav: "/pricing" };
-  if (q.includes("how do i") && q.includes("upload")) return { reply: "Go to your creator dashboard and click Upload Video. Add your title, description, price, and video file, then publish." };
-  if (q.includes("how do i") && q.includes("withdraw")) return { reply: "First add a bank account in your dashboard, then go to Withdrawals and enter the amount. Payouts take 3 to 5 business days." };
-  if (q.includes("how do i") && q.includes("book")) return { reply: "Browse coaches or therapists, open a profile, and click Book Session. Choose a time and complete payment." };
-  if (q.includes("how do i") && q.includes("cancel")) return { reply: "Go to Dashboard, then Subscription, and click Cancel Subscription. Access continues until the end of your billing period." };
-  if (q.includes("how do i") && q.includes("refund")) return { reply: "Go to Dashboard, then Payments, and click Request Refund next to the payment. Refunds are reviewed within 24 to 48 hours." };
+  if (/\b(what is coursevia|about coursevia|tell me about coursevia|what does coursevia do|explain coursevia|coursevia.*platform)\b/.test(q)) return { reply: "Coursevia is an all-in-one platform for learning, coaching, and creating. You can buy courses, book sessions with verified coaches and therapists, and access premium video content from creators worldwide." };
+  if (/\b(how much|cost|price|fee|subscription.*cost|plan.*cost|what.*plan.*cost|afford|pricing)\b/.test(q) && /\b(plan|subscription|membership|monthly|yearly|annual)\b/.test(q)) return { reply: "Coursevia has a free plan, a monthly plan at $10 per month, and a yearly plan at $120 per year. Say open pricing for full details.", nav: "/pricing" };
+  if (/\b(how.*upload|upload.*course|how.*add.*video|how.*publish|how.*create.*course)\b/.test(q)) return { reply: "Go to your creator dashboard and click Upload Video. Add your title, description, price, and video file, then publish." };
+  if (/\b(how.*withdraw|how.*get.*money|how.*cash out|how.*payout|how.*transfer.*earnings)\b/.test(q)) return { reply: "First add a bank account in your dashboard, then go to Withdrawals and enter the amount. Payouts take 3 to 5 business days." };
+  if (/\b(how.*book|how.*schedule|how.*reserve|how.*get.*session|how.*find.*coach|how.*find.*therapist)\b/.test(q)) return { reply: "Browse coaches or therapists, open a profile, and click Book Session. Choose a time and complete payment." };
+  if (/\b(how.*cancel|how.*stop.*subscription|how.*end.*plan|how.*unsubscribe)\b/.test(q)) return { reply: "Go to Dashboard, then Subscription, and click Cancel Subscription. Access continues until the end of your billing period." };
+  if (/\b(how.*refund|how.*get.*money back|how.*request.*refund|how.*dispute)\b/.test(q)) return { reply: "Go to Dashboard, then Payments, and click Request Refund next to the payment. Refunds are reviewed within 24 to 48 hours." };
+  if (/\b(how.*become|how.*join as|how.*sign up as|how.*register as|how.*be a coach|how.*be a therapist|how.*be a creator)\b/.test(q)) {
+    const r = /therapist/.test(q) ? "therapist" : /creator/.test(q) ? "creator" : "coach";
+    return { reply: `Sign up, select ${r} during onboarding, complete your profile, and finish KYC verification. You will appear in the directory once verified.`, nav: "/signup" };
+  }
 
-  if (/^(thanks|thank you|thx|ty|great|perfect|awesome|cool|nice)\b/.test(q)) return { reply: "You're welcome! Anything else I can help with?" };
-  if (q.includes("stop") || q.includes("close") || q.includes("bye") || q.includes("goodbye") || q.includes("dismiss")) return { reply: "Goodbye! Tap the mic anytime.", action: "close" };
+  if (/^(thanks|thank you|thx|ty|great|perfect|awesome|cool|nice|wonderful|brilliant)\b/.test(q)) return { reply: "You're welcome! Anything else I can help with?" };
+  if (/\b(stop|close|bye|goodbye|dismiss|exit|quit|done|that's all|no thanks)\b/.test(q)) return { reply: "Goodbye! Tap the mic anytime.", action: "close" };
 
-  // Bare keyword fallback — no trigger word needed
+  // Smart intent matching — understands meaning not just keywords
+  const intent = classifyIntent(q);
+  if (intent) {
+    for (const [kws, path, reply] of navMap) {
+      if (kws.some(k => intent.includes(k))) return { reply, nav: path };
+    }
+  }
+
+  // Bare keyword fallback
   for (const [kws, path, reply] of navMap) { if (kws.some(k => q.includes(k))) return { reply, nav: path }; }
 
-  return { reply: `I heard "${text}". I can search coaches, therapists, creators and courses, check your account, or navigate anywhere on Coursevia. What would you like?` };
+  return { reply: `I'm not sure I understood that. Could you rephrase? For example: "find me a life coach", "show my bookings", "take me to pricing", or "what's my wallet balance".` };
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
