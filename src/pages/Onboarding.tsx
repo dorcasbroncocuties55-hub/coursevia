@@ -524,6 +524,13 @@ const Onboarding = () => {
   const navigate = useNavigate();
   const { user, profile, refreshProfile, refreshRoles, refreshAll, loading: authLoading } = useAuth();
 
+  // Force-show onboarding after 3s even if auth is still loading
+  const [forceShow, setForceShow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setForceShow(true), 3000);
+    return () => clearTimeout(t);
+  }, []);
+
   const [selectedRole, setSelectedRole] = useState<RoleOption>("learner");
   const [step, setStep] = useState(1);
 
@@ -1426,8 +1433,8 @@ const Onboarding = () => {
     return "Complete your account";
   }, [isLearner, isCoach, isTherapist, isCreator, step]);
 
-  // Show loading while auth is initializing
-  if (authLoading) {
+  // Show loading while auth is initializing — max 3 seconds
+  if (authLoading && !forceShow) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">

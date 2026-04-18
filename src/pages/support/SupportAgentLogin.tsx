@@ -19,25 +19,30 @@ const SupportAgentLogin = () => {
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Check if already logged in as support agent
+  // Check if already logged in as support agent — max 4s timeout
   useEffect(() => {
+    const timeout = setTimeout(() => setAuthLoading(false), 4000);
     const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: agent } = await supabase
-          .from("support_agents" as any)
-          .select("id, is_active")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        
-        if (agent && agent.is_active) {
-          navigate("/support-agent/dashboard", { replace: true });
-          return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: agent } = await supabase
+            .from("support_agents" as any)
+            .select("id, is_active")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (agent && agent.is_active) {
+            clearTimeout(timeout);
+            navigate("/support-agent/dashboard", { replace: true });
+            return;
+          }
         }
-      }
+      } catch {}
+      clearTimeout(timeout);
       setAuthLoading(false);
     };
     checkAuth();
+    return () => clearTimeout(timeout);
   }, [navigate]);
 
   // Handle auth loading state
