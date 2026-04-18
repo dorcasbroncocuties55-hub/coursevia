@@ -85,8 +85,21 @@ const Signup = () => {
       navigate("/verify-email", { replace: true, state: { email: cleanEmail } });
     } catch (error: any) {
       const msg = error?.message?.toLowerCase?.() || "";
-      if (msg.includes("already registered")) toast.error("This email already has an account.");
-      else toast.error(error?.message || "Could not create account");
+      if (msg.includes("already registered") || msg.includes("user already registered")) {
+        // Check if it's a Google account
+        try {
+          const { data: existing } = await supabase.from("profiles").select("email").eq("email", cleanEmail).maybeSingle();
+          if (existing) {
+            toast.error("This email is already registered. If you signed up with Google, use \"Continue with Google\" to sign in.", { duration: 6000 });
+          } else {
+            toast.error("This email already has an account. Please sign in instead.");
+          }
+        } catch {
+          toast.error("This email already has an account. Please sign in instead.");
+        }
+      } else {
+        toast.error(error?.message || "Could not create account");
+      }
     } finally {
       setLoading(false);
     }
