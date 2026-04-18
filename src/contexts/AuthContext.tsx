@@ -344,15 +344,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     clearStoredRequestedRole();
+    // Clear all Supabase auth data from localStorage immediately
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith("sb-") || key.includes("supabase")) {
+        localStorage.removeItem(key);
+      }
+    });
+    // Clear React state immediately so UI updates
     clearAuthState();
-    // Sign out with 3s timeout — don't let it hang
     try {
+      // Sign out globally with 4s timeout
       await Promise.race([
-        supabase.auth.signOut({ scope: "local" }),
-        new Promise(resolve => setTimeout(resolve, 3000)),
+        supabase.auth.signOut({ scope: "global" }),
+        new Promise(resolve => setTimeout(resolve, 4000)),
       ]);
     } catch {}
-    // Go to home page, not login — user can choose to sign in again
     window.location.replace("/");
   };
 
