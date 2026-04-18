@@ -133,10 +133,10 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="h-screen bg-background flex overflow-hidden">
       {/* Fixed Sidebar */}
       <aside className="w-64 border-r border-border bg-card hidden lg:flex flex-col fixed left-0 top-0 h-screen z-10">
-        <div className="p-4 border-b border-border">
+        <div className="p-4 border-b border-border shrink-0">
           <Link to={homeHref} className="text-lg font-bold text-primary">Coursevia</Link>
           <p className="text-xs text-muted-foreground capitalize mt-0.5">{role} Dashboard</p>
         </div>
@@ -161,7 +161,7 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
           })}
         </nav>
 
-        <div className="p-3 border-t border-border">
+        <div className="p-3 border-t border-border shrink-0">
           <div className="flex items-center gap-3 px-3 py-2 mb-2">
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt={profile?.full_name || "Avatar"} className="h-8 w-8 rounded-full object-cover border border-border" />
@@ -197,7 +197,7 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
             </Button>
           </div>
         </div>
-        <div className="flex overflow-x-auto px-2 pb-2 gap-1 scrollbar-hide">
+        <div className="flex overflow-x-auto px-2 pb-2 gap-1" style={{ scrollbarWidth: "none" }}>
           {nav.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -216,8 +216,15 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
         </div>
       </div>
 
-      {/* Main Content Area - with left margin to account for fixed sidebar */}
-      <main className="flex-1 lg:ml-64 lg:p-8 p-4 pt-28 lg:pt-8 min-h-screen">{children}</main>
+      {/* Main Content — scrolls independently, sidebar stays fixed */}
+      <main
+        className="flex-1 lg:ml-64 overflow-y-auto"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
+        <div className="p-4 pt-28 lg:pt-8 lg:p-8 min-h-full">
+          {children}
+        </div>
+      </main>
     </div>
   );
 };
