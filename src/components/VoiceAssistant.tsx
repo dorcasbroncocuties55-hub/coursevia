@@ -612,7 +612,7 @@ const VoiceAssistant = () => {
     setOpen(true); setMinimized(false); setMsgs([]); setMicErr("");
     setTimeout(() => {
       const n = profile?.full_name?.split(" ")[0] || "";
-      const g = `Hi${n ? ` ${n}` : ""}! I'm Coursevia AI. I can search coaches, therapists, creators and courses, check your account, and navigate anywhere. Tap the mic or type below.`;
+      const g = `Hi${n ? ` ${n}` : ""}! I'm Coursevia AI Assistant. Let me know if you need help.`;
       addMsg("ai", g);
       if (!muted) say(g);
     }, 150);
