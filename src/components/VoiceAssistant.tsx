@@ -621,12 +621,11 @@ const VoiceAssistant = () => {
 
   const handleOpen = () => {
     setOpen(true); setMinimized(false); setMsgs([]); setMicErr("");
-    setTimeout(() => {
-      const n = profile?.full_name?.split(" ")[0] || "";
-      const g = `Hi${n ? ` ${n}` : ""}! I'm Coursevia AI Assistant. Let me know if you need help.`;
-      addMsg("ai", g);
-      if (!muted) say(g);
-    }, 150);
+    const n = profile?.full_name?.split(" ")[0] || "";
+    const g = `Hi${n ? ` ${n}` : ""}! I'm Coursevia AI Assistant. Let me know if you need help.`;
+    addMsg("ai", g);
+    // Don't auto-speak on open — browsers block audio without user gesture
+    // Voice plays when user taps mic or a quick button
   };
 
   const handleClose = () => { stopMic(); stopAudio(); setVoiceState("idle"); setOpen(false); setMsgs([]); };
