@@ -1433,7 +1433,20 @@ const Onboarding = () => {
     return "Complete your account";
   }, [isLearner, isCoach, isTherapist, isCreator, step]);
 
-  // Show loading while auth is initializing — max 3 seconds
+  // ── All redirects in one useEffect (hooks must not be after conditional returns) ──
+  useEffect(() => {
+    if (authLoading && !forceShow) return; // still loading
+    if (!user) {
+      navigate("/login", { replace: true });
+      return;
+    }
+    if (profile?.onboarding_completed) {
+      const role = profile.role || "learner";
+      navigate(roleToDashboardPath(role as any), { replace: true });
+    }
+  }, [authLoading, forceShow, user, profile, navigate]);
+
+  // Show spinner while loading (max 3s)
   if (authLoading && !forceShow) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -1444,31 +1457,15 @@ const Onboarding = () => {
       </div>
     );
   }
-  // Redirect if no user or already completed — use useEffect to avoid history warning
-  useEffect(() => {
-    if (forceShow && !user) {
-      navigate("/login", { replace: true });
-    }
-    if (profile?.onboarding_completed) {
-      const role = profile.role || "learner";
-      navigate(roleToDashboardPath(role as any), { replace: true });
-    }
-  }, [user, profile, forceShow, navigate]);
 
-  // Still loading and not forced yet — show spinner
-  if ((authLoading && !forceShow) || (!user && !forceShow)) {
+  // Don't render form while redirecting
+  if (!user || profile?.onboarding_completed) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-          <p className="text-sm text-muted-foreground">Loading your profile...</p>
-        </div>
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
-
-  // Don't render if redirecting
-  if (!user || profile?.onboarding_completed) return null;
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.10),_transparent_35%),linear-gradient(180deg,#f8fafc_0%,#ffffff_48%,#f8fafc_100%)] px-4 py-10">
