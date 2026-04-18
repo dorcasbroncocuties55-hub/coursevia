@@ -178,181 +178,150 @@ const ProviderDirectoryPage = ({ role }: Props) => {
     : `${pluralWord} Near You`;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background text-foreground">
       <Navbar />
 
       {/* ── HERO ── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-teal-50">
-        {/* Animated gradient orbs */}
-        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-gradient-to-br from-emerald-200/40 to-teal-200/40 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute -bottom-40 -left-40 w-[400px] h-[400px] bg-gradient-to-tr from-cyan-200/30 to-emerald-200/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-        
-        <div className="relative z-10 mx-auto max-w-7xl px-6 py-16 lg:py-24">
-          <div className="grid gap-12 lg:grid-cols-[1.2fr_1fr] lg:items-center">
-            <div className="space-y-8">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/80 backdrop-blur-sm px-4 py-2 shadow-lg border border-emerald-100">
-                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-sm font-semibold text-emerald-900">{roleCopy.directoryLabel}</span>
-              </div>
-              
-              <h1 className="text-5xl font-black leading-[1.1] text-slate-900 md:text-7xl">
-                Find Your
-                <br />
-                <span className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent">
-                  {singularWord}
-                </span>
-              </h1>
-              
-              <p className="text-lg leading-relaxed text-slate-600 max-w-xl">
-                {pageCountry ? `Discover verified ${pluralWord.toLowerCase()} in ${pageCountry}` : `Connect with verified ${pluralWord.toLowerCase()} near you`}. Browse profiles, compare expertise, and book sessions instantly.
-              </p>
+      <section className="bg-background border-b border-border">
+        <div className="mx-auto max-w-7xl px-6 py-14 lg:py-20">
+          <div className="max-w-2xl space-y-6">
+            <p className="text-sm font-semibold text-primary">{roleCopy.directoryLabel}</p>
+            <h1 className="text-4xl font-bold leading-tight text-foreground md:text-6xl">
+              Find a <span className="text-primary">{singularWord}</span>
+            </h1>
+            <p className="text-base text-muted-foreground max-w-lg">
+              {pageCountry
+                ? `Browse verified ${pluralWord.toLowerCase()} in ${pageCountry}.`
+                : `Connect with verified ${pluralWord.toLowerCase()} near you.`}{" "}
+              Compare profiles and book sessions instantly.
+            </p>
 
-              {/* Search bar */}
-              <div className="relative">
-                <div className="flex flex-col gap-3 rounded-3xl bg-white p-4 shadow-2xl border border-slate-200 sm:flex-row sm:items-center">
-                  <select
-                    value={selectedCountry}
-                    onChange={(e) => setSelectedCountry(e.target.value)}
-                    className="rounded-2xl border-2 border-slate-200 bg-slate-50 px-5 py-4 text-sm font-semibold outline-none focus:border-emerald-500 focus:bg-white transition sm:w-[220px]"
-                  >
-                    <option value="">🌍 All countries</option>
-                    {DIRECTORY_COUNTRIES.map((c) => (
-                      <option key={c.code} value={c.name}>{c.flag} {c.name}</option>
-                    ))}
-                  </select>
-                  
-                  <div className="relative flex-1">
-                    <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      value={searchInput}
-                      onChange={(e) => { setSearchInput(e.target.value); setShowSuggestions(true); }}
-                      onKeyDown={(e) => { if (e.key === "Enter") { clearSuggestions(); setShowSuggestions(false); handleSearch(); } if (e.key === "Escape") setShowSuggestions(false); }}
-                      onFocus={() => setShowSuggestions(true)}
-                      onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                      placeholder="Search by city, specialty, or name..."
-                      className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 py-4 pl-14 pr-5 text-sm font-medium outline-none focus:border-emerald-500 focus:bg-white transition placeholder:text-slate-400"
-                      autoComplete="off"
-                    />
-                    {showSuggestions && suggestions.length > 0 && (
-                      <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
-                        {suggestions.map((s, i) => (
-                          <button
-                            key={i}
-                            type="button"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => {
-                              setSearchInput(s.city);
-                              if (s.country && !selectedCountry) {
-                                const match = DIRECTORY_COUNTRIES.find(c => c.name.toLowerCase() === s.country.toLowerCase());
-                                if (match) setSelectedCountry(match.name);
-                              }
-                              clearSuggestions();
-                              setShowSuggestions(false);
-                            }}
-                            className="flex w-full items-center gap-3 px-5 py-4 text-left hover:bg-emerald-50 transition border-b border-slate-100 last:border-0"
-                          >
-                            <MapPin size={16} className="text-emerald-600 shrink-0" />
-                            <span className="text-sm font-medium text-slate-900">{s.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <button 
-                    onClick={handleSearch} 
-                    className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 px-8 py-4 text-sm font-bold text-white hover:from-emerald-700 hover:to-teal-700 transition shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40"
-                  >
-                    Search
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-4">
-                <button 
-                  onClick={handleNearby} 
-                  disabled={geoLoading}
-                  className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition shadow-md border border-slate-200"
+            {/* Search card */}
+            <div className="rounded-xl bg-white shadow-sm border border-border p-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <select
+                  value={selectedCountry}
+                  onChange={(e) => setSelectedCountry(e.target.value)}
+                  className="rounded-lg border border-border bg-background px-4 py-3 text-sm font-medium outline-none focus:border-primary transition sm:w-[200px]"
                 >
-                  <MapPin className="h-4 w-4 text-emerald-600" />
-                  {geoLoading ? "Detecting..." : "Find nearby"}
+                  <option value="">All countries</option>
+                  {DIRECTORY_COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.name}>{c.flag} {c.name}</option>
+                  ))}
+                </select>
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={searchInput}
+                    onChange={(e) => { setSearchInput(e.target.value); setShowSuggestions(true); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { clearSuggestions(); setShowSuggestions(false); handleSearch(); } if (e.key === "Escape") setShowSuggestions(false); }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                    placeholder="City, specialty, or name..."
+                    className="w-full rounded-lg border border-border bg-background py-3 pl-9 pr-4 text-sm outline-none focus:border-primary transition placeholder:text-muted-foreground"
+                    autoComplete="off"
+                  />
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-border bg-white shadow-lg overflow-hidden">
+                      {suggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setSearchInput(s.city);
+                            if (s.country && !selectedCountry) {
+                              const match = DIRECTORY_COUNTRIES.find(c => c.name.toLowerCase() === s.country.toLowerCase());
+                              if (match) setSelectedCountry(match.name);
+                            }
+                            clearSuggestions();
+                            setShowSuggestions(false);
+                          }}
+                          className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-muted transition border-b border-border last:border-0"
+                        >
+                          <MapPin size={14} className="text-primary shrink-0" />
+                          <span className="text-sm text-foreground">{s.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={handleSearch}
+                  className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white hover:opacity-90 transition"
+                >
+                  Search
                 </button>
-                <span className="text-sm text-slate-500">✨ Free to search • No signup required</span>
-              </div>
-              {geoError && <p className="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg">{geoError}</p>}
-
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { v: loading ? "..." : `${providers.length}+`, l: "Verified Profiles", icon: "👥" },
-                  { v: `${DIRECTORY_COUNTRIES.length}`, l: "Countries", icon: "🌍" },
-                  { v: "24/7", l: "Booking", icon: "⚡" },
-                ].map((s) => (
-                  <div key={s.l} className="rounded-2xl bg-white/80 backdrop-blur-sm px-5 py-4 shadow-lg border border-slate-200 hover:shadow-xl transition">
-                    <div className="text-2xl mb-1">{s.icon}</div>
-                    <p className="text-2xl font-black text-slate-900">{s.v}</p>
-                    <p className="text-xs font-medium text-slate-500 mt-1">{s.l}</p>
-                  </div>
-                ))}
               </div>
             </div>
 
-            {/* Illustration */}
-            <div className="hidden lg:block">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/20 to-teal-400/20 rounded-[3rem] blur-2xl" />
-                <div className="relative rounded-[3rem] bg-gradient-to-br from-white to-emerald-50/50 p-8 shadow-2xl border border-white/50 backdrop-blur-sm">
-                  <img 
-                    src={illustration} 
-                    alt={singularWord} 
-                    className="mx-auto max-h-[450px] w-auto object-contain drop-shadow-2xl" 
-                  />
-                </div>
-              </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={handleNearby}
+                disabled={geoLoading}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary disabled:opacity-50 transition"
+              >
+                <MapPin className="h-4 w-4 text-primary" />
+                {geoLoading ? "Detecting..." : "Find nearby"}
+              </button>
+              <span className="text-muted-foreground text-xs">·</span>
+              <span className="text-xs text-muted-foreground">Free to search · No signup required</span>
+            </div>
+            {geoError && <p className="text-sm text-red-600">{geoError}</p>}
+
+            {/* Stats pills */}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <span className="rounded-full border border-border bg-muted px-4 py-1.5 text-xs font-semibold text-foreground">
+                {loading ? "..." : `${providers.length}+`} Providers
+              </span>
+              <span className="rounded-full border border-border bg-muted px-4 py-1.5 text-xs font-semibold text-foreground">
+                {DIRECTORY_COUNTRIES.length} Countries
+              </span>
+              <span className="rounded-full border border-border bg-muted px-4 py-1.5 text-xs font-semibold text-foreground">
+                24/7 Booking
+              </span>
             </div>
           </div>
         </div>
       </section>
 
-      <div className="mx-auto max-w-7xl px-6 py-16">
-        {error && <div className="mb-8 rounded-2xl border-2 border-red-200 bg-red-50 px-6 py-4 text-sm font-medium text-red-700">{error}</div>}
+      <div className="mx-auto max-w-7xl px-6 py-12">
+        {error && <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
         {/* ── RESULTS PAGE ── */}
         {isResultsPage ? (
           <div>
-            <button 
-              onClick={() => navigate(roleCopy.routeBase)} 
-              className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-emerald-600 transition group"
+            <button
+              onClick={() => navigate(roleCopy.routeBase)}
+              className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary transition"
             >
-              <span className="group-hover:-translate-x-1 transition">←</span> Back to {pluralWord}
+              ← Back to {pluralWord}
             </button>
 
             {/* Heading + filters */}
-            <div className="mb-10">
-              <div className="flex flex-wrap items-end justify-between gap-6 mb-6">
+            <div className="mb-8">
+              <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
                 <div>
-                  <h2 className="text-4xl font-black text-slate-900 md:text-5xl mb-2">{headingPrimary}</h2>
-                  <p className="text-base text-slate-600">
+                  <h2 className="text-3xl font-bold text-foreground md:text-4xl">{headingPrimary}</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
                     {loading ? "Loading..." : (
-                      <>
-                        <span className="font-bold text-emerald-600">{filteredProviders.length}</span> {filteredProviders.length === 1 ? 'result' : 'results'} found
-                      </>
+                      <><span className="font-semibold text-primary">{filteredProviders.length}</span> {filteredProviders.length === 1 ? "result" : "results"} found</>
                     )}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-2">
                   {(["all", "online", "in_person"] as const).map((m) => (
-                    <button 
-                      key={m} 
+                    <button
+                      key={m}
                       onClick={() => setServiceModeFilter(m)}
-                      className={`rounded-full px-6 py-3 text-sm font-bold transition shadow-md ${
-                        serviceModeFilter === m 
-                          ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-emerald-500/30" 
-                          : "bg-white text-slate-700 hover:bg-slate-50 border-2 border-slate-200"
+                      className={`rounded-full px-4 py-2 text-xs font-semibold transition border ${
+                        serviceModeFilter === m
+                          ? "bg-primary text-white border-primary"
+                          : "bg-background text-foreground border-border hover:border-primary"
                       }`}
                     >
-                      {m === "all" ? "All Sessions" : m === "online" ? "🌐 Online" : "📍 In-Person"}
+                      {m === "all" ? "All" : m === "online" ? "Online" : "In-Person"}
                     </button>
                   ))}
                 </div>
@@ -362,13 +331,13 @@ const ProviderDirectoryPage = ({ role }: Props) => {
               {pageCountry && cityOptions.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {cityOptions.map((c) => (
-                    <button 
-                      key={c.slug} 
+                    <button
+                      key={c.slug}
                       onClick={() => goToCity(pageCountry, c.name)}
-                      className={`rounded-full px-5 py-2 text-sm font-semibold transition shadow-sm ${
-                        cityToSlug(pageCity) === c.slug 
-                          ? "bg-emerald-600 text-white shadow-emerald-500/30" 
-                          : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+                      className={`rounded-full px-4 py-1.5 text-xs font-semibold transition border ${
+                        cityToSlug(pageCity) === c.slug
+                          ? "bg-primary text-white border-primary"
+                          : "bg-background text-foreground border-border hover:border-primary"
                       }`}
                     >
                       {c.name}
@@ -380,24 +349,23 @@ const ProviderDirectoryPage = ({ role }: Props) => {
 
             {/* Cards */}
             {loading ? (
-              <div className="rounded-3xl bg-gradient-to-br from-slate-50 to-slate-100 py-24 text-center">
-                <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-slate-300 border-t-emerald-600 mb-4" />
-                <p className="text-slate-600 font-medium">Loading {pluralWord.toLowerCase()}...</p>
+              <div className="rounded-xl border border-border bg-muted py-20 text-center">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary mb-3" />
+                <p className="text-sm text-muted-foreground">Loading {pluralWord.toLowerCase()}...</p>
               </div>
             ) : !filteredProviders.length ? (
-              <div className="rounded-3xl bg-gradient-to-br from-slate-50 to-slate-100 py-24 text-center border-2 border-dashed border-slate-300">
-                <div className="text-6xl mb-4">🔍</div>
-                <p className="text-2xl font-bold text-slate-900 mb-2">{roleCopy.emptyTitle}</p>
-                <p className="text-slate-600 max-w-md mx-auto mb-6">{roleCopy.emptyDescription}</p>
-                <button 
-                  onClick={() => navigate(roleCopy.routeBase)} 
-                  className="rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 px-8 py-4 text-sm font-bold text-white hover:from-emerald-700 hover:to-teal-700 transition shadow-lg shadow-emerald-500/30"
+              <div className="rounded-xl border border-dashed border-border bg-muted py-20 text-center">
+                <p className="text-lg font-semibold text-foreground mb-1">{roleCopy.emptyTitle}</p>
+                <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-5">{roleCopy.emptyDescription}</p>
+                <button
+                  onClick={() => navigate(roleCopy.routeBase)}
+                  className="rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition"
                 >
                   Browse All Countries
                 </button>
               </div>
             ) : (
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredProviders.map((provider) => {
                   const pId = provider.user_id || provider.id;
                   const name = provider.full_name || provider.display_name || provider.username || singularWord;
@@ -410,64 +378,41 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                   return (
                     <div
                       key={pId}
-                      className="group relative flex flex-col rounded-3xl bg-white p-6 shadow-lg border-2 border-slate-100 transition hover:-translate-y-2 hover:shadow-2xl hover:border-emerald-200"
+                      className="flex flex-col rounded-xl bg-white border border-border p-5 shadow-sm hover:shadow-md transition"
                     >
-                      {/* Verified badge */}
-                      {verified && (
-                        <div className="absolute -top-3 -right-3 z-10">
-                          <div className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-3 py-1.5 shadow-lg">
-                            <ShieldCheck className="h-4 w-4 text-white" />
-                            <span className="text-xs font-bold text-white">Verified</span>
-                          </div>
-                        </div>
-                      )}
-
                       {/* Avatar + Info */}
-                      <div className="flex items-start gap-4 mb-4">
-                        <div className="relative shrink-0">
-                          <div className="h-20 w-20 overflow-hidden rounded-2xl border-4 border-white shadow-xl ring-2 ring-slate-100">
-                            {provider.avatar_url ? (
-                              <img src={provider.avatar_url} alt={name} className="h-full w-full object-cover" />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-400 to-teal-400 text-2xl font-black text-white">
-                                {name.charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                          </div>
-                          <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-4 border-white bg-emerald-500 shadow-md" />
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border">
+                          {provider.avatar_url ? (
+                            <img src={provider.avatar_url} alt={name} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-primary/10 text-base font-bold text-primary">
+                              {name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
                         </div>
-                        
                         <div className="min-w-0 flex-1">
-                          <h3 className="text-lg font-black text-slate-900 group-hover:text-emerald-600 transition mb-1">
-                            {name}
-                          </h3>
-                          <p className="text-xs font-medium text-slate-500 line-clamp-1 mb-2">
+                          <div className="flex items-center gap-1.5">
+                            <h3 className="text-sm font-semibold text-foreground truncate">{name}</h3>
+                            {verified && <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                             {provider.headline || roleCopy.defaultHeadline}
                           </p>
                           {location && (
-                            <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                              <MapPin className="h-3.5 w-3.5 text-emerald-600" />
-                              <span className="font-medium">{location}</span>
+                            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                              <MapPin className="h-3 w-3 text-primary shrink-0" />
+                              <span>{location}</span>
                             </div>
                           )}
                         </div>
                       </div>
 
-                      {/* Bio */}
-                      {provider.bio && (
-                        <p className="text-sm leading-relaxed text-slate-600 line-clamp-2 mb-4">
-                          {provider.bio}
-                        </p>
-                      )}
-
                       {/* Tags */}
                       {tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-4">
+                        <div className="flex flex-wrap gap-1.5 mb-3">
                           {tags.slice(0, 3).map((t) => (
-                            <span 
-                              key={t} 
-                              className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-100"
-                            >
+                            <span key={t} className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs text-foreground">
                               {t}
                             </span>
                           ))}
@@ -475,20 +420,18 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                       )}
 
                       {/* Footer */}
-                      <div className="mt-auto pt-4 border-t-2 border-slate-100 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700">
+                      <div className="mt-auto pt-3 border-t border-border flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
                             {getServiceModeLabel(provider.service_delivery_mode)}
                           </span>
                           {price > 0 && (
-                            <span className="text-lg font-black text-slate-900">
-                              ${price.toFixed(0)}
-                            </span>
+                            <span className="text-sm font-semibold text-foreground">${price.toFixed(0)}</span>
                           )}
                         </div>
                         <button
                           onClick={() => navigate(`${roleCopy.profileRouteBase}/${pId}`)}
-                          className="rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-2.5 text-xs font-bold text-white hover:from-emerald-700 hover:to-teal-700 transition shadow-md shadow-emerald-500/30 hover:shadow-lg"
+                          className="rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition"
                         >
                           View Profile
                         </button>
@@ -503,35 +446,23 @@ const ProviderDirectoryPage = ({ role }: Props) => {
         ) : (
           /* ── HOME PAGE ── */
           <>
-            {/* Country grid */}
-            <section className="relative overflow-hidden rounded-[3rem] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white shadow-2xl">
-              <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAtMi4yMSAxLjc5LTQgNC00czQgMS43OSA0IDQtMS43OSA0LTQgNC00LTEuNzktNC00em0wIDI0YzAtMi4yMSAxLjc5LTQgNC00czQgMS43OSA0IDQtMS43OSA0LTQgNC00LTEuNzktNC00ek0xMiAxNmMwLTIuMjEgMS43OS00IDQtNHM0IDEuNzkgNCA0LTEuNzkgNC00IDQtNC0xLjc5LTQtNHptMCAyNGMwLTIuMjEgMS43OS00IDQtNHM0IDEuNzkgNCA0LTEuNzkgNC00IDQtNC0xLjc5LTQtNHoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-40" />
-              
-              <div className="relative z-10 px-8 py-14 md:px-14 md:py-16">
-                <div className="text-center mb-10">
-                  <p className="text-sm font-semibold text-emerald-400 mb-2">🌍 Global Directory</p>
-                  <h2 className="text-4xl font-black md:text-5xl mb-3">
-                    Browse by Country
-                  </h2>
-                  <p className="text-slate-300 max-w-2xl mx-auto">
-                    Find {pluralWord.toLowerCase()} in your region or explore worldwide
-                  </p>
+            {/* Country grid — dark background */}
+            <section className="rounded-xl overflow-hidden" style={{ backgroundColor: "#111827" }}>
+              <div className="px-6 py-12 md:px-10 md:py-14">
+                <div className="mb-8">
+                  <p className="text-xs font-semibold text-primary mb-1">Global Directory</p>
+                  <h2 className="text-2xl font-bold text-white">Browse by Country</h2>
+                  <p className="text-sm text-gray-400 mt-1">Find {pluralWord.toLowerCase()} in your region or explore worldwide</p>
                 </div>
-                
-                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                   {DIRECTORY_COUNTRIES.slice(0, 24).map((c) => (
-                    <button 
-                      key={c.code} 
+                    <button
+                      key={c.code}
                       onClick={() => goToCountry(c.name)}
-                      className="group flex items-center gap-3 rounded-2xl bg-white p-4 text-left transition hover:-translate-y-1 hover:shadow-2xl"
+                      className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-left hover:bg-white/10 hover:border-primary/50 transition"
                     >
-                      <span className="text-3xl group-hover:scale-110 transition">{c.flag}</span>
-                      <div className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-bold text-slate-900 group-hover:text-emerald-600 transition">
-                          {c.name}
-                        </span>
-                        <span className="block text-xs text-slate-500">Explore →</span>
-                      </div>
+                      <span className="text-xl shrink-0">{c.flag}</span>
+                      <span className="truncate text-xs font-medium text-white">{c.name}</span>
                     </button>
                   ))}
                 </div>
@@ -539,124 +470,41 @@ const ProviderDirectoryPage = ({ role }: Props) => {
             </section>
 
             {/* How it works */}
-            <section className="mt-20">
-              <div className="text-center mb-12">
-                <span className="inline-block text-sm font-bold text-emerald-600 bg-emerald-50 px-4 py-2 rounded-full mb-4">
-                  ⚡ Simple Process
-                </span>
-                <h2 className="text-4xl font-black text-slate-900 md:text-5xl">
-                  How It Works
-                </h2>
+            <section className="mt-16">
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold text-foreground">How It Works</h2>
+                <p className="text-sm text-muted-foreground mt-1">Three simple steps to find and book your {singularWord.toLowerCase()}</p>
               </div>
-              
-              <div className="grid gap-8 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-3">
                 {[
-                  { 
-                    num: "1", 
-                    title: `Browse ${pluralWord}`, 
-                    body: `Search by location, specialty, or availability. Compare profiles with verified credentials and real reviews.`, 
-                    gradient: "from-blue-500 to-cyan-500",
-                    icon: "🔍"
-                  },
-                  { 
-                    num: "2", 
-                    title: "Book Your Session", 
-                    body: `Choose online or in-person. Pick a time that works for you. Secure payment with instant confirmation.`, 
-                    gradient: "from-emerald-500 to-teal-500",
-                    icon: "📅"
-                  },
-                  { 
-                    num: "3", 
-                    title: "Start Your Journey", 
-                    body: `Meet your ${singularWord.toLowerCase()}. Track progress. Achieve your goals with professional guidance.`, 
-                    gradient: "from-purple-500 to-pink-500",
-                    icon: "🚀"
-                  },
+                  { num: "1", title: `Browse ${pluralWord}`, body: `Search by location, specialty, or availability. Compare profiles and credentials side by side.` },
+                  { num: "2", title: "Book Your Session", body: `Choose online or in-person. Pick a time that works for you and confirm instantly.` },
+                  { num: "3", title: "Start Your Journey", body: `Meet your ${singularWord.toLowerCase()} and begin working toward your goals with professional guidance.` },
                 ].map((step) => (
-                  <div key={step.num} className="relative group">
-                    <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition rounded-3xl blur-xl" style={{ background: `linear-gradient(to bottom right, ${step.gradient})` }} />
-                    <div className="relative rounded-3xl bg-white p-8 shadow-lg border-2 border-slate-100 hover:border-transparent transition">
-                      <div className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br ${step.gradient} text-white text-2xl font-black mb-6 shadow-lg`}>
-                        {step.icon}
-                      </div>
-                      <h3 className="text-xl font-black text-slate-900 mb-3">{step.title}</h3>
-                      <p className="text-sm leading-relaxed text-slate-600">{step.body}</p>
+                  <div key={step.num} className="rounded-xl border border-border bg-white p-6 shadow-sm">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary mb-4">
+                      {step.num}
                     </div>
+                    <h3 className="text-sm font-semibold text-foreground mb-2">{step.title}</h3>
+                    <p className="text-xs leading-relaxed text-muted-foreground">{step.body}</p>
                   </div>
                 ))}
               </div>
             </section>
 
-            {/* Stats banner */}
-            <section className="mt-20 relative overflow-hidden rounded-[3rem] bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 px-8 py-16 text-white shadow-2xl md:px-14">
-              {/* Decorative elements */}
-              <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
-              <div className="absolute bottom-0 left-0 w-80 h-80 bg-white/10 rounded-full blur-3xl" />
-              
-              <div className="relative z-10 grid gap-12 lg:grid-cols-2 lg:items-center">
-                <div className="space-y-5">
-                  {[
-                    { v: "300+", l: "Verified Professionals", icon: "👥" },
-                    { v: "300+", l: "Cities Worldwide", icon: "🌆" },
-                    { v: "70+", l: "Countries Covered", icon: "🌍" },
-                  ].map((s) => (
-                    <div key={s.l} className="flex items-center gap-5 rounded-2xl bg-white/10 backdrop-blur-md px-6 py-5 border border-white/20 hover:bg-white/20 transition">
-                      <div className="text-4xl">{s.icon}</div>
-                      <div>
-                        <p className="text-3xl font-black">{s.v}</p>
-                        <p className="text-sm font-medium text-white/80">{s.l}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                <div>
-                  <h2 className="text-4xl font-black leading-tight md:text-5xl mb-6">
-                    {isTherapist ? "Mental Wellness" : "Professional Growth"}
-                    <br />
-                    Made Simple
-                  </h2>
-                  <p className="text-lg leading-relaxed text-white/90 mb-8">
-                    Compare {pluralWord.toLowerCase()} by location, specialty, and availability. Book sessions that fit your schedule. Start your journey today.
-                  </p>
-                  <button 
-                    onClick={() => handleSearch()}
-                    className="rounded-full bg-white px-8 py-4 text-sm font-bold text-emerald-600 hover:bg-slate-50 transition shadow-xl"
-                  >
-                    Get Started Now →
-                  </button>
-                </div>
-              </div>
-            </section>
-
             {/* FAQ */}
-            <section className="mt-20 grid gap-12 lg:grid-cols-2">
+            <section className="mt-16 grid gap-10 lg:grid-cols-2">
               <div>
-                <div className="rounded-2xl bg-amber-50 border-2 border-amber-200 p-6 mb-8">
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl">⚠️</span>
-                    <div>
-                      <p className="font-bold text-amber-900 mb-2">Need Urgent Support?</p>
-                      <p className="text-sm leading-relaxed text-amber-800">
-                        For immediate help, contact local emergency services or crisis helplines. This directory is for ongoing care and scheduled sessions.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
-                <h2 className="text-3xl font-black text-slate-900 md:text-4xl mb-4">
-                  Find {pluralWord} Anywhere
-                </h2>
-                <p className="text-slate-600 leading-relaxed mb-6">
-                  Search by country, city, specialty, or availability. Browse verified profiles with consistent information across all listings.
+                <h2 className="text-2xl font-bold text-foreground mb-2">Find {pluralWord} Anywhere</h2>
+                <p className="text-sm text-muted-foreground mb-5">
+                  Search by country, city, specialty, or availability. All profiles are structured consistently so you can compare before booking.
                 </p>
-                
                 <div className="flex flex-wrap gap-2">
                   {DIRECTORY_COUNTRIES.slice(0, 18).map((c) => (
-                    <button 
-                      key={c.code} 
-                      onClick={() => goToCountry(c.name)} 
-                      className="text-sm font-bold text-emerald-600 hover:text-emerald-700 hover:underline"
+                    <button
+                      key={c.code}
+                      onClick={() => goToCountry(c.name)}
+                      className="text-xs font-semibold text-primary hover:underline"
                     >
                       {c.code}
                     </button>
@@ -665,26 +513,22 @@ const ProviderDirectoryPage = ({ role }: Props) => {
               </div>
 
               <div>
-                <h2 className="text-3xl font-black text-slate-900 md:text-4xl mb-6">
-                  Common Questions
-                </h2>
-                <div className="space-y-3">
+                <h2 className="text-2xl font-bold text-foreground mb-4">Common Questions</h2>
+                <div className="space-y-2">
                   {FAQ_ITEMS(singularWord).map((item, i) => (
-                    <div key={i} className="rounded-2xl bg-white border-2 border-slate-100 overflow-hidden hover:border-emerald-200 transition">
-                      <button 
-                        className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
+                    <div key={i} className="rounded-lg border border-border bg-white overflow-hidden">
+                      <button
+                        className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left"
                         onClick={() => setOpenFaq(openFaq === i ? null : i)}
                       >
-                        <span className="text-sm font-bold text-slate-900">{item.q}</span>
-                        <ChevronRight 
-                          className={`h-5 w-5 shrink-0 text-emerald-600 transition-transform ${openFaq === i ? "rotate-90" : ""}`} 
+                        <span className="text-sm font-medium text-foreground">{item.q}</span>
+                        <ChevronRight
+                          className={`h-4 w-4 shrink-0 text-primary transition-transform ${openFaq === i ? "rotate-90" : ""}`}
                         />
                       </button>
                       {openFaq === i && (
-                        <div className="px-6 pb-5">
-                          <p className="text-sm leading-relaxed text-slate-600 border-t-2 border-slate-100 pt-4">
-                            {item.a}
-                          </p>
+                        <div className="px-4 pb-4 border-t border-border pt-3">
+                          <p className="text-xs leading-relaxed text-muted-foreground">{item.a}</p>
                         </div>
                       )}
                     </div>
