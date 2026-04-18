@@ -129,7 +129,6 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
 
   const handleSignOut = async () => {
     await logout();
-    navigate("/login", { replace: true });
   };
 
   return (

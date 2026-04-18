@@ -70,14 +70,13 @@ const Navbar = () => {
   };
 
   const handleLogout = async () => {
+    setMobileOpen(false);
     try {
       await logout();
     } catch (e) {
       console.error("Logout error:", e);
+      navigate("/login", { replace: true });
     }
-    // Always navigate to login regardless
-    navigate("/login", { replace: true });
-    setMobileOpen(false);
   };
 
   return (

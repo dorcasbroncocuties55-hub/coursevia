@@ -344,9 +344,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     clearStoredRequestedRole();
+    // Await signOut so the session is actually cleared before redirect
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {}
     clearAuthState();
-    // Sign out in background — don't block UI
-    supabase.auth.signOut({ scope: "local" }).catch(() => {});
     window.location.href = "/login";
   };
 
