@@ -2,11 +2,8 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { roleToDashboardPath } from "@/lib/authRoles";
 
 const Login = () => {
@@ -14,25 +11,21 @@ const Login = () => {
   const location = useLocation();
   const { user, roles, primaryRole, profile, loading: authLoading } = useAuth();
 
-  const prefillEmail =
-    typeof location.state?.prefillEmail === "string" ? location.state.prefillEmail : "";
+  const prefillEmail = typeof location.state?.prefillEmail === "string" ? location.state.prefillEmail : "";
 
   const [email, setEmail] = useState(prefillEmail);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  // Force-show the form after 3s even if auth is still loading
   const [forceShow, setForceShow] = useState(false);
+
   useEffect(() => {
     const t = setTimeout(() => setForceShow(true), 3000);
     return () => clearTimeout(t);
   }, []);
 
-  // Resolve the correct dashboard using profile.role first (the user's chosen role),
-  // falling back to primaryRole only if profile.role isn't set yet.
   const getDestination = () => {
     if (typeof location.state?.from === "string") return location.state.from;
-    // If onboarding not completed, always go to onboarding
     if (profile && !profile.onboarding_completed) return "/onboarding";
     const role = profile?.role || primaryRole || "learner";
     return roleToDashboardPath(role);
@@ -41,75 +34,39 @@ const Login = () => {
   useEffect(() => {
     if (authLoading) return;
     if (!user) return;
-    // Wait until profile has loaded before redirecting
     if (!profile && roles.length === 0) return;
     navigate(getDestination(), { replace: true });
   }, [user, roles, primaryRole, profile, authLoading]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!email.trim()) {
-      toast.error("Email is required");
-      return;
-    }
-
-    if (!password) {
-      toast.error("Password is required");
-      return;
-    }
-
+    if (!email.trim()) { toast.error("Email is required"); return; }
+    if (!password) { toast.error("Password is required"); return; }
     try {
       setLoading(true);
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error;
-
       if (data.session) {
-        try {
-          await supabase.rpc("ensure_my_profile_and_role");
-        } catch (rpcError) {
-          console.warn("ensure_my_profile_and_role skipped during login:", rpcError);
-        }
-
-        toast.success("Login successful");
-        // Don't navigate here — the useEffect watches auth state and will
-        // redirect once profile.role is loaded, ensuring the correct dashboard.
+        try { await supabase.rpc("ensure_my_profile_and_role"); } catch {}
       }
     } catch (error: any) {
-      const message = error?.message?.toLowerCase() || "";
-
-      if (message.includes("invalid login credentials")) {
-        toast.error("Wrong email or password.");
-      } else if (message.includes("email not confirmed")) {
-        toast.error("Please confirm your email before signing in.");
-      } else {
-        toast.error(error?.message || "Failed to sign in");
-      }
+      const msg = error?.message?.toLowerCase() || "";
+      if (msg.includes("invalid login credentials")) toast.error("Wrong email or password.");
+      else if (msg.includes("email not confirmed")) toast.error("Please confirm your email first.");
+      else toast.error(error?.message || "Failed to sign in");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogle = async () => {
     try {
       setLoading(true);
       window.localStorage.removeItem("coursevia_oauth_role");
-
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: {
-            prompt: "select_account",
-          },
-        },
+        options: { redirectTo: `${window.location.origin}/auth/callback`, queryParams: { prompt: "select_account" } },
       });
-
       if (error) throw error;
     } catch (error: any) {
       toast.error(error?.message || "Google sign-in failed");
@@ -117,122 +74,112 @@ const Login = () => {
     }
   };
 
-  // Show loading spinner if auth is loading — but max 3 seconds
   if (authLoading && !forceShow) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
-      <div className="flex-1 flex items-center justify-center px-4">
-        <div className="w-full max-w-sm">
-          <Link to="/" className="text-xl font-bold text-primary">
-            Coursevia
+    <div className="min-h-screen bg-white flex flex-col">
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+        <Link to="/" className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
+            <span className="text-white font-black text-sm">C</span>
+          </div>
+          <span className="font-bold text-gray-900 text-sm">Coursevia</span>
+        </Link>
+        <p className="text-sm text-gray-500">
+          No account?{" "}
+          <Link to="/signup" state={{ from: location.state?.from, prefillEmail: email }} className="text-primary font-semibold hover:underline">
+            Sign up
           </Link>
+        </p>
+      </div>
 
-          <h1 className="text-2xl font-bold text-foreground mt-8 mb-2">
-            Welcome back
-          </h1>
+      {/* Main */}
+      <div className="flex-1 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-[400px]">
 
-          <p className="text-muted-foreground text-sm mb-8">
-            Sign in to continue.
-          </p>
-
-          <Button
-            variant="outline"
-            className="w-full mb-6"
-            onClick={handleGoogleLogin}
-            disabled={loading}
-          >
-            {loading ? "Please wait..." : "Continue with Google"}
-          </Button>
-
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-background px-2 text-muted-foreground">
-                or
-              </span>
-            </div>
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">Welcome back</h1>
+            <p className="text-sm text-gray-500">Sign in to your Coursevia account</p>
           </div>
 
+          {/* Google */}
+          <button
+            onClick={handleGoogle}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition disabled:opacity-60 shadow-sm"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18">
+              <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+              <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+              <path fill="#FBBC05" d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"/>
+              <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z"/>
+            </svg>
+            Continue with Google
+          </button>
+
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-xs text-gray-400 font-medium">or</span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+
+          {/* Form */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Email address</label>
+              <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition"
               />
             </div>
 
             <div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link
-                  to="/forgot-password"
-                  className="text-xs text-primary hover:underline"
-                >
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium text-gray-700">Password</label>
+                <Link to="/forgot-password" className="text-xs text-primary hover:underline font-medium">
                   Forgot password?
                 </Link>
               </div>
-
               <div className="relative">
-                <Input
-                  id="password"
+                <input
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 pr-11 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition"
                 />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
+                <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign in"}
-            </Button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:opacity-90 transition disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm"
+            >
+              {loading ? <><Loader2 size={15} className="animate-spin" /> Signing in...</> : "Sign in"}
+            </button>
           </form>
 
-          <p className="text-sm text-muted-foreground text-center mt-6">
-            Don&apos;t have an account?{" "}
-            <Link
-              to="/signup"
-              state={{ from: location.state?.from, prefillEmail: email }}
-              className="text-primary hover:underline font-medium"
-            >
-              Sign up
-            </Link>
-          </p>
-        </div>
-      </div>
-
-      <div className="hidden lg:flex flex-1 bg-primary/5 items-center justify-center p-12">
-        <div className="max-w-md text-center">
-          <h2 className="text-3xl font-bold text-foreground mb-4">
-            Learn from the best, grow without limits
-          </h2>
-          <p className="text-muted-foreground">
-            Access courses, coaching, and premium content — all in one platform.
+          <p className="text-xs text-gray-400 text-center mt-6">
+            By signing in, you agree to our{" "}
+            <Link to="/terms" className="underline hover:text-gray-600">Terms</Link>
+            {" "}and{" "}
+            <Link to="/privacy" className="underline hover:text-gray-600">Privacy Policy</Link>
           </p>
         </div>
       </div>
