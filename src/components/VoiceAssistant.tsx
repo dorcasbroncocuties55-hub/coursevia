@@ -702,7 +702,11 @@ const VoiceAssistant = () => {
                       minHeight: 80,
                       overflowY: "auto",
                       WebkitOverflowScrolling: "touch",
+                      overscrollBehavior: "contain",
+                      touchAction: "pan-y",
                     }}
+                    onWheel={e => e.stopPropagation()}
+                    onTouchMove={e => e.stopPropagation()}
                   >
                     {msgs.length === 0 && <p className="text-center text-xs py-8" style={{ color: "rgba(16,185,129,0.35)" }}>Tap the mic or type below</p>}
                     {msgs.map(m => (

@@ -1444,21 +1444,31 @@ const Onboarding = () => {
       </div>
     );
   }
+  // Redirect if no user or already completed — use useEffect to avoid history warning
+  useEffect(() => {
+    if (forceShow && !user) {
+      navigate("/login", { replace: true });
+    }
+    if (profile?.onboarding_completed) {
+      const role = profile.role || "learner";
+      navigate(roleToDashboardPath(role as any), { replace: true });
+    }
+  }, [user, profile, forceShow, navigate]);
 
-  // Redirect if no user
-  if (!user) {
-    console.log("Onboarding: No user, redirecting to login");
-    navigate("/login", { replace: true });
-    return null;
+  // Still loading and not forced yet — show spinner
+  if ((authLoading && !forceShow) || (!user && !forceShow)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+          <p className="text-sm text-muted-foreground">Loading your profile...</p>
+        </div>
+      </div>
+    );
   }
 
-  // If onboarding is already completed, redirect to dashboard
-  if (profile?.onboarding_completed) {
-    console.log("Onboarding: Already completed, redirecting to dashboard");
-    const role = profile.role || "learner";
-    navigate(roleToDashboardPath(role as any), { replace: true });
-    return null;
-  }
+  // Don't render if redirecting
+  if (!user || profile?.onboarding_completed) return null;
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.10),_transparent_35%),linear-gradient(180deg,#f8fafc_0%,#ffffff_48%,#f8fafc_100%)] px-4 py-10">
