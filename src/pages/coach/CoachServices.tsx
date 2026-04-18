@@ -85,7 +85,7 @@ const CoachServices = () => {
     toast.success("Service removed");
   };
 
-  if (authLoading || loading) {
+  if (loading) {
     return <PageLoading />;
   }
 

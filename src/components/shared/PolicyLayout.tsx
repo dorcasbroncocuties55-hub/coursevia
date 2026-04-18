@@ -89,11 +89,11 @@ const PolicyLayout = ({
       </section>
 
       {/* Body */}
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12 flex gap-8">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12 flex gap-8 items-start">
 
         {/* Sticky side nav */}
-        <aside className="hidden lg:block w-56 shrink-0">
-          <div className="sticky top-24 space-y-1">
+        <aside className="hidden lg:block w-56 shrink-0 sticky top-8 self-start">
+          <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3 px-3">Contents</p>
             {sections.map(({ id, title: t }) => (
               <a
@@ -101,7 +101,7 @@ const PolicyLayout = ({
                 href={`#${id}`}
                 onClick={(e) => {
                   e.preventDefault();
-                  document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+                  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
                 }}
                 className={`block text-sm px-3 py-2 rounded-lg transition-colors ${
                   activeId === id

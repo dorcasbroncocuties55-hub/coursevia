@@ -133,7 +133,7 @@ const TherapistServices = () => {
     toast.success("Therapy service removed");
   };
 
-  if (authLoading || loading) {
+  if (loading) {
     return <PageLoading />;
   }
 

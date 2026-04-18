@@ -14,10 +14,8 @@ const LearnerCourses = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    if (authLoading) return; // wait for auth first
+    if (!user) { setLoading(false); return; }
     const load = async () => {
       const { data } = await supabase
         .from("content_access")
@@ -37,9 +35,9 @@ const LearnerCourses = () => {
       setLoading(false);
     };
     load();
-  }, [user]);
+  }, [user, authLoading]);
 
-  if (authLoading || loading) {
+  if (loading) {
     return <PageLoading />;
   }
 

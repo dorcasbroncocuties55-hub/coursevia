@@ -50,7 +50,9 @@ const LearnerPayments = () => {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [user]);
+  useEffect(() => { 
+    if (!authLoading) load(); 
+  }, [user, authLoading]);
 
   const total = payments.filter(p => ["completed", "approved", "success"].includes(p.status))
     .reduce((s, p) => s + Number(p.amount || 0), 0);
@@ -60,7 +62,7 @@ const LearnerPayments = () => {
     { key: "refunds",  label: "Refund Requests" },
   ] as const;
 
-  if (authLoading || loading) {
+  if (loading) {
     return <PageLoading />;
   }
 
