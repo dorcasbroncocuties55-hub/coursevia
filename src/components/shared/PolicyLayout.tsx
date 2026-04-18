@@ -89,34 +89,39 @@ const PolicyLayout = ({
       </section>
 
       {/* Body */}
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12 flex gap-8 items-start">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
+        <div className="flex gap-8 items-start relative">
 
-        {/* Sticky side nav */}
-        <aside className="hidden lg:block w-56 shrink-0 sticky top-8 self-start">
-          <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3 px-3">Contents</p>
-            {sections.map(({ id, title: t }) => (
-              <a
-                key={id}
-                href={`#${id}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-                className={`block text-sm px-3 py-2 rounded-lg transition-colors ${
-                  activeId === id
-                    ? "bg-primary/10 text-primary font-semibold"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
-              >
-                {t}
-              </a>
-            ))}
-          </div>
-        </aside>
+          {/* Sticky side nav — position fixed relative to viewport */}
+          <aside className="hidden lg:block w-56 shrink-0">
+            <div
+              className="sticky space-y-1"
+              style={{ top: "2rem" }}
+            >
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3 px-3">Contents</p>
+              {sections.map(({ id, title: t }) => (
+                <a
+                  key={id}
+                  href={`#${id}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className={`block text-sm px-3 py-2 rounded-lg transition-colors ${
+                    activeId === id
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {t}
+                </a>
+              ))}
+            </div>
+          </aside>
 
-        {/* Cards */}
-        <main className="flex-1 space-y-5 min-w-0">{children}</main>
+          {/* Cards */}
+          <main className="flex-1 space-y-5 min-w-0">{children}</main>
+        </div>
       </div>
 
       {/* CTA */}
