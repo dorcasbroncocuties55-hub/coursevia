@@ -88,19 +88,15 @@ const PolicyLayout = ({
         </div>
       </section>
 
-      {/* Body */}
+      {/* Body — two column layout with sticky sidebar */}
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
-        <div className="lg:flex lg:gap-8">
+        <div className="lg:grid lg:grid-cols-[224px_1fr] lg:gap-8 lg:items-start">
 
-          {/* Sidebar — fixed, stops before footer */}
-          <aside className="hidden lg:block w-56 shrink-0">
-            <div
-              className="fixed overflow-y-auto space-y-1"
-              style={{
-                top: "5rem",
-                width: "14rem",
-                maxHeight: "calc(100vh - 8rem)",
-              }}
+          {/* Sidebar — sticky within the content column only */}
+          <aside className="hidden lg:block">
+            <nav
+              className="sticky space-y-1"
+              style={{ top: "5rem" }}
             >
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3 px-3">Contents</p>
               {sections.map(({ id, title: t }) => (
@@ -120,11 +116,11 @@ const PolicyLayout = ({
                   {t}
                 </a>
               ))}
-            </div>
+            </nav>
           </aside>
 
-          {/* Cards — scrollable content */}
-          <main className="flex-1 space-y-5 min-w-0 lg:pl-4">{children}</main>
+          {/* Cards */}
+          <main className="space-y-5 min-w-0">{children}</main>
         </div>
       </div>
 
