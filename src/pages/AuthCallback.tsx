@@ -15,7 +15,7 @@ const AuthCallback = () => {
       console.error("AuthCallback: Timeout after 15 seconds, forcing redirect to onboarding");
       if (mounted) {
         toast.error("Sign in is taking longer than expected. Redirecting...");
-        window.location.href = "/onboarding";
+        window.location.replace("/onboarding");
       }
     }, 15000);
 
@@ -124,23 +124,22 @@ const AuthCallback = () => {
 
         console.log("AuthCallback: onboarding_completed =", onboardingDone, "role =", role);
 
-        // Clear timeout since we're about to redirect
         clearTimeout(timeoutId);
 
         if (!onboardingDone) {
           console.log("AuthCallback: Redirecting to /onboarding");
-          window.location.href = "/onboarding";
+          window.location.replace("/onboarding");
         } else {
           const dashboardPath = roleToDashboardPath(role as any);
           console.log("AuthCallback: Redirecting to", dashboardPath);
-          window.location.href = dashboardPath;
+          window.location.replace(dashboardPath);
         }
       } catch (err: any) {
         console.error("AuthCallback error:", err);
         toast.error(err?.message || "Authentication failed. Please try again.");
         window.localStorage.removeItem("coursevia_oauth_role");
         clearTimeout(timeoutId);
-        if (mounted) window.location.href = "/login";
+        if (mounted) window.location.replace("/login");
       }
     };
 

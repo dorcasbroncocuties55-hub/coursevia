@@ -352,7 +352,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         new Promise(resolve => setTimeout(resolve, 3000)),
       ]);
     } catch {}
-    window.location.href = "/login";
+    window.location.replace("/login");
   };
 
   useEffect(() => {
@@ -406,7 +406,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (mounted) {
             clearAuthState();
             setLoading(false);
-            window.location.href = "/login";
+            window.location.replace("/login");
           }
           return;
         }
