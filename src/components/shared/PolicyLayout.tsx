@@ -90,14 +90,11 @@ const PolicyLayout = ({
 
       {/* Body */}
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
-        <div className="flex gap-8 items-start relative">
+        <div className="lg:flex lg:gap-8">
 
-          {/* Sticky side nav — position fixed relative to viewport */}
+          {/* Sidebar — fixed on desktop */}
           <aside className="hidden lg:block w-56 shrink-0">
-            <div
-              className="sticky space-y-1"
-              style={{ top: "2rem" }}
-            >
+            <div className="fixed w-56 space-y-1" style={{ top: "6rem" }}>
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3 px-3">Contents</p>
               {sections.map(({ id, title: t }) => (
                 <a
@@ -119,8 +116,8 @@ const PolicyLayout = ({
             </div>
           </aside>
 
-          {/* Cards */}
-          <main className="flex-1 space-y-5 min-w-0">{children}</main>
+          {/* Cards — scrollable content */}
+          <main className="flex-1 space-y-5 min-w-0 lg:pl-4">{children}</main>
         </div>
       </div>
 
