@@ -89,14 +89,14 @@ const PolicyLayout = ({
       </section>
 
       {/* Body — two column layout with sticky sidebar */}
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
-        <div className="lg:grid lg:grid-cols-[224px_1fr] lg:gap-8 lg:items-start">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12" style={{ overflow: "visible" }}>
+        <div className="lg:grid lg:grid-cols-[224px_1fr] lg:gap-8" style={{ alignItems: "start" }}>
 
-          {/* Sidebar — sticky within the content column only */}
-          <aside className="hidden lg:block">
+          {/* Sidebar — sticky, scrolls with page but stops at grid end */}
+          <aside className="hidden lg:block self-start">
             <nav
-              className="sticky space-y-1"
-              style={{ top: "5rem" }}
+              className="space-y-1"
+              style={{ position: "sticky", top: "5rem" }}
             >
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3 px-3">Contents</p>
               {sections.map(({ id, title: t }) => (
