@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Mic, MicOff, X, Send, ChevronDown, Volume2 } from "lucide-react";
+import { Mic, MicOff, X, Send, ChevronDown, Volume2, Loader2 } from "lucide-react";
 
 type VoiceState = "idle" | "listening" | "thinking" | "speaking";
 type ChatMsg = { id: string; role: "user" | "ai"; text: string; cards?: Card[] };
@@ -42,15 +42,19 @@ const browserSay = (text: string, onDone?: () => void) => {
 const say = async (raw: string, onDone?: () => void) => {
   stopAudio();
   const clean = raw.replace(/\*\*/g,"").replace(/\n+/g,". ").replace(/[^\x00-\x7F]/g,"").replace(/\s+/g," ").trim().slice(0, 400);
+
+  // Try ElevenLabs via backend proxy (avoids CORS/401 issues)
   if (EL_KEY) {
     try {
-      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${EL_VOICE}/stream`, {
+      const BACKEND = (import.meta.env.VITE_BACKEND_URL || "https://coursevia-backend.onrender.com").replace(/\/$/, "");
+      const res = await fetch(`${BACKEND}/api/tts`, {
         method: "POST",
-        headers: { "xi-api-key": EL_KEY, "Content-Type": "application/json", "Accept": "audio/mpeg" },
-        body: JSON.stringify({ text: clean, model_id: "eleven_turbo_v2", voice_settings: { stability: 0.45, similarity_boost: 0.82, style: 0.35, use_speaker_boost: true } }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: clean, voice_id: EL_VOICE }),
       });
       if (res.ok) {
-        const url = URL.createObjectURL(await res.blob());
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
         const a = new Audio(url);
         _audio = a;
         a.onended = () => { URL.revokeObjectURL(url); _audio = null; onDone?.(); };
@@ -60,6 +64,8 @@ const say = async (raw: string, onDone?: () => void) => {
       }
     } catch {}
   }
+
+  // Fallback: browser TTS
   browserSay(clean, onDone);
 };
 
@@ -267,7 +273,11 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
 
     if (role) {
       try {
-        let dbq = supabase.from("profiles").select("user_id,full_name,headline,city,country,kyc_status,is_verified,booking_price,session_price,skills,service_delivery_mode").eq("onboarding_completed", true).or(`role.eq.${role},provider_type.eq.${role}`).limit(6);
+        let dbq = supabase.from("profiles")
+          .select("user_id,full_name,headline,city,country,kyc_status,is_verified,booking_price,session_price,skills,service_delivery_mode")
+          .eq("onboarding_completed", true)
+          .eq("role", role)
+          .limit(6);
         if (location) dbq = dbq.ilike("country", `%${location}%`);
         if (nameQuery && !specialty) dbq = dbq.ilike("full_name", `%${nameQuery}%`);
         if (specialty) dbq = dbq.or(`skills.ilike.%${specialty}%,headline.ilike.%${specialty}%,bio.ilike.%${specialty}%`);
@@ -625,17 +635,24 @@ const VoiceAssistant = () => {
 
   return (
     <>
-      {/* Floating button */}
+      {/* Floating AI button */}
       {!open && (
         <motion.button
-          initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 260, damping: 20, delay: 1.2 }}
-          onClick={handleOpen} aria-label="Open Coursevia AI"
-          className="fixed bottom-24 left-4 z-50 h-14 w-14 rounded-full flex items-center justify-center shadow-2xl"
-          style={{ background: `linear-gradient(135deg,${G},${DG})` }}
+          onClick={handleOpen}
+          aria-label="Open Coursevia AI Assistant"
+          className="fixed bottom-24 left-4 z-50 flex items-center gap-2 px-4 h-12 rounded-full shadow-2xl"
+          style={{ background: "linear-gradient(135deg,#10b981,#059669)", boxShadow: "0 8px 32px rgba(16,185,129,0.45)" }}
+          whileHover={{ scale: 1.06 }}
+          whileTap={{ scale: 0.96 }}
         >
-          <span className="text-white font-black text-xl" style={{ fontFamily: "system-ui" }}>C</span>
-          <span className="absolute inset-0 rounded-full animate-ping opacity-20" style={{ background: G }} />
+          <div className="h-6 w-6 rounded-full bg-white/20 flex items-center justify-center">
+            <span className="text-white font-black text-sm leading-none" style={{ fontFamily: "system-ui" }}>C</span>
+          </div>
+          <span className="text-white text-sm font-semibold pr-1">AI Assistant</span>
+          <span className="absolute inset-0 rounded-full animate-ping opacity-15" style={{ background: "#10b981" }} />
         </motion.button>
       )}
 

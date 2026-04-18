@@ -252,6 +252,45 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// ── ElevenLabs TTS proxy (avoids CORS/401 from browser) ──────────────────────
+app.post("/api/tts", async (req, res) => {
+  try {
+    const { text, voice_id } = req.body || {};
+    if (!text) return res.status(400).json({ message: "text is required" });
+
+    const EL_KEY = process.env.ELEVENLABS_API_KEY || "";
+    const voiceId = voice_id || process.env.ELEVENLABS_VOICE_ID || "EXAVITQu4vr4xnSDxMaL";
+
+    if (!EL_KEY) return res.status(503).json({ message: "ElevenLabs not configured" });
+
+    const elRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
+      method: "POST",
+      headers: {
+        "xi-api-key": EL_KEY,
+        "Content-Type": "application/json",
+        "Accept": "audio/mpeg",
+      },
+      body: JSON.stringify({
+        text: String(text).slice(0, 400),
+        model_id: "eleven_turbo_v2",
+        voice_settings: { stability: 0.45, similarity_boost: 0.82, style: 0.35, use_speaker_boost: true },
+      }),
+    });
+
+    if (!elRes.ok) {
+      const err = await elRes.text();
+      return res.status(elRes.status).json({ message: err });
+    }
+
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "no-cache");
+    const buf = await elRes.arrayBuffer();
+    res.send(Buffer.from(buf));
+  } catch (error) {
+    return res.status(500).json({ message: error instanceof Error ? error.message : "TTS failed" });
+  }
+});
+
 app.get("/", (req, res) => {
   res.json({ name: "Coursevia API", status: "running", version: "1.0.0" });
 });
