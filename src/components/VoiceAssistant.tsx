@@ -620,13 +620,6 @@ const VoiceAssistant = () => {
 
   const handleClose = () => { stopMic(); stopAudio(); setVoiceState("idle"); setOpen(false); setMsgs([]); };
 
-  if (!supported && typeof window !== "undefined") {
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      // Still show text-only mode
-    }
-  }
-
   const G = "#10b981"; const DG = "#059669";
   const quickBtns = ["Find a coach", "Find a therapist", "Browse courses", "My bookings", "My wallet", "Open dashboard"];
 
