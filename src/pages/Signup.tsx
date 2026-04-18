@@ -19,6 +19,11 @@ const Signup = () => {
   const [password,     setPassword]     = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading,      setLoading]      = useState(false);
+  const [forceShow,    setForceShow]    = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setForceShow(true), 3000);
+    return () => clearTimeout(t);
+  }, []);
 
   const dashboardPath = useMemo(() => {
     if (primaryRole)   return roleToDashboardPath(primaryRole);
@@ -32,8 +37,8 @@ const Signup = () => {
     navigate(dashboardPath, { replace: true });
   }, [authLoading, user, profile, navigate, dashboardPath]);
 
-  // Show loading spinner if auth is loading
-  if (authLoading) {
+  // Show loading spinner if auth is loading — but max 3 seconds
+  if (authLoading && !forceShow) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">

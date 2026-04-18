@@ -21,6 +21,12 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Force-show the form after 3s even if auth is still loading
+  const [forceShow, setForceShow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setForceShow(true), 3000);
+    return () => clearTimeout(t);
+  }, []);
 
   // Resolve the correct dashboard using profile.role first (the user's chosen role),
   // falling back to primaryRole only if profile.role isn't set yet.
@@ -111,8 +117,8 @@ const Login = () => {
     }
   };
 
-  // Show loading spinner if auth is loading
-  if (authLoading) {
+  // Show loading spinner if auth is loading — but max 3 seconds
+  if (authLoading && !forceShow) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
