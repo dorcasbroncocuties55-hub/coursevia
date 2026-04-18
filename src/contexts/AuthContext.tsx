@@ -284,11 +284,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (syncingRef.current) return;
     syncingRef.current = true;
 
-    // Hard timeout — never block UI for more than 5 seconds
+    // Hard timeout — never block UI for more than 8 seconds
     const timeout = setTimeout(() => {
       syncingRef.current = false;
       setLoading(false);
-    }, 5000);
+    }, 8000);
 
     try {
       setSession(nextSession ?? null);

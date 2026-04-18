@@ -1433,33 +1433,35 @@ const Onboarding = () => {
     return "Complete your account";
   }, [isLearner, isCoach, isTherapist, isCreator, step]);
 
-  // ── All redirects in one useEffect (hooks must not be after conditional returns) ──
+  // ── All redirects in one useEffect ──
   useEffect(() => {
-    if (authLoading && !forceShow) return; // still loading
+    // Wait for auth to finish loading before making any redirect decisions
+    if (authLoading) return;
+
     if (!user) {
       navigate("/login", { replace: true });
       return;
     }
-    if (profile?.onboarding_completed) {
+    if (profile?.onboarding_completed === true) {
       const role = profile.role || "learner";
       navigate(roleToDashboardPath(role as any), { replace: true });
     }
-  }, [authLoading, forceShow, user, profile, navigate]);
+  }, [authLoading, user, profile, navigate]);
 
-  // Show spinner while loading (max 3s)
-  if (authLoading && !forceShow) {
+  // Show spinner while auth loads — no hard timeout redirect
+  if (authLoading || (!user && !forceShow)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-          <p className="text-sm text-muted-foreground">Loading your profile...</p>
+          <p className="text-sm text-muted-foreground">Setting up your account...</p>
         </div>
       </div>
     );
   }
 
   // Don't render form while redirecting
-  if (!user || profile?.onboarding_completed) {
+  if (!user || profile?.onboarding_completed === true) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
