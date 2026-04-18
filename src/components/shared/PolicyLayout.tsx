@@ -92,9 +92,16 @@ const PolicyLayout = ({
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
         <div className="lg:flex lg:gap-8">
 
-          {/* Sidebar — fixed on desktop */}
+          {/* Sidebar — fixed, stops before footer */}
           <aside className="hidden lg:block w-56 shrink-0">
-            <div className="fixed w-56 space-y-1" style={{ top: "6rem" }}>
+            <div
+              className="fixed overflow-y-auto space-y-1"
+              style={{
+                top: "5rem",
+                width: "14rem",
+                maxHeight: "calc(100vh - 8rem)",
+              }}
+            >
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3 px-3">Contents</p>
               {sections.map(({ id, title: t }) => (
                 <a

@@ -352,7 +352,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         new Promise(resolve => setTimeout(resolve, 3000)),
       ]);
     } catch {}
-    window.location.replace("/login");
+    // Go to home page, not login — user can choose to sign in again
+    window.location.replace("/");
   };
 
   useEffect(() => {
