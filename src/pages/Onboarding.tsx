@@ -527,13 +527,6 @@ const Onboarding = () => {
   // Prevent double-redirect when window.location.replace() is already in flight
   const redirectingRef = useRef(false);
 
-  // Force-show onboarding after 3s even if auth is still loading
-  const [forceShow, setForceShow] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setForceShow(true), 3000);
-    return () => clearTimeout(t);
-  }, []);
-
   const [selectedRole, setSelectedRole] = useState<RoleOption>("learner");
   const [step, setStep] = useState(1);
 
@@ -1443,8 +1436,8 @@ const Onboarding = () => {
     }
   }, [authLoading, user, profile, navigate]);
 
-  // Show spinner while auth loads — no hard timeout redirect
-  if (authLoading || (!user && !forceShow)) {
+  // Show spinner while auth loads
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -1455,7 +1448,7 @@ const Onboarding = () => {
     );
   }
 
-  // Don't render form while redirecting
+  // Don't render form while redirecting or if no user yet
   if (!user || profile?.onboarding_completed === true) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">

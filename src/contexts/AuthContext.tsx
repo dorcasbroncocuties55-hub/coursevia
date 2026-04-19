@@ -260,7 +260,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: existingProfile, error: existingProfileError } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, onboarding_completed")
       .eq("user_id", authUser.id)
       .maybeSingle();
 
@@ -274,7 +274,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await Promise.allSettled([
       ensureProfileRecord(authUser, resolvedRole),
       ensureRoleRecord(authUser, resolvedRole),
-      ensureUserMetadata(authUser, resolvedRole),
+      // Only sync metadata if onboarding is done — avoids USER_UPDATED
+      // triggering a second syncAuthState loop while user is on /onboarding
+      ...(existingProfile?.onboarding_completed
+        ? [ensureUserMetadata(authUser, resolvedRole)]
+        : []),
     ]);
 
     return resolvedRole;
