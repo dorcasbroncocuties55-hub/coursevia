@@ -1,18 +1,17 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { roleToDashboardPath } from "@/lib/authRoles";
+import { roleToDashboardPath, parseRole } from "@/lib/authRoles";
+
+const OAUTH_ROLE_KEY = "coursevia_oauth_role";
 
 const AuthCallback = () => {
   const [status, setStatus] = useState("Completing sign in...");
 
   useEffect(() => {
     let mounted = true;
-    let timeoutId: NodeJS.Timeout;
 
-    // Timeout fallback - if callback takes too long, redirect to onboarding
-    timeoutId = setTimeout(() => {
-      console.error("AuthCallback: Timeout after 15 seconds, forcing redirect to onboarding");
+    const timeoutId = setTimeout(() => {
       if (mounted) {
         toast.error("Sign in is taking longer than expected. Redirecting...");
         window.location.replace("/onboarding");
@@ -22,129 +21,118 @@ const AuthCallback = () => {
     const run = async () => {
       try {
         setStatus("Signing you in...");
-        console.log("AuthCallback: Starting authentication flow");
 
         const url = new URL(window.location.href);
 
-        // ── PKCE flow: ?code= in query string ────────────────────────────
+        // ── PKCE: exchange code for session ──────────────────────────────
         const code = url.searchParams.get("code");
         if (code) {
-          console.log("AuthCallback: Found PKCE code, exchanging for session");
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) console.warn("exchangeCodeForSession:", error.message);
-          // Clean URL
           url.searchParams.delete("code");
           window.history.replaceState({}, "", url.toString());
         }
 
-        // ── Implicit flow: #access_token= in hash ────────────────────────
-        // Supabase JS automatically parses the hash and sets the session.
-        // We just need to wait for it to be ready.
-        const hash = window.location.hash;
-        if (hash && hash.includes("access_token")) {
-          console.log("AuthCallback: Found access token in hash");
-          // Let Supabase process the hash — it does this automatically
-          // but we give it a moment
+        // ── Implicit: hash contains access_token ─────────────────────────
+        if (window.location.hash?.includes("access_token")) {
           await new Promise(r => setTimeout(r, 800));
-          // Clear the hash from URL so tokens aren't visible
           window.history.replaceState({}, "", url.pathname + url.search);
         }
 
-        // ── Poll for session ──────────────────────────────────────────────
-        console.log("AuthCallback: Polling for session...");
+        // ── Poll for session (up to 12 s) ─────────────────────────────────
         let session = null;
         for (let i = 0; i < 40; i++) {
           const { data } = await supabase.auth.getSession();
-          if (data.session?.user) { 
-            session = data.session; 
-            console.log("AuthCallback: Session found after", i + 1, "attempts");
-            break; 
-          }
+          if (data.session?.user) { session = data.session; break; }
           await new Promise(r => setTimeout(r, 300));
         }
 
-        if (!session?.user) {
-          console.error("AuthCallback: Session timeout");
-          throw new Error("Sign in timed out. Please try again.");
-        }
+        if (!session?.user) throw new Error("Sign in timed out. Please try again.");
         if (!mounted) return;
 
         setStatus("Setting up your account...");
-        console.log("AuthCallback: Setting up account for user", session.user.id);
 
-        const userId    = session.user.id;
-        const meta      = session.user.user_metadata || {};
-        const fullName  = meta.full_name || meta.name || session.user.email?.split("@")[0] || "User";
+        const authUser  = session.user;
+        const userId    = authUser.id;
+        const meta      = authUser.user_metadata || {};
+        const fullName  = meta.full_name || meta.name || authUser.email?.split("@")[0] || "User";
         const avatarUrl = meta.avatar_url || meta.picture || null;
-        const email     = session.user.email || null;
+        const email     = authUser.email || null;
 
-        window.localStorage.removeItem("coursevia_oauth_role");
+        // Read (and immediately clear) any role the signup page stored
+        const storedRole = parseRole(window.localStorage.getItem(OAUTH_ROLE_KEY));
+        window.localStorage.removeItem(OAUTH_ROLE_KEY);
 
-        // Upsert profile (ignoreDuplicates keeps existing onboarding_completed)
-        console.log("AuthCallback: Upserting profile");
-        const { error: profileError } = await supabase.from("profiles").upsert(
-          { user_id: userId, email, full_name: fullName, avatar_url: avatarUrl },
-          { onConflict: "user_id", ignoreDuplicates: true }
-        );
-        
-        if (profileError) {
-          console.warn("AuthCallback: Profile upsert error (continuing anyway):", profileError);
-        }
+        // ── Fetch existing profile ────────────────────────────────────────
+        const { data: existingProfile } = await supabase
+          .from("profiles")
+          .select("onboarding_completed, role")
+          .eq("user_id", userId)
+          .maybeSingle();
 
-        // Ensure role row exists
-        console.log("AuthCallback: Checking user role");
-        const { data: existingRole, error: roleCheckError } = await supabase
-          .from("user_roles").select("role").eq("user_id", userId).maybeSingle();
+        const isNewUser = !existingProfile;
 
-        if (roleCheckError) {
-          console.warn("AuthCallback: Role check error:", roleCheckError);
-        }
-
-        if (!existingRole && !roleCheckError) {
-          console.log("AuthCallback: Creating default learner role");
-          const { error: roleInsertError } = await supabase.from("user_roles").insert({ user_id: userId, role: "learner" });
-          if (roleInsertError) {
-            console.warn("AuthCallback: Role insert error (continuing anyway):", roleInsertError);
+        if (isNewUser) {
+          // Brand-new user — create profile row (role will be chosen in onboarding)
+          const { error: insertErr } = await supabase.from("profiles").insert({
+            user_id: userId,
+            email,
+            full_name: fullName,
+            avatar_url: avatarUrl,
+            onboarding_completed: false,
+            status: "active",
+            ...(storedRole ? { role: storedRole } : {}),
+          });
+          if (insertErr && insertErr.code !== "23505") {
+            console.warn("AuthCallback: profile insert error:", insertErr.message);
           }
+
+          // Ensure a role row exists
+          const roleToInsert = storedRole || "learner";
+          await supabase
+            .from("user_roles")
+            .insert({ user_id: userId, role: roleToInsert })
+            .then(({ error }) => {
+              if (error && error.code !== "23505") {
+                console.warn("AuthCallback: role insert error:", error.message);
+              }
+            });
+
+          clearTimeout(timeoutId);
+          if (mounted) window.location.replace("/onboarding");
+          return;
         }
 
-        // Fresh profile fetch to get real onboarding state
-        console.log("AuthCallback: Fetching final profile");
-        const { data: finalProfile, error: profileFetchError } = await supabase
-          .from("profiles").select("onboarding_completed, role").eq("user_id", userId).maybeSingle();
+        // ── Returning user ────────────────────────────────────────────────
+        // Update avatar/name in case they changed in Google
+        await supabase
+          .from("profiles")
+          .update({ full_name: fullName, avatar_url: avatarUrl })
+          .eq("user_id", userId);
 
-        if (profileFetchError) {
-          console.warn("AuthCallback: Profile fetch error:", profileFetchError);
-        }
-
-        if (!mounted) return;
-
-        const onboardingDone = finalProfile?.onboarding_completed === true;
-        const role = finalProfile?.role || existingRole?.role || "learner";
-
-        console.log("AuthCallback: onboarding_completed =", onboardingDone, "role =", role);
+        const onboardingDone = existingProfile.onboarding_completed === true;
+        const role = existingProfile.role || storedRole || "learner";
 
         clearTimeout(timeoutId);
 
+        if (!mounted) return;
+
         if (!onboardingDone) {
-          console.log("AuthCallback: Redirecting to /onboarding");
           window.location.replace("/onboarding");
         } else {
-          const dashboardPath = roleToDashboardPath(role as any);
-          console.log("AuthCallback: Redirecting to", dashboardPath);
-          window.location.replace(dashboardPath);
+          window.location.replace(roleToDashboardPath(role as any));
         }
       } catch (err: any) {
         console.error("AuthCallback error:", err);
         toast.error(err?.message || "Authentication failed. Please try again.");
-        window.localStorage.removeItem("coursevia_oauth_role");
+        window.localStorage.removeItem(OAUTH_ROLE_KEY);
         clearTimeout(timeoutId);
         if (mounted) window.location.replace("/login");
       }
     };
 
     run();
-    return () => { 
+    return () => {
       mounted = false;
       clearTimeout(timeoutId);
     };

@@ -49,7 +49,8 @@ const Signup = () => {
   const handleGoogle = async () => {
     try {
       setLoading(true);
-      window.localStorage.setItem("coursevia_oauth_role", "learner");
+      // Don't pre-set a role — user picks it during onboarding
+      window.localStorage.removeItem("coursevia_oauth_role");
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo: `${window.location.origin}/auth/callback`, queryParams: { prompt: "select_account" } },

@@ -1214,7 +1214,7 @@ const Onboarding = () => {
 
       let onboardingRpcError: any = null;
 
-      // ── Step 1: Save the core profile fields (columns that exist in schema) ──
+      // ── Step 1: Save the core profile fields ──────────────────────────────
       const coreProfile = {
         user_id: authUser.id,
         full_name: fullName.trim() || null,
@@ -1222,6 +1222,7 @@ const Onboarding = () => {
         bio: finalBio,
         phone: fullPhoneNumber || null,
         country: country.trim() || null,
+        role: enforcedRole,          // always persist role so redirect works even if RPC fails
         onboarding_completed: true,
       };
 
