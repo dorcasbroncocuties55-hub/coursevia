@@ -482,7 +482,8 @@ const simplePage = (title: string, content: string) => () => (
   </div>
 );
 
-export const Blog = simplePage("Blog", "Coursevia publishes practical insights on learning strategy, provider growth, digital education, booking workflows, and premium content operations. New editorial pieces are being prepared for release.");
+// Blog is now a full dedicated component — see Blog.tsx
+export { Blog } from "./Blog";
 
 // Contact page is now a full dedicated component — see Contact.tsx
 export { default as Contact } from "./Contact";
