@@ -252,12 +252,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const ensureUserRecords = async (authUser: User) => {
-    const requestedRole =
-      parseRole(authUser.user_metadata?.requested_role) ||
-      parseRole(authUser.user_metadata?.role) ||
-      parseRole(authUser.user_metadata?.account_type) ||
-      getStoredRequestedRole();
-
     const { data: existingProfile, error: existingProfileError } = await supabase
       .from("profiles")
       .select("role, onboarding_completed")
@@ -268,17 +262,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logSupabaseError("ensureUserRecords existing profile role lookup error:", existingProfileError);
     }
 
+    const onboardingDone = existingProfile?.onboarding_completed === true;
     const existingRole = parseRole(existingProfile?.role);
-    const resolvedRole = requestedRole || existingRole || "learner";
+
+    // Only resolve/write a role if onboarding is complete.
+    // Pre-onboarding users have no role — it gets set by finishOnboarding.
+    if (!onboardingDone) {
+      // Just ensure the profile row exists (no role written)
+      await ensureProfileRecord(authUser, null);
+      return null;
+    }
+
+    // Post-onboarding: use the role from profile, then metadata, never default to learner blindly
+    const requestedRole =
+      parseRole(authUser.user_metadata?.requested_role) ||
+      parseRole(authUser.user_metadata?.role) ||
+      parseRole(authUser.user_metadata?.account_type) ||
+      getStoredRequestedRole();
+
+    const resolvedRole = existingRole || requestedRole || "learner";
 
     await Promise.allSettled([
       ensureProfileRecord(authUser, resolvedRole),
       ensureRoleRecord(authUser, resolvedRole),
-      // Only sync metadata if onboarding is done — avoids USER_UPDATED
-      // triggering a second syncAuthState loop while user is on /onboarding
-      ...(existingProfile?.onboarding_completed
-        ? [ensureUserMetadata(authUser, resolvedRole)]
-        : []),
+      ensureUserMetadata(authUser, resolvedRole),
     ]);
 
     return resolvedRole;

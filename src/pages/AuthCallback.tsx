@@ -73,7 +73,8 @@ const AuthCallback = () => {
         const isNewUser = !existingProfile;
 
         if (isNewUser) {
-          // Brand-new user — create profile row (role will be chosen in onboarding)
+          // Brand-new user — create profile row with NO role.
+          // Role is chosen during onboarding and written by finishOnboarding.
           const { error: insertErr } = await supabase.from("profiles").insert({
             user_id: userId,
             email,
@@ -81,23 +82,12 @@ const AuthCallback = () => {
             avatar_url: avatarUrl,
             onboarding_completed: false,
             status: "active",
-            ...(storedRole ? { role: storedRole } : {}),
           });
           if (insertErr && insertErr.code !== "23505") {
             console.warn("AuthCallback: profile insert error:", insertErr.message);
           }
 
-          // Ensure a role row exists
-          const roleToInsert = storedRole || "learner";
-          await supabase
-            .from("user_roles")
-            .insert({ user_id: userId, role: roleToInsert })
-            .then(({ error }) => {
-              if (error && error.code !== "23505") {
-                console.warn("AuthCallback: role insert error:", error.message);
-              }
-            });
-
+          // Do NOT insert a user_roles row — onboarding will do that.
           clearTimeout(timeoutId);
           if (mounted) window.location.replace("/onboarding");
           return;
@@ -111,7 +101,8 @@ const AuthCallback = () => {
           .eq("user_id", userId);
 
         const onboardingDone = existingProfile.onboarding_completed === true;
-        const role = existingProfile.role || storedRole || "learner";
+        // Only use role if onboarding is done — never default to learner pre-onboarding
+        const role = onboardingDone ? (existingProfile.role || "learner") : null;
 
         clearTimeout(timeoutId);
 
@@ -121,8 +112,7 @@ const AuthCallback = () => {
           window.location.replace("/onboarding");
         } else {
           window.location.replace(roleToDashboardPath(role as any));
-        }
-      } catch (err: any) {
+        }      } catch (err: any) {
         console.error("AuthCallback error:", err);
         toast.error(err?.message || "Authentication failed. Please try again.");
         window.localStorage.removeItem(OAUTH_ROLE_KEY);
