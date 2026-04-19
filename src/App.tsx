@@ -133,6 +133,7 @@ const Terms = lazy(() => import("./pages/public/StaticPages").then(m => ({ defau
 const Privacy = lazy(() => import("./pages/public/StaticPages").then(m => ({ default: m.Privacy })));
 const RefundPolicy = lazy(() => import("./pages/public/StaticPages").then(m => ({ default: m.RefundPolicy })));
 const Blog = lazy(() => import("./pages/public/StaticPages").then(m => ({ default: m.Blog })));
+const BlogArticle = lazy(() => import("./pages/public/BlogArticle"));
 const Contact = lazy(() => import("./pages/public/StaticPages").then(m => ({ default: m.Contact })));
 const HelpCenter = lazy(() => import("./pages/public/StaticPages").then(m => ({ default: m.HelpCenter })));
 
@@ -189,6 +190,7 @@ const App = () => {
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/refund-policy" element={<RefundPolicy />} />
                 <Route path="/blog" element={<Blog />} />
+                <Route path="/blog/:slug" element={<BlogArticle />} />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/help" element={<HelpCenter />} />
 
