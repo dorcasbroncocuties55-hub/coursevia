@@ -34,7 +34,6 @@ type NavItem = {
 
 const learnerNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "My Courses", href: "/dashboard/courses", icon: BookOpen },
   { label: "My Videos", href: "/dashboard/videos", icon: Video },
   { label: "Bookings", href: "/dashboard/bookings", icon: Calendar },
   { label: "Wishlist", href: "/dashboard/wishlist", icon: Heart },
