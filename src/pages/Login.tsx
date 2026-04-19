@@ -41,7 +41,8 @@ const Login = () => {
   useEffect(() => {
     if (authLoading || !user) return;
     if (!profile && roles.length === 0) return;
-    navigate(getDestination(), { replace: true });
+    // Hard redirect to avoid ProtectedRoute role-race on first load
+    window.location.replace(getDestination());
   }, [user, roles, primaryRole, profile, authLoading]);
 
   const handleLogin = async (e: React.FormEvent) => {

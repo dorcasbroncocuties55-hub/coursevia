@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { roleToDashboardPath } from "@/lib/authRoles";
 import { buildBackendUrl } from "@/lib/backendApi";
@@ -523,6 +523,9 @@ const getDashboardRoute = (role: RoleOption) => roleToDashboardPath(role);
 const Onboarding = () => {
   const navigate = useNavigate();
   const { user, profile, refreshProfile, refreshRoles, refreshAll, loading: authLoading } = useAuth();
+
+  // Prevent double-redirect when window.location.replace() is already in flight
+  const redirectingRef = useRef(false);
 
   // Force-show onboarding after 3s even if auth is still loading
   const [forceShow, setForceShow] = useState(false);
@@ -1358,29 +1361,17 @@ const Onboarding = () => {
         console.warn("Welcome email notification failed:", err);
       }
 
-      // Refresh user data
-      await Promise.all([
-        refreshProfile(),
-        refreshRoles(),
-        refreshAll(),
-        new Promise((resolve) =>
-          window.setTimeout(
-            () => resolve(refreshRoles()),
-            3000,
-            "refreshRoles second pass timed out"
-          )
-        ),
-      ]);
-
       console.log("Onboarding completed successfully!");
       toast.success("Onboarding completed successfully!");
 
       const dashboardRoute = getDashboardRoute(enforcedRole);
       setLoading(false);
 
-      window.setTimeout(() => {
-        navigate(dashboardRoute, { replace: true });
-      }, 150);
+      // Hard redirect so auth context re-initialises with fresh DB data.
+      // Using navigate() here races against async context state updates and
+      // causes ProtectedRoute to bounce the user back or show a spinner.
+      redirectingRef.current = true;
+      window.location.replace(dashboardRoute);
 
       return;
     } catch (error: any) {
@@ -1437,6 +1428,8 @@ const Onboarding = () => {
   useEffect(() => {
     // Wait for auth to finish loading before making any redirect decisions
     if (authLoading) return;
+    // Already doing a hard redirect from finishOnboarding — don't interfere
+    if (redirectingRef.current) return;
 
     if (!user) {
       navigate("/login", { replace: true });
@@ -1444,7 +1437,8 @@ const Onboarding = () => {
     }
     if (profile?.onboarding_completed === true) {
       const role = profile.role || "learner";
-      navigate(roleToDashboardPath(role as any), { replace: true });
+      redirectingRef.current = true;
+      window.location.replace(roleToDashboardPath(role as any));
     }
   }, [authLoading, user, profile, navigate]);
 

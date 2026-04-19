@@ -31,9 +31,12 @@ const Signup = () => {
 
   useEffect(() => {
     if (authLoading || !user) return;
-    if (!profile || !profile.onboarding_completed) { navigate("/onboarding", { replace: true }); return; }
-    navigate(dashboardPath, { replace: true });
-  }, [authLoading, user, profile, navigate, dashboardPath]);
+    if (!profile || !profile.onboarding_completed) {
+      window.location.replace("/onboarding");
+      return;
+    }
+    window.location.replace(dashboardPath);
+  }, [authLoading, user, profile, dashboardPath]);
 
   if (authLoading && !forceShow) {
     return (
