@@ -1358,7 +1358,17 @@ const Onboarding = () => {
       console.log("Onboarding completed successfully!");
       toast.success("Onboarding completed successfully!");
 
+      // CRITICAL: Refresh the profile in AuthContext to ensure it has onboarding_completed=true
+      // This prevents the redirect useEffect from fighting with us
+      try {
+        await refreshProfile();
+        console.log("Profile refreshed in AuthContext");
+      } catch (err) {
+        console.warn("Profile refresh failed (non-blocking):", err);
+      }
+
       const dashboardRoute = getDashboardRoute(enforcedRole);
+      console.log("Attempting redirect to:", dashboardRoute);
       
       // Mark that we're redirecting BEFORE any state changes
       redirectingRef.current = true;
@@ -1366,14 +1376,13 @@ const Onboarding = () => {
       // DON'T set loading to false - keep spinner showing during redirect
       // This prevents user from clicking button again or seeing UI flicker
       
+      // Small delay to ensure profile update propagates
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      console.log("Executing redirect now...");
       // Hard redirect so auth context re-initialises with fresh DB data.
-      // Using navigate() here races against async context state updates and
-      // causes ProtectedRoute to bounce the user back or show a spinner.
       window.location.replace(dashboardRoute);
 
-      // Note: Code after window.location.replace may not execute
-      // but that's fine - we're leaving the page anyway
-      return;
     } catch (error: any) {
       console.error("Onboarding error:", error);
 
@@ -1386,7 +1395,6 @@ const Onboarding = () => {
       toast.error(message);
       setLoading(false);  // Only disable loading on ERROR
     }
-    // Remove the finally block - we don't want to setLoading(false) on success
   };
 
   const stepTitle = useMemo(() => {
