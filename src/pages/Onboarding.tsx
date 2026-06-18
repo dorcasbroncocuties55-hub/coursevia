@@ -1359,14 +1359,20 @@ const Onboarding = () => {
       toast.success("Onboarding completed successfully!");
 
       const dashboardRoute = getDashboardRoute(enforcedRole);
-      setLoading(false);
-
+      
+      // Mark that we're redirecting BEFORE any state changes
+      redirectingRef.current = true;
+      
+      // DON'T set loading to false - keep spinner showing during redirect
+      // This prevents user from clicking button again or seeing UI flicker
+      
       // Hard redirect so auth context re-initialises with fresh DB data.
       // Using navigate() here races against async context state updates and
       // causes ProtectedRoute to bounce the user back or show a spinner.
-      redirectingRef.current = true;
       window.location.replace(dashboardRoute);
 
+      // Note: Code after window.location.replace may not execute
+      // but that's fine - we're leaving the page anyway
       return;
     } catch (error: any) {
       console.error("Onboarding error:", error);
@@ -1378,9 +1384,9 @@ const Onboarding = () => {
         "Failed to complete onboarding";
 
       toast.error(message);
-    } finally {
-      setLoading(false);
+      setLoading(false);  // Only disable loading on ERROR
     }
+    // Remove the finally block - we don't want to setLoading(false) on success
   };
 
   const stepTitle = useMemo(() => {
