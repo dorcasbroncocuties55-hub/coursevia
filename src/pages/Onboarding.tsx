@@ -526,8 +526,6 @@ const Onboarding = () => {
 
   // Prevent double-redirect when window.location.replace() is already in flight
   const redirectingRef = useRef(false);
-  const failsafeTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const skipOptionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [selectedRole, setSelectedRole] = useState<RoleOption>("learner");
   const [step, setStep] = useState(1);
@@ -578,7 +576,6 @@ const Onboarding = () => {
 
   const [loading, setLoading] = useState(false);
   const [saveProgress, setSaveProgress] = useState("");
-  const [showSkipOption, setShowSkipOption] = useState(false);
   const [didInitializeRole, setDidInitializeRole] = useState(false);
 
   const currentSpecializationConfig = useMemo(
@@ -1014,60 +1011,6 @@ const Onboarding = () => {
     }
   };
 
-  const skipTodashboard = async () => {
-    console.log("🔄 User chose to skip to dashboard - saving minimal data...");
-    setLoading(true);
-    setSaveProgress("Saving essential data...");
-    
-    try {
-      const userId = user?.id;
-      if (!userId) {
-        throw new Error("No user ID available");
-      }
-
-      const finalRole = safeRoleOption(selectedRole, "learner");
-
-      // Save minimal but essential profile data
-      await supabase.from("profiles").upsert({
-        user_id: userId,
-        full_name: fullName.trim() || "User",
-        role: finalRole,
-        onboarding_completed: true,
-        status: "active",
-        account_type: finalRole,
-        provider_type: finalRole === "learner" ? null : finalRole,
-      }, { onConflict: "user_id" });
-
-      // Create essential user role
-      await supabase.from("user_roles").upsert(
-        { user_id: userId, role: finalRole }, 
-        { onConflict: "user_id,role", ignoreDuplicates: true }
-      );
-
-      // Create essential wallet
-      await supabase.from("wallets").upsert({
-        user_id: userId,
-        currency: "USD",
-        balance: 0,
-        pending_balance: 0,
-        available_balance: 0,
-      }, { onConflict: "user_id", ignoreDuplicates: true });
-
-      console.log("✅ Minimal data saved, redirecting...");
-      
-    } catch (error) {
-      console.warn("Skip save failed, proceeding anyway:", error);
-    }
-    
-    setLoading(false);
-    setSaveProgress("");
-    setShowSkipOption(false);
-    
-    const dashboardRoute = getDashboardRoute(safeRoleOption(selectedRole, "learner"));
-    toast.success("Taking you to your dashboard...");
-    window.location.replace(dashboardRoute);
-  };
-
   const goNext = () => {
     if (step === 1) {
       setStep(2);
@@ -1168,53 +1111,83 @@ const Onboarding = () => {
       return;
     }
 
-    console.log("🚀 Starting comprehensive onboarding completion...");
-    
-    // IMMEDIATE failsafe: Force redirect after 15 seconds no matter what happens
-    const immediateFailsafe = setTimeout(() => {
-      console.warn("🚨 IMMEDIATE FAILSAFE: Forcing redirect after 15s");
-      setLoading(false);
-      setSaveProgress("");
-      setShowSkipOption(false);
-      const fallbackRoute = getDashboardRoute(safeRoleOption(selectedRole, "learner"));
-      toast.success("Onboarding completed! Taking you to your dashboard...");
-      window.location.replace(fallbackRoute);
-    }, 15000);
-
-    // Show skip option after just 8 seconds
-    const quickSkipTimer = setTimeout(() => {
-      console.log("⏰ Showing skip option after 8s");
-      setShowSkipOption(true);
-      setSaveProgress("Taking longer than expected - you can skip if needed");
-    }, 8000);
-
     const finalRole = safeRoleOption(selectedRole, "learner");
+
+    // Run validations based on role
+    if (finalRole === "learner") {
+      if (!validateLearnerInfo()) return;
+      if (!validatePersonalInfo()) return;
+    }
+
+    if (finalRole === "coach") {
+      if (!validateSpecialization()) return;
+      if (!validatePersonalInfo()) return;
+      if (!validateCoachProfileInfo()) return;
+      if (!validateCoachProfessionalInfo()) return;
+      if (!validateProviderServiceSetup()) return;
+    }
+
+    if (finalRole === "therapist") {
+      if (!validateSpecialization()) return;
+      if (!validatePersonalInfo()) return;
+      if (!validateTherapistProfileInfo()) return;
+      if (!validateTherapistProfessionalInfo()) return;
+      if (!validateProviderServiceSetup()) return;
+    }
+
+    if (finalRole === "creator") {
+      if (!validateSpecialization()) return;
+      if (!validatePersonalInfo()) return;
+      if (!validateCreatorProfileInfo()) return;
+      if (!validateCreatorBusinessInfo()) return;
+    }
 
     try {
       setLoading(true);
-      setSaveProgress("Preparing your profile...");
-      
-      console.log("🔐 Getting auth user...");
+      setSaveProgress("Starting onboarding completion...");
+
+      // Get authenticated user
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      
-      const userId = authUser?.id || user.id;
-      if (!userId) {
-        throw new Error("No user ID available");
+      if (authError || !authUser?.id) {
+        throw new Error("Authentication required to complete onboarding");
       }
 
-      setSaveProgress("Saving your profile data...");
-      console.log("💾 Saving comprehensive profile...");
+      // Upload avatar if provided
+      let avatarUrl: string | null = avatarPreview || null;
+      if (avatarFile) {
+        setSaveProgress("Uploading profile picture...");
+        try {
+          const extension = avatarFile.name.split(".").pop() || "jpg";
+          const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${extension.toLowerCase()}`;
+          const filePath = `${authUser.id}/${fileName}`;
 
-      // Build phone number properly
+          const { error: uploadError } = await supabase.storage
+            .from("avatars")
+            .upload(filePath, avatarFile, { cacheControl: "3600", upsert: true });
+
+          if (uploadError) throw uploadError;
+
+          const { data: publicUrlData } = supabase.storage
+            .from("avatars")
+            .getPublicUrl(filePath);
+
+          avatarUrl = publicUrlData.publicUrl;
+        } catch (avatarError) {
+          console.warn("Avatar upload failed, continuing without avatar:", avatarError);
+          avatarUrl = null;
+        }
+      }
+
+      // Prepare profile data
+      setSaveProgress("Saving profile data...");
       const fullPhoneNumber = phone ? `${phoneCountryCode}${phone.replace(/^0+/, '')}` : null;
-
-      // Save comprehensive profile with ALL required fields
+      
       const profileData = {
-        user_id: userId,
-        email: authUser?.email || null,
+        user_id: authUser.id,
+        email: authUser.email || null,
         full_name: fullName.trim() || "User",
         display_name: displayName.trim() || null,
-        avatar_url: avatarPreview || null,
+        avatar_url: avatarUrl,
         bio: finalRole === "learner" 
           ? (learnerInterests.trim() ? `Interests: ${learnerInterests.trim()}` : null)
           : (bio.trim() || null),
@@ -1224,18 +1197,18 @@ const Onboarding = () => {
         role: finalRole,
         onboarding_completed: true,
         
-        // Professional fields for providers
+        // Professional fields
         profession: finalRole === "learner" ? null : profession.trim() || null,
         experience: finalRole === "learner" ? null : experience.trim() || null,
         certification: finalRole === "learner" ? null : certification.trim() || null,
         specialization_type: finalRole === "learner" ? null : specialization || null,
         headline: finalRole === "learner" ? null : headline.trim() || null,
         
-        // Learner specific fields
-        learner_goal: finalRole === "learner" ? learnerGoal || customLearnerGoal || null : null,
+        // Learner fields
+        learner_goal: finalRole === "learner" ? (learnerGoal || customLearnerGoal || null) : null,
         learner_looking_forward: finalRole === "learner" ? learnerLookingForward.trim() || null : null,
         
-        // Business fields for creators
+        // Creator fields
         business_name: finalRole === "creator" ? businessName.trim() || null : null,
         business_email: finalRole === "creator" ? businessEmail.trim() || null : null,
         business_phone: finalRole === "creator" ? businessPhone.trim() || null : null,
@@ -1243,7 +1216,7 @@ const Onboarding = () => {
         business_address: finalRole === "creator" ? businessAddress.trim() || null : null,
         business_description: finalRole === "creator" ? businessDescription.trim() || null : null,
         
-        // Service delivery settings for providers
+        // Provider fields
         service_delivery_mode: (finalRole === "coach" || finalRole === "therapist") ? serviceDeliveryMode : null,
         calendar_mode: (finalRole === "coach" || finalRole === "therapist") ? calendarMode : null,
         meeting_preference: (finalRole === "coach" || finalRole === "therapist") ? meetingPreference.trim() || null : null,
@@ -1258,66 +1231,66 @@ const Onboarding = () => {
         is_verified: false
       };
 
+      // Save profile
       const { error: profileError } = await supabase
         .from("profiles")
         .upsert(profileData, { onConflict: "user_id" });
 
       if (profileError) {
-        console.error("Profile save error:", profileError);
-        throw new Error(`Profile save failed: ${profileError.message}`);
+        throw new Error(`Failed to save profile: ${profileError.message}`);
       }
 
-      setSaveProgress("Setting up your account permissions...");
-      console.log("🔑 Creating user role...");
-
-      // Ensure user role exists
-      await supabase
+      // Create user role
+      setSaveProgress("Setting up permissions...");
+      const { error: roleError } = await supabase
         .from("user_roles")
-        .upsert({ user_id: userId, role: finalRole }, { onConflict: "user_id,role", ignoreDuplicates: true });
+        .upsert({ user_id: authUser.id, role: finalRole }, { onConflict: "user_id,role" });
 
-      setSaveProgress("Creating your wallet...");
-      console.log("💰 Creating wallet...");
+      if (roleError) {
+        console.warn("Role creation warning:", roleError);
+      }
 
-      // Create wallet (essential for dashboard)
-      await supabase
+      // Create wallet
+      setSaveProgress("Creating wallet...");
+      const { error: walletError } = await supabase
         .from("wallets")
         .upsert({
-          user_id: userId,
+          user_id: authUser.id,
           currency: "USD",
           balance: 0,
           pending_balance: 0,
-          available_balance: 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }, { onConflict: "user_id", ignoreDuplicates: true });
+          available_balance: 0
+        }, { onConflict: "user_id" });
 
-      // Create provider-specific profiles if needed
+      if (walletError) {
+        console.warn("Wallet creation warning:", walletError);
+      }
+
+      // Create provider profile if needed
       if (finalRole === "coach" || finalRole === "therapist") {
-        setSaveProgress(`Setting up your ${finalRole} profile...`);
-        console.log(`🏥 Creating ${finalRole} profile...`);
-
-        const tableName = finalRole === "therapist" ? "therapist_profiles" : "coach_profiles";
+        setSaveProgress(`Setting up ${finalRole} profile...`);
         
+        const tableName = finalRole === "therapist" ? "therapist_profiles" : "coach_profiles";
         const languageArray = languages.split(",").map(item => item.trim()).filter(Boolean);
         const expertiseArray = expertiseAreas.split(",").map(item => item.trim()).filter(Boolean);
 
-        const providerProfileData = {
-          user_id: userId,
-          headline: headline.trim() || null,
-          skills: expertiseArray.length > 0 ? expertiseArray : null,
-          languages: languageArray.length > 0 ? languageArray : null,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
+        const { error: providerError } = await supabase
+          .from(tableName)
+          .upsert({
+            user_id: authUser.id,
+            headline: headline.trim() || null,
+            skills: expertiseArray.length > 0 ? expertiseArray : null,
+            languages: languageArray.length > 0 ? languageArray : null,
+            is_active: true
+          }, { onConflict: "user_id" });
 
-        await supabase.from(tableName).upsert(providerProfileData, { onConflict: "user_id", ignoreDuplicates: true });
+        if (providerError) {
+          console.warn(`${finalRole} profile creation warning:`, providerError);
+        }
       }
 
-      setSaveProgress("Updating your account settings...");
-      console.log("🔧 Updating auth metadata...");
-
-      // Update auth user metadata
+      // Update auth metadata
+      setSaveProgress("Finalizing account...");
       try {
         await supabase.auth.updateUser({
           data: {
@@ -1325,68 +1298,54 @@ const Onboarding = () => {
             requested_role: finalRole,
             account_type: finalRole,
             provider_type: finalRole === "learner" ? null : finalRole,
-            avatar_url: avatarPreview || null,
+            avatar_url: avatarUrl,
             full_name: fullName.trim() || null,
             onboarding_completed: true
           }
         });
       } catch (authUpdateError) {
-        console.warn("Auth metadata update failed:", authUpdateError);
-        // Don't throw - this is non-critical
+        console.warn("Auth metadata update warning:", authUpdateError);
       }
 
-      setSaveProgress("Almost ready...");
-      console.log("📧 Sending welcome notification...");
-
-      // Send welcome email (non-blocking)
+      // Send welcome notification (non-blocking)
       try {
-        await fetch("/api/notifications/welcome", {
+        await fetch(buildBackendUrl("/api/notifications/welcome"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            user_id: userId,
-            email: authUser?.email,
+            user_id: authUser.id,
+            email: authUser.email,
             full_name: fullName.trim(),
             role: finalRole,
           }),
         });
       } catch (emailError) {
         console.warn("Welcome email failed:", emailError);
-        // Don't throw - this is non-critical
       }
 
-      // Clear timers
-      clearTimeout(immediateFailsafe);
-      clearTimeout(quickSkipTimer);
+      // Success!
+      setSaveProgress("Redirecting to dashboard...");
+      toast.success("Welcome to Coursevia!");
       
-      console.log("✅ All data saved successfully!");
-      setSaveProgress("Finalizing your account...");
+      // Mark as redirecting to prevent interference
+      redirectingRef.current = true;
       
-      // Small delay to ensure database consistency before redirect
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // Clear loading state
       setLoading(false);
-      toast.success("Welcome to Coursevia! Taking you to your dashboard...");
+      setSaveProgress("");
       
+      // Redirect to dashboard
       const dashboardRoute = getDashboardRoute(finalRole);
-      console.log("🎯 Redirecting to:", dashboardRoute);
-      
-      // Force refresh profile context before redirect
       window.location.replace(dashboardRoute);
 
     } catch (error: any) {
-      console.error("💥 Onboarding error:", error);
+      console.error("Onboarding completion failed:", error);
       
-      // Clear timers
-      clearTimeout(immediateFailsafe);
-      clearTimeout(quickSkipTimer);
-      
-      const message = error?.message || error?.details || "Failed to complete onboarding";
-      toast.error(`Setup failed: ${message}`);
+      const message = error?.message || error?.details || "Failed to complete onboarding. Please try again.";
+      toast.error(message);
       
       setLoading(false);
       setSaveProgress("");
-      setShowSkipOption(true);
     }
   };
 
@@ -1424,18 +1383,6 @@ const Onboarding = () => {
 
     return "Complete your account";
   }, [isLearner, isCoach, isTherapist, isCreator, step]);
-
-  // ── Cleanup timers on unmount ──
-  useEffect(() => {
-    return () => {
-      if (failsafeTimerRef.current) {
-        clearTimeout(failsafeTimerRef.current);
-      }
-      if (skipOptionTimerRef.current) {
-        clearTimeout(skipOptionTimerRef.current);
-      }
-    };
-  }, []);
 
   // ── All redirects in one useEffect ──
   useEffect(() => {
@@ -2162,16 +2109,9 @@ const Onboarding = () => {
               <Button type="button" variant="outline" onClick={goBack}>
                 Back
               </Button>
-              <div className="flex gap-2">
-                {showSkipOption && (
-                  <Button type="button" variant="outline" onClick={skipTodashboard}>
-                    Skip & Continue
-                  </Button>
-                )}
-                <Button onClick={finishOnboarding} disabled={loading}>
-                  {loading ? (saveProgress || "Saving...") : "Finish"}
-                </Button>
-              </div>
+              <Button onClick={finishOnboarding} disabled={loading}>
+                {loading ? (saveProgress || "Saving...") : "Finish"}
+              </Button>
             </div>
           </div>
         )}
@@ -2372,16 +2312,9 @@ const Onboarding = () => {
               <Button type="button" variant="outline" onClick={goBack}>
                 Back
               </Button>
-              <div className="flex gap-2">
-                {showSkipOption && (
-                  <Button type="button" variant="outline" onClick={skipTodashboard}>
-                    Skip & Continue
-                  </Button>
-                )}
-                <Button type="button" onClick={finishOnboarding} disabled={loading}>
-                  {loading ? (saveProgress || "Saving...") : "Finish"}
-                </Button>
-              </div>
+              <Button type="button" onClick={finishOnboarding} disabled={loading}>
+                {loading ? (saveProgress || "Saving...") : "Finish"}
+              </Button>
             </div>
           </div>
         )}
@@ -2430,16 +2363,9 @@ const Onboarding = () => {
               <Button type="button" variant="outline" onClick={goBack}>
                 Back
               </Button>
-              <div className="flex gap-2">
-                {showSkipOption && (
-                  <Button type="button" variant="outline" onClick={skipTodashboard}>
-                    Skip & Continue
-                  </Button>
-                )}
-                <Button onClick={finishOnboarding} disabled={loading}>
-                  {loading ? (saveProgress || "Saving...") : "Finish"}
-                </Button>
-              </div>
+              <Button onClick={finishOnboarding} disabled={loading}>
+                {loading ? (saveProgress || "Saving...") : "Finish"}
+              </Button>
             </div>
           </div>
         )}
