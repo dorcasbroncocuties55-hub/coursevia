@@ -1420,15 +1420,17 @@ const Onboarding = () => {
 
   // ── All redirects in one useEffect ──
   useEffect(() => {
-    // Wait for auth to finish loading before making any redirect decisions
-    if (authLoading) return;
     // Already doing a hard redirect from finishOnboarding — don't interfere
     if (redirectingRef.current) return;
+
+    // Only redirect if we have definitive data (not loading anymore)
+    if (authLoading) return;
 
     if (!user) {
       navigate("/login", { replace: true });
       return;
     }
+
     if (profile?.onboarding_completed === true) {
       const role = profile.role || "learner";
       redirectingRef.current = true;
@@ -1436,8 +1438,11 @@ const Onboarding = () => {
     }
   }, [authLoading, user, profile, navigate]);
 
-  // Show spinner while auth loads
-  if (authLoading) {
+  // CRITICAL FIX: Show the form as soon as we have a user, don't wait for profile to load
+  // This prevents the infinite spinner issue with Google OAuth
+
+  // No user at all - show loading spinner
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -1448,14 +1453,23 @@ const Onboarding = () => {
     );
   }
 
-  // Don't render form while redirecting or if no user yet
-  if (!user || profile?.onboarding_completed === true) {
+  // User exists and onboarding is confirmed complete - show spinner while redirecting
+  if (profile?.onboarding_completed === true) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+          <p className="text-sm text-muted-foreground">Redirecting to dashboard...</p>
+        </div>
       </div>
     );
   }
+
+  // At this point: user exists, and either:
+  // - profile is null (brand new Google user, AuthCallback just created them)
+  // - profile exists but onboarding_completed is false
+  // In BOTH cases, we should show the onboarding form
+  // SHOW THE FORM
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.10),_transparent_35%),linear-gradient(180deg,#f8fafc_0%,#ffffff_48%,#f8fafc_100%)] px-4 py-10">

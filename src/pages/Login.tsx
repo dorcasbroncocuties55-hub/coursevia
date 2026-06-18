@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,6 +26,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [forceShow, setForceShow] = useState(false);
+  const redirectingRef = useRef(false); // Prevent double redirects
 
   useEffect(() => {
     const t = setTimeout(() => setForceShow(true), 3000);
@@ -39,9 +40,12 @@ const Login = () => {
   };
 
   useEffect(() => {
+    // Don't redirect if we're already in the process of redirecting
+    if (redirectingRef.current) return;
     if (authLoading || !user) return;
     if (!profile && roles.length === 0) return;
     // Hard redirect to avoid ProtectedRoute role-race on first load
+    redirectingRef.current = true;
     window.location.replace(getDestination());
   }, [user, roles, primaryRole, profile, authLoading]);
 

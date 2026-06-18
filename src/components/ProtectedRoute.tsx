@@ -66,6 +66,12 @@ const ProtectedRoute = ({
   // Keep showing spinner — do NOT redirect to onboarding prematurely.
   // This is the main cause of the "refresh → onboarding" bug.
   if (!profile) {
+    // EXCEPTION: If this is the onboarding page itself with requireOnboarding=false,
+    // allow it through immediately. The Onboarding component handles its own loading states.
+    if (isOnboardingPath && requireOnboarding === false) {
+      return <>{children}</>;
+    }
+    
     // If we have enough role info from metadata/roles to confirm access, allow through
     if (requiredRole && resolvedRoles.includes(requiredRole)) {
       return <>{children}</>;

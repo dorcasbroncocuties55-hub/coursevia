@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +17,7 @@ const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [forceShow, setForceShow] = useState(false);
+  const redirectingRef = useRef(false); // Prevent double redirects
 
   useEffect(() => {
     const t = setTimeout(() => setForceShow(true), 3000);
@@ -30,11 +31,15 @@ const Signup = () => {
   }, [primaryRole, profile?.role]);
 
   useEffect(() => {
+    // Don't redirect if we're already in the process of redirecting
+    if (redirectingRef.current) return;
     if (authLoading || !user) return;
     if (!profile || !profile.onboarding_completed) {
+      redirectingRef.current = true;
       window.location.replace("/onboarding");
       return;
     }
+    redirectingRef.current = true;
     window.location.replace(dashboardPath);
   }, [authLoading, user, profile, dashboardPath]);
 
@@ -82,7 +87,8 @@ const Signup = () => {
       if (error) throw error;
       if (data.session) {
         toast.success("Account created!");
-        navigate("/onboarding", { replace: true });
+        // Don't use navigate() - let the useEffect handle the redirect
+        // This prevents double-redirect race conditions
         return;
       }
       toast.success("Check your email to verify your account.");
