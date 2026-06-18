@@ -526,6 +526,8 @@ const Onboarding = () => {
 
   // Prevent double-redirect when window.location.replace() is already in flight
   const redirectingRef = useRef(false);
+  const failsafeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const skipOptionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [selectedRole, setSelectedRole] = useState<RoleOption>("learner");
   const [step, setStep] = useState(1);
@@ -576,6 +578,7 @@ const Onboarding = () => {
 
   const [loading, setLoading] = useState(false);
   const [saveProgress, setSaveProgress] = useState("");
+  const [showSkipOption, setShowSkipOption] = useState(false);
   const [didInitializeRole, setDidInitializeRole] = useState(false);
 
   const currentSpecializationConfig = useMemo(
@@ -1011,6 +1014,17 @@ const Onboarding = () => {
     }
   };
 
+  const skipTodashboard = () => {
+    console.log("User chose to skip to dashboard");
+    setLoading(false);
+    setSaveProgress("");
+    setShowSkipOption(false);
+    
+    const dashboardRoute = getDashboardRoute(safeRoleOption(selectedRole, "learner"));
+    toast.success("Taking you to your dashboard...");
+    window.location.href = dashboardRoute;
+  };
+
   const goNext = () => {
     if (step === 1) {
       setStep(2);
@@ -1110,6 +1124,23 @@ const Onboarding = () => {
       toast.error("No active user session found.");
       return;
     }
+
+    // Failsafe timer: Force redirect after 60 seconds no matter what
+    failsafeTimerRef.current = setTimeout(() => {
+      console.warn("Failsafe timer triggered - forcing redirect after 60s");
+      const fallbackRoute = user?.user_metadata?.role ? getDashboardRoute(user.user_metadata.role) : "/dashboard";
+      toast.success("Setup completed! Redirecting to dashboard...");
+      window.location.href = fallbackRoute;
+    }, 60000); // 60 seconds failsafe
+
+    // Show skip option after 20 seconds if still saving
+    skipOptionTimerRef.current = setTimeout(() => {
+      if (loading) {
+        console.log("Showing skip option after 20s");
+        setShowSkipOption(true);
+        setSaveProgress("This is taking longer than expected...");
+      }
+    }, 20000); // 20 seconds
 
     const finalRole = safeRoleOption(selectedRole, "learner");
 
@@ -1387,6 +1418,10 @@ const Onboarding = () => {
       // Disable loading state but keep redirect protection
       setLoading(false);
 
+      // Clear the failsafe timer since we're about to redirect successfully
+      if (failsafeTimerRef.current) clearTimeout(failsafeTimerRef.current);
+      if (skipOptionTimerRef.current) clearTimeout(skipOptionTimerRef.current);
+
       // Try to refresh profile, but don't let it block redirect
       const refreshPromise = refreshProfile()
         .then(() => console.log("Profile refreshed successfully"))
@@ -1430,6 +1465,11 @@ const Onboarding = () => {
       toast.error(message);
       setLoading(false);  // Only disable loading on ERROR
       setSaveProgress("");
+      
+      // Clear the failsafe timer on error
+      if (failsafeTimerRef.current) clearTimeout(failsafeTimerRef.current);
+      if (skipOptionTimerRef.current) clearTimeout(skipOptionTimerRef.current);
+      setShowSkipOption(false);
     }
   };
 
@@ -1467,6 +1507,18 @@ const Onboarding = () => {
 
     return "Complete your account";
   }, [isLearner, isCoach, isTherapist, isCreator, step]);
+
+  // ── Cleanup timers on unmount ──
+  useEffect(() => {
+    return () => {
+      if (failsafeTimerRef.current) {
+        clearTimeout(failsafeTimerRef.current);
+      }
+      if (skipOptionTimerRef.current) {
+        clearTimeout(skipOptionTimerRef.current);
+      }
+    };
+  }, []);
 
   // ── All redirects in one useEffect ──
   useEffect(() => {
@@ -2193,9 +2245,16 @@ const Onboarding = () => {
               <Button type="button" variant="outline" onClick={goBack}>
                 Back
               </Button>
-              <Button onClick={finishOnboarding} disabled={loading}>
-                {loading ? (saveProgress || "Saving...") : "Finish"}
-              </Button>
+              <div className="flex gap-2">
+                {showSkipOption && (
+                  <Button type="button" variant="outline" onClick={skipTodashboard}>
+                    Skip & Continue
+                  </Button>
+                )}
+                <Button onClick={finishOnboarding} disabled={loading}>
+                  {loading ? (saveProgress || "Saving...") : "Finish"}
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -2396,9 +2455,16 @@ const Onboarding = () => {
               <Button type="button" variant="outline" onClick={goBack}>
                 Back
               </Button>
-              <Button type="button" onClick={finishOnboarding} disabled={loading}>
-                {loading ? (saveProgress || "Saving...") : "Finish"}
-              </Button>
+              <div className="flex gap-2">
+                {showSkipOption && (
+                  <Button type="button" variant="outline" onClick={skipTodashboard}>
+                    Skip & Continue
+                  </Button>
+                )}
+                <Button type="button" onClick={finishOnboarding} disabled={loading}>
+                  {loading ? (saveProgress || "Saving...") : "Finish"}
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -2447,9 +2513,16 @@ const Onboarding = () => {
               <Button type="button" variant="outline" onClick={goBack}>
                 Back
               </Button>
-              <Button onClick={finishOnboarding} disabled={loading}>
-                {loading ? (saveProgress || "Saving...") : "Finish"}
-              </Button>
+              <div className="flex gap-2">
+                {showSkipOption && (
+                  <Button type="button" variant="outline" onClick={skipTodashboard}>
+                    Skip & Continue
+                  </Button>
+                )}
+                <Button onClick={finishOnboarding} disabled={loading}>
+                  {loading ? (saveProgress || "Saving...") : "Finish"}
+                </Button>
+              </div>
             </div>
           </div>
         )}
