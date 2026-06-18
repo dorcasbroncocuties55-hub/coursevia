@@ -575,6 +575,7 @@ const Onboarding = () => {
   const [learnerLookingForward, setLearnerLookingForward] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [saveProgress, setSaveProgress] = useState("");
   const [didInitializeRole, setDidInitializeRole] = useState(false);
 
   const currentSpecializationConfig = useMemo(
@@ -973,7 +974,7 @@ const Onboarding = () => {
     setAvatarPreview(objectUrl);
   };
 
-  const uploadAvatar = async () => {
+  const uploadAvatar = async (retryCount = 0) => {
     if (!user?.id || !avatarFile) return null;
 
     const extension = avatarFile.name.split(".").pop() || "jpg";
@@ -983,20 +984,31 @@ const Onboarding = () => {
       .slice(2)}.${safeExtension}`;
     const filePath = `${user.id}/${fileName}`;
 
-    const { error } = await supabase.storage
-      .from("avatars")
-      .upload(filePath, avatarFile, {
-        cacheControl: "3600",
-        upsert: true,
-      });
+    try {
+      const { error } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, avatarFile, {
+          cacheControl: "3600",
+          upsert: true,
+        });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    const { data: publicUrlData } = supabase.storage
-      .from("avatars")
-      .getPublicUrl(filePath);
+      const { data: publicUrlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
 
-    return publicUrlData.publicUrl;
+      return publicUrlData.publicUrl;
+    } catch (error) {
+      // Retry up to 3 times with exponential backoff
+      if (retryCount < 3) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        console.warn(`Avatar upload failed, retrying in ${delay}ms (attempt ${retryCount + 1}/3):`, error);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return uploadAvatar(retryCount + 1);
+      }
+      throw error;
+    }
   };
 
   const goNext = () => {
@@ -1136,6 +1148,7 @@ const Onboarding = () => {
 
     try {
       setLoading(true);
+      setSaveProgress("Validating user session...");
 
       const {
         data: { user: authUser },
@@ -1179,9 +1192,10 @@ const Onboarding = () => {
       let avatarUrl: string | null = avatarPreview || null;
 
       if (avatarFile) {
+        setSaveProgress("Uploading profile picture...");
         avatarUrl = await withTimeout(
           uploadAvatar(),
-          20000,
+          45000, // Increased timeout to 45 seconds for retry attempts
           "Avatar upload took too long. Please try again."
         );
       }
@@ -1208,6 +1222,7 @@ const Onboarding = () => {
       let onboardingRpcError: any = null;
 
       // ── Step 1: Save the core profile fields ──────────────────────────────
+      setSaveProgress("Saving your profile...");
       const coreProfile = {
         user_id: authUser.id,
         full_name: fullName.trim() || null,
@@ -1230,6 +1245,7 @@ const Onboarding = () => {
       console.log("Core profile saved successfully");
 
       // ── Step 2: Save extended fields via RPC (handles missing columns gracefully) ──
+      setSaveProgress("Completing profile setup...");
       try {
         await withTimeout(
           supabase.rpc("complete_onboarding" as any, {
@@ -1258,7 +1274,7 @@ const Onboarding = () => {
             p_profile_slug: profileSlug,
             p_onboarding_completed: true,
           }),
-          15000,
+          30000, // Increased RPC timeout to 30 seconds
           "RPC timeout"
         );
         console.log("Extended profile saved via RPC");
@@ -1268,12 +1284,14 @@ const Onboarding = () => {
       }
 
       // ── Step 3: Save user role ────────────────────────────────────────────
+      setSaveProgress("Setting up your account...");
       await supabase
         .from("user_roles")
         .upsert({ user_id: authUser.id, role: enforcedRole }, { onConflict: "user_id,role", ignoreDuplicates: true })
         .then(({ error }) => { if (error) console.warn("Role save:", error.message); });
 
       // Update auth metadata
+      setSaveProgress("Finalizing account details...");
       try {
         await supabase.auth.updateUser({
           data: {
@@ -1339,6 +1357,7 @@ const Onboarding = () => {
       }
 
       // Send welcome email
+      setSaveProgress("Preparing your dashboard...");
       try {
         await fetch(buildBackendUrl("/api/notifications/welcome"), {
           method: "POST",
@@ -1356,35 +1375,51 @@ const Onboarding = () => {
       }
 
       console.log("Onboarding completed successfully!");
+      setSaveProgress("Completing setup...");
       toast.success("Onboarding completed successfully!");
 
-      // CRITICAL: Refresh the profile in AuthContext to ensure it has onboarding_completed=true
-      // This prevents the redirect useEffect from fighting with us
-      try {
-        await refreshProfile();
-        console.log("Profile refreshed in AuthContext");
-      } catch (err) {
-        console.warn("Profile refresh failed (non-blocking):", err);
-      }
-
       const dashboardRoute = getDashboardRoute(enforcedRole);
-      console.log("Attempting redirect to:", dashboardRoute);
+      console.log("Dashboard route:", dashboardRoute);
       
-      // Mark that we're redirecting BEFORE any state changes
+      // Mark that we're redirecting BEFORE any async operations
       redirectingRef.current = true;
+
+      // Disable loading state but keep redirect protection
+      setLoading(false);
+
+      // Try to refresh profile, but don't let it block redirect
+      const refreshPromise = refreshProfile()
+        .then(() => console.log("Profile refreshed successfully"))
+        .catch((err) => console.warn("Profile refresh failed (non-blocking):", err));
+
+      // Race between profile refresh (max 500ms) and immediate redirect
+      await Promise.race([
+        refreshPromise,
+        new Promise(resolve => setTimeout(resolve, 500))
+      ]);
+
+      console.log("Starting redirect to:", dashboardRoute);
       
-      // DON'T set loading to false - keep spinner showing during redirect
-      // This prevents user from clicking button again or seeing UI flicker
+      // Force redirect - no more delays
+      window.location.href = dashboardRoute;
       
-      // Small delay to ensure profile update propagates
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      console.log("Executing redirect now...");
-      // Hard redirect so auth context re-initialises with fresh DB data.
-      window.location.replace(dashboardRoute);
+      // Fallback: If href doesn't work, try replace
+      setTimeout(() => {
+        console.warn("Fallback redirect triggered");
+        window.location.replace(dashboardRoute);
+      }, 300);
 
     } catch (error: any) {
       console.error("Onboarding error:", error);
+      
+      // Log full error details for debugging
+      console.error("Error details:", {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+        stack: error?.stack
+      });
 
       const message =
         error?.message ||
@@ -1394,6 +1429,7 @@ const Onboarding = () => {
 
       toast.error(message);
       setLoading(false);  // Only disable loading on ERROR
+      setSaveProgress("");
     }
   };
 
@@ -2158,7 +2194,7 @@ const Onboarding = () => {
                 Back
               </Button>
               <Button onClick={finishOnboarding} disabled={loading}>
-                {loading ? "Saving..." : "Finish"}
+                {loading ? (saveProgress || "Saving...") : "Finish"}
               </Button>
             </div>
           </div>
@@ -2361,7 +2397,7 @@ const Onboarding = () => {
                 Back
               </Button>
               <Button type="button" onClick={finishOnboarding} disabled={loading}>
-                {loading ? "Saving..." : "Finish"}
+                {loading ? (saveProgress || "Saving...") : "Finish"}
               </Button>
             </div>
           </div>
@@ -2412,7 +2448,7 @@ const Onboarding = () => {
                 Back
               </Button>
               <Button onClick={finishOnboarding} disabled={loading}>
-                {loading ? "Saving..." : "Finish"}
+                {loading ? (saveProgress || "Saving...") : "Finish"}
               </Button>
             </div>
           </div>
