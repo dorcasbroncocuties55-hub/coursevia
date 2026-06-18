@@ -48,6 +48,10 @@ const LearnerMessages = lazy(() => import("./pages/dashboard/Messages").then(m =
 const CoachMessages = lazy(() => import("./pages/dashboard/Messages").then(m => ({ default: m.CoachMessages })));
 const CreatorMessages = lazy(() => import("./pages/dashboard/Messages").then(m => ({ default: m.CreatorMessages })));
 const TherapistMessages = lazy(() => import("./pages/dashboard/Messages").then(m => ({ default: m.TherapistMessages })));
+const InviteFriendsPage = lazy(() => import("./pages/dashboard/InviteFriendsPage"));
+const CoachInvitePage = lazy(() => import("./pages/coach/CoachInvitePage"));
+const CreatorInvitePage = lazy(() => import("./pages/creator/CreatorInvitePage"));
+const TherapistInvitePage = lazy(() => import("./pages/therapist/TherapistInvitePage"));
 const LearnerPayments = lazy(() => import("./pages/dashboard/LearnerPayments"));
 const LearnerSubscription = lazy(() => import("./pages/dashboard/LearnerSubscription"));
 const LearnerPaymentMethods = lazy(() => import("./pages/dashboard/LearnerPaymentMethods"));
@@ -365,6 +369,14 @@ const App = () => {
                   }
                 />
                 <Route
+                  path="/dashboard/invite"
+                  element={
+                    <ProtectedRoute requiredRole="learner">
+                      <InviteFriendsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/dashboard/wallet"
                   element={
                     <ProtectedRoute requiredRole="learner">
@@ -502,6 +514,14 @@ const App = () => {
                   }
                 />
                 <Route
+                  path="/coach/invite"
+                  element={
+                    <ProtectedRoute requiredRole="coach">
+                      <CoachInvitePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/coach/bank-accounts"
                   element={
                     <ProtectedRoute requiredRole="coach">
@@ -631,6 +651,14 @@ const App = () => {
                   }
                 />
                 <Route
+                  path="/therapist/invite"
+                  element={
+                    <ProtectedRoute requiredRole="therapist">
+                      <TherapistInvitePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/therapist/bank-accounts"
                   element={
                     <ProtectedRoute requiredRole="therapist">
@@ -716,6 +744,14 @@ const App = () => {
                   element={
                     <ProtectedRoute requiredRole="creator">
                       <ProfessionalProfileSettings role="creator" />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/creator/invite"
+                  element={
+                    <ProtectedRoute requiredRole="creator">
+                      <CreatorInvitePage />
                     </ProtectedRoute>
                   }
                 />

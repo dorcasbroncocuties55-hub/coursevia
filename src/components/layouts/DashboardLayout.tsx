@@ -22,6 +22,7 @@ import {
   BarChart3,
   LogOut,
   ArrowDownCircle,
+  UserPlus,
 } from "lucide-react";
 
 type Role = "learner" | "coach" | "creator" | "therapist" | "admin";
@@ -41,6 +42,7 @@ const learnerNav: NavItem[] = [
   { label: "Payments", href: "/dashboard/payments", icon: CreditCard },
   { label: "Payment Methods", href: "/dashboard/payment-methods", icon: Wallet },
   { label: "Subscription", href: "/dashboard/subscription", icon: FileText },
+  { label: "Invite Friends", href: "/dashboard/invite", icon: UserPlus },
   { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
   { label: "Profile", href: "/dashboard/profile", icon: User },
 ];
@@ -61,6 +63,7 @@ const coachNav: NavItem[] = [
   { label: "Refunds", href: "/coach/refunds", icon: ArrowDownCircle },
   { label: "Reviews", href: "/coach/reviews", icon: FileText },
   { label: "Bank Accounts", href: "/coach/bank-accounts", icon: Wallet },
+  { label: "Invite Friends", href: "/coach/invite", icon: UserPlus },
   { label: "Profile Settings", href: "/coach/profile-settings", icon: Settings },
 ];
 
@@ -78,6 +81,7 @@ const therapistNav: NavItem[] = [
   { label: "Wallet", href: "/therapist/wallet", icon: Wallet },
   { label: "Withdrawals", href: "/therapist/withdrawals", icon: CreditCard },
   { label: "Refunds", href: "/therapist/refunds", icon: ArrowDownCircle },
+  { label: "Invite Friends", href: "/therapist/invite", icon: UserPlus },
   { label: "Bank Accounts", href: "/therapist/bank-accounts", icon: Wallet },
   { label: "Profile Settings", href: "/therapist/profile-settings", icon: Settings },
 ];
@@ -91,6 +95,7 @@ const creatorNav: NavItem[] = [
   { label: "Wallet", href: "/creator/wallet", icon: Wallet },
   { label: "Withdrawals", href: "/creator/withdrawals", icon: CreditCard },
   { label: "Bank Accounts", href: "/creator/bank-accounts", icon: Wallet },
+  { label: "Invite Friends", href: "/creator/invite", icon: UserPlus },
   { label: "Profile Settings", href: "/creator/profile-settings", icon: Settings },
 ];
 
