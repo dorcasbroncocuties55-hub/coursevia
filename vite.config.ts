@@ -1,18 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import fs from "fs";
-
-// Plugin to ensure _redirects is always in dist after build
-const ensureRedirects = () => ({
-  name: "ensure-redirects",
-  closeBundle() {
-    const indexHtml = fs.readFileSync("dist/index.html");
-    
-    // Not needed for Render Web Service with Node.js server
-    // The server.js handles all routing
-  },
-});
 
 export default defineConfig({
   base: "/",
@@ -23,7 +11,7 @@ export default defineConfig({
       overlay: false,
     },
   },
-  plugins: [react(), ensureRedirects()],
+  plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
