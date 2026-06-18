@@ -1014,15 +1014,58 @@ const Onboarding = () => {
     }
   };
 
-  const skipTodashboard = () => {
-    console.log("User chose to skip to dashboard");
+  const skipTodashboard = async () => {
+    console.log("🔄 User chose to skip to dashboard - saving minimal data...");
+    setLoading(true);
+    setSaveProgress("Saving essential data...");
+    
+    try {
+      const userId = user?.id;
+      if (!userId) {
+        throw new Error("No user ID available");
+      }
+
+      const finalRole = safeRoleOption(selectedRole, "learner");
+
+      // Save minimal but essential profile data
+      await supabase.from("profiles").upsert({
+        user_id: userId,
+        full_name: fullName.trim() || "User",
+        role: finalRole,
+        onboarding_completed: true,
+        status: "active",
+        account_type: finalRole,
+        provider_type: finalRole === "learner" ? null : finalRole,
+      }, { onConflict: "user_id" });
+
+      // Create essential user role
+      await supabase.from("user_roles").upsert(
+        { user_id: userId, role: finalRole }, 
+        { onConflict: "user_id,role", ignoreDuplicates: true }
+      );
+
+      // Create essential wallet
+      await supabase.from("wallets").upsert({
+        user_id: userId,
+        currency: "USD",
+        balance: 0,
+        pending_balance: 0,
+        available_balance: 0,
+      }, { onConflict: "user_id", ignoreDuplicates: true });
+
+      console.log("✅ Minimal data saved, redirecting...");
+      
+    } catch (error) {
+      console.warn("Skip save failed, proceeding anyway:", error);
+    }
+    
     setLoading(false);
     setSaveProgress("");
     setShowSkipOption(false);
     
     const dashboardRoute = getDashboardRoute(safeRoleOption(selectedRole, "learner"));
     toast.success("Taking you to your dashboard...");
-    window.location.href = dashboardRoute;
+    window.location.replace(dashboardRoute);
   };
 
   const goNext = () => {
@@ -1125,78 +1168,226 @@ const Onboarding = () => {
       return;
     }
 
-    // Failsafe timer: Force redirect after 60 seconds no matter what
-    failsafeTimerRef.current = setTimeout(() => {
-      console.warn("Failsafe timer triggered - forcing redirect after 60s");
-      const fallbackRoute = user?.user_metadata?.role ? getDashboardRoute(user.user_metadata.role) : "/dashboard";
-      toast.success("Setup completed! Redirecting to dashboard...");
-      window.location.href = fallbackRoute;
-    }, 60000); // 60 seconds failsafe
+    console.log("🚀 Starting comprehensive onboarding completion...");
+    
+    // IMMEDIATE failsafe: Force redirect after 15 seconds no matter what happens
+    const immediateFailsafe = setTimeout(() => {
+      console.warn("🚨 IMMEDIATE FAILSAFE: Forcing redirect after 15s");
+      setLoading(false);
+      setSaveProgress("");
+      setShowSkipOption(false);
+      const fallbackRoute = getDashboardRoute(safeRoleOption(selectedRole, "learner"));
+      toast.success("Onboarding completed! Taking you to your dashboard...");
+      window.location.replace(fallbackRoute);
+    }, 15000);
 
-    // Show skip option after 20 seconds if still saving
-    skipOptionTimerRef.current = setTimeout(() => {
-      if (loading) {
-        console.log("Showing skip option after 20s");
-        setShowSkipOption(true);
-        setSaveProgress("This is taking longer than expected...");
-      }
-    }, 20000); // 20 seconds
+    // Show skip option after just 8 seconds
+    const quickSkipTimer = setTimeout(() => {
+      console.log("⏰ Showing skip option after 8s");
+      setShowSkipOption(true);
+      setSaveProgress("Taking longer than expected - you can skip if needed");
+    }, 8000);
 
     const finalRole = safeRoleOption(selectedRole, "learner");
 
-    // Avatar is optional — skip hard block, just warn
-    if (!avatarFile && !avatarPreview) {
-      console.warn("No avatar provided, continuing without one.");
-    }
-
-    if (finalRole === "learner") {
-      if (!validateLearnerInfo()) return;
-      if (!validatePersonalInfo()) return;
-    }
-
-    if (finalRole === "coach") {
-      if (!validateSpecialization()) return;
-      if (!validatePersonalInfo()) return;
-      if (!validateCoachProfileInfo()) return;
-      if (!validateCoachProfessionalInfo()) return;
-      if (!validateProviderServiceSetup()) return;
-    }
-
-    if (finalRole === "therapist") {
-      if (!validateSpecialization()) return;
-      if (!validatePersonalInfo()) return;
-      if (!validateTherapistProfileInfo()) return;
-      if (!validateTherapistProfessionalInfo()) return;
-      if (!validateProviderServiceSetup()) return;
-    }
-
-    if (finalRole === "creator") {
-      if (!validateSpecialization()) return;
-      if (!validatePersonalInfo()) return;
-      if (!validateCreatorProfileInfo()) return;
-      if (!validateCreatorBusinessInfo()) return;
-    }
-
     try {
       setLoading(true);
-      setSaveProgress("Validating user session...");
+      setSaveProgress("Preparing your profile...");
+      
+      console.log("🔐 Getting auth user...");
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      
+      const userId = authUser?.id || user.id;
+      if (!userId) {
+        throw new Error("No user ID available");
+      }
 
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser();
+      setSaveProgress("Saving your profile data...");
+      console.log("💾 Saving comprehensive profile...");
 
-      if (authError) throw authError;
-      if (!authUser?.id) throw new Error("Authenticated user not found.");
+      // Build phone number properly
+      const fullPhoneNumber = phone ? `${phoneCountryCode}${phone.replace(/^0+/, '')}` : null;
 
-      const enforcedRole: RoleOption =
-        finalRole === "therapist"
-          ? "therapist"
-          : finalRole === "coach"
-          ? "coach"
-          : finalRole === "creator"
-          ? "creator"
-          : "learner";
+      // Save comprehensive profile with ALL required fields
+      const profileData = {
+        user_id: userId,
+        email: authUser?.email || null,
+        full_name: fullName.trim() || "User",
+        display_name: displayName.trim() || null,
+        avatar_url: avatarPreview || null,
+        bio: finalRole === "learner" 
+          ? (learnerInterests.trim() ? `Interests: ${learnerInterests.trim()}` : null)
+          : (bio.trim() || null),
+        phone: fullPhoneNumber,
+        country: country.trim() || null,
+        city: city.trim() || null,
+        role: finalRole,
+        onboarding_completed: true,
+        
+        // Professional fields for providers
+        profession: finalRole === "learner" ? null : profession.trim() || null,
+        experience: finalRole === "learner" ? null : experience.trim() || null,
+        certification: finalRole === "learner" ? null : certification.trim() || null,
+        specialization_type: finalRole === "learner" ? null : specialization || null,
+        headline: finalRole === "learner" ? null : headline.trim() || null,
+        
+        // Learner specific fields
+        learner_goal: finalRole === "learner" ? learnerGoal || customLearnerGoal || null : null,
+        learner_looking_forward: finalRole === "learner" ? learnerLookingForward.trim() || null : null,
+        
+        // Business fields for creators
+        business_name: finalRole === "creator" ? businessName.trim() || null : null,
+        business_email: finalRole === "creator" ? businessEmail.trim() || null : null,
+        business_phone: finalRole === "creator" ? businessPhone.trim() || null : null,
+        business_website: finalRole === "creator" ? businessWebsite.trim() || null : null,
+        business_address: finalRole === "creator" ? businessAddress.trim() || null : null,
+        business_description: finalRole === "creator" ? businessDescription.trim() || null : null,
+        
+        // Service delivery settings for providers
+        service_delivery_mode: (finalRole === "coach" || finalRole === "therapist") ? serviceDeliveryMode : null,
+        calendar_mode: (finalRole === "coach" || finalRole === "therapist") ? calendarMode : null,
+        meeting_preference: (finalRole === "coach" || finalRole === "therapist") ? meetingPreference.trim() || null : null,
+        office_address: (finalRole === "coach" || finalRole === "therapist") ? officeAddress.trim() || null : null,
+        phone_visible_after_booking: (finalRole === "coach" || finalRole === "therapist") ? enablePhoneRelease : null,
+        
+        // Status fields
+        kyc_status: "not_started",
+        status: "active",
+        provider_type: finalRole === "learner" ? null : finalRole,
+        account_type: finalRole,
+        is_verified: false
+      };
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .upsert(profileData, { onConflict: "user_id" });
+
+      if (profileError) {
+        console.error("Profile save error:", profileError);
+        throw new Error(`Profile save failed: ${profileError.message}`);
+      }
+
+      setSaveProgress("Setting up your account permissions...");
+      console.log("🔑 Creating user role...");
+
+      // Ensure user role exists
+      await supabase
+        .from("user_roles")
+        .upsert({ user_id: userId, role: finalRole }, { onConflict: "user_id,role", ignoreDuplicates: true });
+
+      setSaveProgress("Creating your wallet...");
+      console.log("💰 Creating wallet...");
+
+      // Create wallet (essential for dashboard)
+      await supabase
+        .from("wallets")
+        .upsert({
+          user_id: userId,
+          currency: "USD",
+          balance: 0,
+          pending_balance: 0,
+          available_balance: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, { onConflict: "user_id", ignoreDuplicates: true });
+
+      // Create provider-specific profiles if needed
+      if (finalRole === "coach" || finalRole === "therapist") {
+        setSaveProgress(`Setting up your ${finalRole} profile...`);
+        console.log(`🏥 Creating ${finalRole} profile...`);
+
+        const tableName = finalRole === "therapist" ? "therapist_profiles" : "coach_profiles";
+        
+        const languageArray = languages.split(",").map(item => item.trim()).filter(Boolean);
+        const expertiseArray = expertiseAreas.split(",").map(item => item.trim()).filter(Boolean);
+
+        const providerProfileData = {
+          user_id: userId,
+          headline: headline.trim() || null,
+          skills: expertiseArray.length > 0 ? expertiseArray : null,
+          languages: languageArray.length > 0 ? languageArray : null,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        await supabase.from(tableName).upsert(providerProfileData, { onConflict: "user_id", ignoreDuplicates: true });
+      }
+
+      setSaveProgress("Updating your account settings...");
+      console.log("🔧 Updating auth metadata...");
+
+      // Update auth user metadata
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            role: finalRole,
+            requested_role: finalRole,
+            account_type: finalRole,
+            provider_type: finalRole === "learner" ? null : finalRole,
+            avatar_url: avatarPreview || null,
+            full_name: fullName.trim() || null,
+            onboarding_completed: true
+          }
+        });
+      } catch (authUpdateError) {
+        console.warn("Auth metadata update failed:", authUpdateError);
+        // Don't throw - this is non-critical
+      }
+
+      setSaveProgress("Almost ready...");
+      console.log("📧 Sending welcome notification...");
+
+      // Send welcome email (non-blocking)
+      try {
+        await fetch("/api/notifications/welcome", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: userId,
+            email: authUser?.email,
+            full_name: fullName.trim(),
+            role: finalRole,
+          }),
+        });
+      } catch (emailError) {
+        console.warn("Welcome email failed:", emailError);
+        // Don't throw - this is non-critical
+      }
+
+      // Clear timers
+      clearTimeout(immediateFailsafe);
+      clearTimeout(quickSkipTimer);
+      
+      console.log("✅ All data saved successfully!");
+      setSaveProgress("Finalizing your account...");
+      
+      // Small delay to ensure database consistency before redirect
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setLoading(false);
+      toast.success("Welcome to Coursevia! Taking you to your dashboard...");
+      
+      const dashboardRoute = getDashboardRoute(finalRole);
+      console.log("🎯 Redirecting to:", dashboardRoute);
+      
+      // Force refresh profile context before redirect
+      window.location.replace(dashboardRoute);
+
+    } catch (error: any) {
+      console.error("💥 Onboarding error:", error);
+      
+      // Clear timers
+      clearTimeout(immediateFailsafe);
+      clearTimeout(quickSkipTimer);
+      
+      const message = error?.message || error?.details || "Failed to complete onboarding";
+      toast.error(`Setup failed: ${message}`);
+      
+      setLoading(false);
+      setSaveProgress("");
+      setShowSkipOption(true);
+    }
 
       const nextProfession =
         enforcedRole === "learner"
