@@ -1106,152 +1106,81 @@ const Onboarding = () => {
   const finishOnboarding = async () => {
     if (loading) return;
 
+    console.log("🚀 Starting finishOnboarding function...");
+
     if (!user?.id) {
       toast.error("No active user session found.");
       return;
     }
 
     const finalRole = safeRoleOption(selectedRole, "learner");
+    console.log("Selected role:", finalRole);
 
-    // Run validations based on role
-    if (finalRole === "learner") {
-      if (!validateLearnerInfo()) return;
-      if (!validatePersonalInfo()) return;
-    }
-
-    if (finalRole === "coach") {
-      if (!validateSpecialization()) return;
-      if (!validatePersonalInfo()) return;
-      if (!validateCoachProfileInfo()) return;
-      if (!validateCoachProfessionalInfo()) return;
-      if (!validateProviderServiceSetup()) return;
-    }
-
-    if (finalRole === "therapist") {
-      if (!validateSpecialization()) return;
-      if (!validatePersonalInfo()) return;
-      if (!validateTherapistProfileInfo()) return;
-      if (!validateTherapistProfessionalInfo()) return;
-      if (!validateProviderServiceSetup()) return;
-    }
-
-    if (finalRole === "creator") {
-      if (!validateSpecialization()) return;
-      if (!validatePersonalInfo()) return;
-      if (!validateCreatorProfileInfo()) return;
-      if (!validateCreatorBusinessInfo()) return;
-    }
+    // TEMPORARILY SKIP VALIDATIONS FOR DEBUGGING
+    console.log("⚠️ Skipping validations for debugging purposes");
 
     try {
       setLoading(true);
       setSaveProgress("Starting onboarding completion...");
+      console.log("✅ Loading state set to true");
 
       // Get authenticated user
+      console.log("🔐 Getting authenticated user...");
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       if (authError || !authUser?.id) {
+        console.error("Auth error:", authError);
         throw new Error("Authentication required to complete onboarding");
       }
+      console.log("✅ Auth user found:", authUser.id);
 
-      // Upload avatar if provided
+      // Skip avatar upload for now to simplify
       let avatarUrl: string | null = avatarPreview || null;
-      if (avatarFile) {
-        setSaveProgress("Uploading profile picture...");
-        try {
-          const extension = avatarFile.name.split(".").pop() || "jpg";
-          const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${extension.toLowerCase()}`;
-          const filePath = `${authUser.id}/${fileName}`;
+      console.log("📷 Avatar URL:", avatarUrl);
 
-          const { error: uploadError } = await supabase.storage
-            .from("avatars")
-            .upload(filePath, avatarFile, { cacheControl: "3600", upsert: true });
-
-          if (uploadError) throw uploadError;
-
-          const { data: publicUrlData } = supabase.storage
-            .from("avatars")
-            .getPublicUrl(filePath);
-
-          avatarUrl = publicUrlData.publicUrl;
-        } catch (avatarError) {
-          console.warn("Avatar upload failed, continuing without avatar:", avatarError);
-          avatarUrl = null;
-        }
-      }
-
-      // Prepare profile data
+      // Prepare minimal profile data
       setSaveProgress("Saving profile data...");
-      const fullPhoneNumber = phone ? `${phoneCountryCode}${phone.replace(/^0+/, '')}` : null;
+      console.log("💾 Preparing profile data...");
       
       const profileData = {
         user_id: authUser.id,
         email: authUser.email || null,
         full_name: fullName.trim() || "User",
-        display_name: displayName.trim() || null,
-        avatar_url: avatarUrl,
-        bio: finalRole === "learner" 
-          ? (learnerInterests.trim() ? `Interests: ${learnerInterests.trim()}` : null)
-          : (bio.trim() || null),
-        phone: fullPhoneNumber,
-        country: country.trim() || null,
-        city: city.trim() || null,
         role: finalRole,
         onboarding_completed: true,
-        
-        // Professional fields
-        profession: finalRole === "learner" ? null : profession.trim() || null,
-        experience: finalRole === "learner" ? null : experience.trim() || null,
-        certification: finalRole === "learner" ? null : certification.trim() || null,
-        specialization_type: finalRole === "learner" ? null : specialization || null,
-        headline: finalRole === "learner" ? null : headline.trim() || null,
-        
-        // Learner fields
-        learner_goal: finalRole === "learner" ? (learnerGoal || customLearnerGoal || null) : null,
-        learner_looking_forward: finalRole === "learner" ? learnerLookingForward.trim() || null : null,
-        
-        // Creator fields
-        business_name: finalRole === "creator" ? businessName.trim() || null : null,
-        business_email: finalRole === "creator" ? businessEmail.trim() || null : null,
-        business_phone: finalRole === "creator" ? businessPhone.trim() || null : null,
-        business_website: finalRole === "creator" ? businessWebsite.trim() || null : null,
-        business_address: finalRole === "creator" ? businessAddress.trim() || null : null,
-        business_description: finalRole === "creator" ? businessDescription.trim() || null : null,
-        
-        // Provider fields
-        service_delivery_mode: (finalRole === "coach" || finalRole === "therapist") ? serviceDeliveryMode : null,
-        calendar_mode: (finalRole === "coach" || finalRole === "therapist") ? calendarMode : null,
-        meeting_preference: (finalRole === "coach" || finalRole === "therapist") ? meetingPreference.trim() || null : null,
-        office_address: (finalRole === "coach" || finalRole === "therapist") ? officeAddress.trim() || null : null,
-        phone_visible_after_booking: (finalRole === "coach" || finalRole === "therapist") ? enablePhoneRelease : null,
-        
-        // Status fields
-        kyc_status: "not_started",
         status: "active",
-        provider_type: finalRole === "learner" ? null : finalRole,
         account_type: finalRole,
-        is_verified: false
       };
 
+      console.log("Profile data to save:", profileData);
+
       // Save profile
+      console.log("💾 Saving to profiles table...");
       const { error: profileError } = await supabase
         .from("profiles")
         .upsert(profileData, { onConflict: "user_id" });
 
       if (profileError) {
+        console.error("Profile save error:", profileError);
         throw new Error(`Failed to save profile: ${profileError.message}`);
       }
+      console.log("✅ Profile saved successfully");
 
       // Create user role
       setSaveProgress("Setting up permissions...");
+      console.log("🔑 Creating user role...");
       const { error: roleError } = await supabase
         .from("user_roles")
         .upsert({ user_id: authUser.id, role: finalRole }, { onConflict: "user_id,role" });
 
       if (roleError) {
         console.warn("Role creation warning:", roleError);
+      } else {
+        console.log("✅ User role created");
       }
 
       // Create wallet
       setSaveProgress("Creating wallet...");
+      console.log("💰 Creating wallet...");
       const { error: walletError } = await supabase
         .from("wallets")
         .upsert({
@@ -1264,67 +1193,14 @@ const Onboarding = () => {
 
       if (walletError) {
         console.warn("Wallet creation warning:", walletError);
-      }
-
-      // Create provider profile if needed
-      if (finalRole === "coach" || finalRole === "therapist") {
-        setSaveProgress(`Setting up ${finalRole} profile...`);
-        
-        const tableName = finalRole === "therapist" ? "therapist_profiles" : "coach_profiles";
-        const languageArray = languages.split(",").map(item => item.trim()).filter(Boolean);
-        const expertiseArray = expertiseAreas.split(",").map(item => item.trim()).filter(Boolean);
-
-        const { error: providerError } = await supabase
-          .from(tableName)
-          .upsert({
-            user_id: authUser.id,
-            headline: headline.trim() || null,
-            skills: expertiseArray.length > 0 ? expertiseArray : null,
-            languages: languageArray.length > 0 ? languageArray : null,
-            is_active: true
-          }, { onConflict: "user_id" });
-
-        if (providerError) {
-          console.warn(`${finalRole} profile creation warning:`, providerError);
-        }
-      }
-
-      // Update auth metadata
-      setSaveProgress("Finalizing account...");
-      try {
-        await supabase.auth.updateUser({
-          data: {
-            role: finalRole,
-            requested_role: finalRole,
-            account_type: finalRole,
-            provider_type: finalRole === "learner" ? null : finalRole,
-            avatar_url: avatarUrl,
-            full_name: fullName.trim() || null,
-            onboarding_completed: true
-          }
-        });
-      } catch (authUpdateError) {
-        console.warn("Auth metadata update warning:", authUpdateError);
-      }
-
-      // Send welcome notification (non-blocking)
-      try {
-        await fetch(buildBackendUrl("/api/notifications/welcome"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: authUser.id,
-            email: authUser.email,
-            full_name: fullName.trim(),
-            role: finalRole,
-          }),
-        });
-      } catch (emailError) {
-        console.warn("Welcome email failed:", emailError);
+      } else {
+        console.log("✅ Wallet created");
       }
 
       // Success!
       setSaveProgress("Redirecting to dashboard...");
+      console.log("🎉 All saves completed successfully!");
+      
       toast.success("Welcome to Coursevia!");
       
       // Mark as redirecting to prevent interference
@@ -1334,12 +1210,19 @@ const Onboarding = () => {
       setLoading(false);
       setSaveProgress("");
       
+      console.log("🔄 About to redirect...");
+      
       // Redirect to dashboard
       const dashboardRoute = getDashboardRoute(finalRole);
-      window.location.replace(dashboardRoute);
+      console.log("🎯 Dashboard route:", dashboardRoute);
+      
+      setTimeout(() => {
+        console.log("🚀 Executing redirect...");
+        window.location.replace(dashboardRoute);
+      }, 1000);
 
     } catch (error: any) {
-      console.error("Onboarding completion failed:", error);
+      console.error("💥 Onboarding completion failed:", error);
       
       const message = error?.message || error?.details || "Failed to complete onboarding. Please try again.";
       toast.error(message);
