@@ -1,0 +1,1111 @@
+{
+  "workspaceId": "a1346e18-b44e-4f98-845f-aa4573650b85",
+  "collectionId": "53906209-68f47a60-9677-47b1-8c69-a1ccbe4236cc",
+  "environmentId": "53906209-1bb445a4-6728-4659-8a3f-db8a5efd42a5",
+  "collection": {
+    "info": {
+      "name": "Coursevia Backend API",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+      { "key": "base_url", "value": "http://localhost:5000", "type": "string" },
+      { "key": "user_id", "value": "test-user-id", "type": "string" },
+      { "key": "email", "value": "test@example.com", "type": "string" }
+    ],
+    "item": [
+      {
+        "name": "Subscriptions",
+        "item": [
+          {
+            "name": "Get Subscription Plans",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/subscription/plans"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns success with data array', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.success).to.be.true;",
+                    "  pm.expect(body.data).to.be.an('array').that.is.not.empty;",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Get Current Subscription",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/subscriptions/current?user_id={{user_id}}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns success with data', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.success).to.be.true;",
+                    "  pm.expect(body.data).to.have.property('user_id');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Get Current Subscription - Missing user_id",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/subscriptions/current"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when user_id missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.include('user_id');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Initialize Subscription",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/subscriptions/initialize",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"email\": \"{{email}}\",\n  \"userId\": \"{{user_id}}\",\n  \"planId\": \"monthly\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns reference and payment method signal', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.success).to.be.true;",
+                    "  pm.expect(body.reference).to.be.a('string');",
+                    "  pm.collectionVariables.set('sub_reference', body.reference);",
+                    "  // Checkout.com Frames flow: use_frames=true with amount/currency/plan",
+                    "  // Legacy Paystack flow: use_frames=false with redirect_url/authorization_url",
+                    "  if (body.use_frames === true) {",
+                    "    pm.test('Frames flow: has amount, currency, plan', () => {",
+                    "      pm.expect(body.amount).to.be.a('number');",
+                    "      pm.expect(body.currency).to.be.a('string');",
+                    "      pm.expect(body.plan).to.be.a('string');",
+                    "    });",
+                    "  } else {",
+                    "    pm.test('Redirect flow: has redirect_url or authorization_url', () => {",
+                    "      const redirectUrl = body.redirect_url || body.authorization_url;",
+                    "      pm.expect(redirectUrl, 'redirect_url or authorization_url must be present').to.be.a('string').and.not.empty;",
+                    "    });",
+                    "  }",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Initialize Subscription - Invalid Plan",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/subscriptions/initialize",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"email\": \"{{email}}\",\n  \"userId\": \"{{user_id}}\",\n  \"planId\": \"nonexistent\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 for invalid plan', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.include('plan');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Cancel Subscription",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/subscriptions/cancel",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"{{user_id}}\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200 or 500', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+                    "});",
+                    "pm.test('Returns message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message || body.success).to.exist;",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Checkout",
+        "item": [
+          {
+            "name": "Initialize Checkout",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/checkout/initialize",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"email\": \"{{email}}\",\n  \"user_id\": \"{{user_id}}\",\n  \"type\": \"booking\",\n  \"amount\": 50,\n  \"content_id\": \"booking-123\",\n  \"content_title\": \"Test Session\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns reference and a redirect URL', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.success).to.be.true;",
+                    "  pm.expect(body.reference).to.be.a('string');",
+                    "  // Checkout.com returns redirect_url; Paystack legacy returns authorization_url",
+                    "  const redirectUrl = body.redirect_url || body.authorization_url;",
+                    "  pm.expect(redirectUrl, 'redirect_url or authorization_url must be present').to.be.a('string').and.not.empty;",
+                    "  pm.collectionVariables.set('checkout_reference', body.reference);",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Initialize Checkout - Missing Fields",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/checkout/initialize",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"email\": \"{{email}}\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when fields missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Verify Checkout",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/checkout/verify?reference={{checkout_reference}}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200 or 409', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 409]);",
+                    "});",
+                    "pm.test('Returns reference in body', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.reference).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Verify Checkout - Missing Reference",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/checkout/verify"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when reference missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.include('reference');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "KYC",
+        "item": [
+          {
+            "name": "Create Persona KYC Session",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/kyc/persona/session",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"email\": \"{{email}}\",\n  \"fullName\": \"Test User\",\n  \"country\": \"US\",\n  \"role\": \"provider\",\n  \"preferredDocument\": \"national_id\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200, 401, or 500 (depends on Persona config)', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 401, 500]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Returns inquiryId', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.provider).to.equal('persona');",
+                    "    pm.expect(body.inquiryId).to.be.a('string');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Create Persona KYC Session - Missing Fields",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/kyc/persona/session",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"email\": \"{{email}}\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when userId/role missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Persona Webhook",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/kyc/persona/webhook",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"data\": {\n    \"type\": \"inquiry\",\n    \"id\": \"inq_test123\",\n    \"attributes\": {\n      \"name\": \"inquiry.approved\",\n      \"status\": \"approved\",\n      \"reference_id\": \"{{user_id}}\"\n    }\n  },\n  \"included\": []\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200 or 401 (depends on webhook secret config)', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 401]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Returns received true', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.received).to.be.true;",
+                    "    pm.expect(body.provider).to.equal('persona');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Payouts",
+        "item": [
+          {
+            "name": "Get Payout Accounts",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/payouts/accounts?user_id={{user_id}}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns accounts array', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.accounts).to.be.an('array');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Get Payout Accounts - Missing user_id",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/payouts/accounts"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when user_id missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.error).to.include('user_id');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Get Withdrawals",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/payouts/withdrawals?user_id={{user_id}}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns withdrawals array', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.withdrawals).to.be.an('array');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Get Payout Capabilities",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/payouts/capabilities?country=US&currency=USD"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns capability object', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.capability).to.have.property('country_code', 'US');",
+                    "  pm.expect(body.capability.supported).to.be.true;",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Get Banks",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/payouts/banks?country=NG"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns banks array', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.banks).to.be.an('array').that.is.not.empty;",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Resolve Beneficiary",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/payouts/resolve-beneficiary",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"account_name\": \"John Doe\",\n  \"account_number\": \"0123456789\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns account_name', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.account_name).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Send Verification (Add Bank Account)",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/payouts/send-verification",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"country_code\": \"NG\",\n  \"bank_name\": \"First Bank\",\n  \"bank_code\": \"001\",\n  \"account_number\": \"0123456789\",\n  \"account_name\": \"John Doe\",\n  \"payout_method_type\": \"local_bank\",\n  \"currency\": \"NGN\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns account with verification_required', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.account).to.have.property('id');",
+                    "  pm.expect(body.verification_required).to.be.true;",
+                    "  pm.environment.set('bank_account_id', body.account.id);",
+                    "  pm.environment.set('dev_code', body.dev_code);",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Verify Beneficiary",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/payouts/verify-beneficiary",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"bank_account_id\": \"{{bank_account_id}}\",\n  \"code\": \"{{dev_code}}\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns success true', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.success).to.be.true;",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Delete Payout Account",
+            "request": {
+              "method": "DELETE",
+              "url": "{{base_url}}/api/payouts/accounts/{{bank_account_id}}?user_id={{user_id}}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns success true', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.success).to.be.true;",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Withdraw",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/payouts/withdraw",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"amount\": 25,\n  \"bank_account_id\": \"{{bank_account_id}}\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns withdrawal object', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.success).to.be.true;",
+                    "  pm.expect(body.withdrawal).to.have.property('id');",
+                    "  pm.expect(body.withdrawal.status).to.equal('pending');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Withdraw - Invalid Amount",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/payouts/withdraw",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"amount\": 0,\n  \"bank_account_id\": \"some-id\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 for invalid amount', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.error).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Wallet",
+        "item": [
+          {
+            "name": "Get Wallet",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/wallet/{{user_id}}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns wallet with balance fields', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body).to.have.property('balance');",
+                    "  pm.expect(body).to.have.property('available_balance');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Wallet Withdraw",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/wallet/withdraw",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"amount\": 10\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns success and amount', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.success).to.be.true;",
+                    "  pm.expect(body.amount).to.be.a('number').and.above(0);",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Wallet Withdraw - Invalid Amount",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/wallet/withdraw",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"amount\": 0\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 for zero amount', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.error).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Transactions",
+        "item": [
+          {
+            "name": "Get Transactions",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/transactions/{{user_id}}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns an array', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body).to.be.an('array');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Escrow",
+        "item": [
+          {
+            "name": "Get Escrow",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/escrow/{{user_id}}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns an array', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body).to.be.an('array');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Checkout Config & Charge",
+        "item": [
+          {
+            "name": "Get Checkout Config",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/checkout/config"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns mode and base_url', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.mode).to.be.oneOf(['live', 'demo']);",
+                    "  pm.expect(body.base_url).to.be.a('string');",
+                    "  pm.expect(body.currency).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Charge Card Token",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/checkout/charge",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"token\": \"tok_test_123\",\n  \"amount\": 50,\n  \"currency\": \"USD\",\n  \"description\": \"Test booking payment\",\n  \"metadata\": {\n    \"user_id\": \"{{user_id}}\",\n    \"type\": \"booking\",\n    \"content_id\": \"booking-123\"\n  }\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200 or 400', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 400]);",
+                    "});",
+                    "pm.test('Returns reference and payment details', () => {",
+                    "  const body = pm.response.json();",
+                    "  if (pm.response.code === 200) {",
+                    "    pm.expect(body.success).to.be.true;",
+                    "    pm.expect(body.reference).to.be.a('string');",
+                    "    pm.expect(body.status).to.be.oneOf(['succeeded', 'requires_action']);",
+                    "    pm.expect(body.amount).to.be.a('number');",
+                    "    pm.collectionVariables.set('charge_reference', body.reference);",
+                    "  } else {",
+                    "    pm.expect(body.message).to.be.a('string');",
+                    "  }",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Charge Card Token - Missing Fields",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/checkout/charge",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"amount\": 50\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when required fields missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Refunds",
+        "item": [
+          {
+            "name": "Request Refund",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/refunds/request",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"booking_id\": \"{{booking_id}}\",\n  \"user_id\": \"{{user_id}}\",\n  \"reason\": \"Session was cancelled by provider\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200, 400, 404, or 409', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 400, 404, 409, 503]);",
+                    "});",
+                    "pm.test('Returns message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Request Refund - Missing Fields",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/refunds/request",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when fields missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Approve Refund",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/refunds/approve",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"refund_id\": \"{{refund_id}}\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200, 400, 404, or 503', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 400, 404, 503]);",
+                    "});",
+                    "pm.test('Returns message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Approve Refund - Missing refund_id",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/refunds/approve",
+              "body": {
+                "mode": "raw",
+                "raw": "{}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when refund_id missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Reports",
+        "item": [
+          {
+            "name": "Submit Report",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/reports/submit",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"reporter_id\": \"{{user_id}}\",\n  \"reported_user_id\": \"other-user-id\",\n  \"booking_id\": \"{{booking_id}}\",\n  \"reason\": \"No-show\",\n  \"description\": \"Provider did not show up for the session.\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200, 500, or 503', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500, 503]);",
+                    "});",
+                    "pm.test('Returns message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.be.a('string');",
+                    "  if (pm.response.code === 200) {",
+                    "    pm.expect(body.success).to.be.true;",
+                    "    pm.expect(body.report).to.have.property('id');",
+                    "  }",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Submit Report - Missing Fields",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/reports/submit",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"reported_user_id\": \"other-user-id\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when reporter_id/reason missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Admin",
+        "item": [
+          {
+            "name": "Create Admin Account",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/admin/create-account",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"email\": \"admin-new@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"full_name\": \"New Admin\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200, 500, or 503', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500, 503]);",
+                    "});",
+                    "pm.test('Returns message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.be.a('string');",
+                    "  if (pm.response.code === 200) {",
+                    "    pm.expect(body.success).to.be.true;",
+                    "    pm.expect(body.user_id).to.be.a('string');",
+                    "  }",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Create Admin Account - Missing Fields",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/admin/create-account",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"full_name\": \"Incomplete Admin\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when email/password missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

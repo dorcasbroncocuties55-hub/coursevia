@@ -1,0 +1,23 @@
+Updated coach/therapist directory flow based on uploaded reference video/image.
+
+Main changes:
+- Reworked coaches and therapists directory UI to match the cleaner TherapyRoute-style flow.
+- Added searchable all-country browsing chips.
+- Added browser-based current-location country inference for the location button.
+- Fixed profile navigation from directory cards.
+- Added shared provider detail route: /directory/:role/:id
+- Rebuilt provider detail page with sections closer to the reference:
+  - About Me
+  - Approach
+  - Qualifications
+  - Service Area
+  - Availability
+  - Contact card
+  - Services with booking CTA
+- Supports both coaches and therapists through one structured detail flow.
+
+Files changed:
+- src/lib/providerDirectory.ts
+- src/components/providers/ProviderDirectoryPage.tsx
+- src/components/providers/ProviderProfilePage.tsx
+- src/App.tsx

@@ -1,0 +1,15 @@
+This package includes:
+- New Supabase migration: supabase/migrations/20260322100000_platform_upgrade.sql
+- Professional profile settings and public profile preview route
+- Paid video upload with file upload + category selection
+- 5-second video preview lock
+- Learner monthly subscription page
+- Bank account management page
+- Booking meeting room page
+- Creator/admin content management improvements
+- Coach / therapist profile upgrades with KYC upload UI
+
+Before running:
+1. Apply the new Supabase migration.
+2. Create storage buckets if missing: videos, thumbnails, verification-docs.
+3. Run npm install, then npm run dev.

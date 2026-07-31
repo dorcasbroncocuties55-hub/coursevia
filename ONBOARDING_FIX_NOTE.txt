@@ -1,0 +1,26 @@
+Coursevia onboarding/auth fix package
+
+Files corrected:
+- src/pages/Onboarding.tsx
+- src/pages/Login.tsx
+- src/pages/AuthCallback.tsx
+- src/components/ProtectedRoute.tsx
+- SUPABASE_ONBOARDING_STABILITY_FIX.sql
+
+Main fixes applied:
+1. Onboarding no longer hard-fails when complete_onboarding RPC fails.
+   It now continues with the direct profile/user_roles save path.
+2. Login no longer fails just because ensure_my_profile_and_role RPC fails.
+3. OAuth callback now safely attempts profile/role creation and always sends incomplete users to /onboarding.
+4. ProtectedRoute no longer spins forever when the profile row is missing or delayed.
+   It redirects to /onboarding instead of hanging.
+5. Onboarding dashboard routing now uses the shared roleToDashboardPath helper.
+
+Important:
+- Run SUPABASE_ONBOARDING_STABILITY_FIX.sql in Supabase.
+- Then replace your project with this ZIP contents.
+- Then restart your frontend.
+
+What I could not fully verify here:
+- I could not run a full Vite build in this container because the root frontend node_modules in the uploaded project are missing, so the vite binary is not installed here.
+- I fixed the real source files directly in your uploaded project, but I could not execute the browser app end-to-end inside this environment.
