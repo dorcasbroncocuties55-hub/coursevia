@@ -1,0 +1,85 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#ffffff"/>
+  
+  <!-- Green accent bar top -->
+  <rect width="1200" height="8" fill="#2d9e6b"/>
+  
+  <!-- Left green panel -->
+  <rect x="0" y="0" width="480" height="630" fill="#1a7a50"/>
+  
+  <!-- Green gradient overlay -->
+  <defs>
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a7a50;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2d9e6b;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="circleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.02" />
+    </linearGradient>
+  </defs>
+  
+  <rect x="0" y="0" width="480" height="630" fill="url(#greenGrad)"/>
+  
+  <!-- Decorative circles on left panel -->
+  <circle cx="480" cy="315" r="300" fill="url(#circleGrad)"/>
+  <circle cx="0" cy="630" r="200" fill="url(#circleGrad)"/>
+  <circle cx="240" cy="0" r="150" fill="url(#circleGrad)"/>
+  
+  <!-- Logo / Brand on left -->
+  <!-- Graduation cap icon -->
+  <g transform="translate(160, 180)">
+    <rect x="20" y="40" width="120" height="60" rx="8" fill="#ffffff" opacity="0.9"/>
+    <polygon points="80,0 160,35 80,70 0,35" fill="#ffffff"/>
+    <line x1="160" y1="35" x2="160" y2="90" stroke="#ffffff" stroke-width="4"/>
+    <circle cx="160" cy="95" r="8" fill="#ffffff"/>
+  </g>
+  
+  <!-- Coursevia text on left -->
+  <text x="240" y="320" font-family="Arial, sans-serif" font-size="52" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="-1">Coursevia</text>
+  
+  <!-- Tagline on left -->
+  <text x="240" y="365" font-family="Arial, sans-serif" font-size="18" fill="#a8e6c8" text-anchor="middle">Learn · Grow · Connect</text>
+  
+  <!-- Stats on left -->
+  <rect x="60" y="420" width="360" height="1" fill="#ffffff" opacity="0.3"/>
+  
+  <text x="120" y="470" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#ffffff" text-anchor="middle">1000+</text>
+  <text x="120" y="495" font-family="Arial, sans-serif" font-size="13" fill="#a8e6c8" text-anchor="middle">Courses</text>
+  
+  <text x="240" y="470" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#ffffff" text-anchor="middle">500+</text>
+  <text x="240" y="495" font-family="Arial, sans-serif" font-size="13" fill="#a8e6c8" text-anchor="middle">Experts</text>
+  
+  <text x="360" y="470" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#ffffff" text-anchor="middle">50K+</text>
+  <text x="360" y="495" font-family="Arial, sans-serif" font-size="13" fill="#a8e6c8" text-anchor="middle">Learners</text>
+
+  <!-- Right side content -->
+  <!-- Main headline -->
+  <text x="560" y="160" font-family="Arial, sans-serif" font-size="48" font-weight="800" fill="#1a1a1a" letter-spacing="-1">Premium Learning</text>
+  <text x="560" y="220" font-family="Arial, sans-serif" font-size="48" font-weight="800" fill="#2d9e6b" letter-spacing="-1">Marketplace</text>
+  
+  <!-- Description -->
+  <text x="560" y="285" font-family="Arial, sans-serif" font-size="20" fill="#555555">Access courses, coaching sessions, and</text>
+  <text x="560" y="315" font-family="Arial, sans-serif" font-size="20" fill="#555555">premium video content from trusted experts.</text>
+  
+  <!-- Feature pills -->
+  <rect x="560" y="360" width="160" height="44" rx="22" fill="#e8f7f0"/>
+  <text x="640" y="388" font-family="Arial, sans-serif" font-size="16" fill="#1a7a50" text-anchor="middle" font-weight="600">📚 Courses</text>
+  
+  <rect x="735" y="360" width="160" height="44" rx="22" fill="#e8f7f0"/>
+  <text x="815" y="388" font-family="Arial, sans-serif" font-size="16" fill="#1a7a50" text-anchor="middle" font-weight="600">🎯 Coaching</text>
+  
+  <rect x="910" y="360" width="160" height="44" rx="22" fill="#e8f7f0"/>
+  <text x="990" y="388" font-family="Arial, sans-serif" font-size="16" fill="#1a7a50" text-anchor="middle" font-weight="600">🎬 Videos</text>
+  
+  <!-- CTA -->
+  <rect x="560" y="450" width="220" height="56" rx="28" fill="#2d9e6b"/>
+  <text x="670" y="484" font-family="Arial, sans-serif" font-size="18" fill="#ffffff" text-anchor="middle" font-weight="700">Get Started Free</text>
+  
+  <!-- URL -->
+  <text x="560" y="570" font-family="Arial, sans-serif" font-size="18" fill="#888888">🌐 coursevia.site</text>
+  
+  <!-- Bottom accent -->
+  <rect x="0" y="622" width="1200" height="8" fill="#2d9e6b"/>
+</svg>

@@ -1,0 +1,20 @@
+{
+  "name": "coursevia-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "algolia:sync": "node algolia-sync.js",
+    "algolia:clear": "node algolia-sync.js clear"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.101.1",
+    "algoliasearch": "^4.24.0",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "node-fetch": "^3.3.2",
+    "stripe": "^22.0.1"
+  }
+}
