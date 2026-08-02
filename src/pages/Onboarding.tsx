@@ -984,21 +984,32 @@ const Onboarding = () => {
     const fileName = `${user.id}-${Date.now()}.${safeExtension}`;
     const filePath = `${user.id}/${fileName}`;
 
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
     try {
-      const { error } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, avatarFile, {
-          cacheControl: "3600",
-          upsert: true,
-        });
+      // Upload via raw fetch so the auth token is always sent correctly
+      const uploadRes = await fetch(
+        `${supabaseUrl}/storage/v1/object/avatars/${filePath}`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "apikey":        supabaseAnonKey,
+            "Content-Type":  avatarFile.type || "image/jpeg",
+            "x-upsert":      "true",
+          },
+          body: avatarFile,
+        }
+      );
 
-      if (error) throw error;
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text();
+        throw new Error(`Upload failed (${uploadRes.status}): ${errText}`);
+      }
 
-      const { data: publicUrlData } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(filePath);
-
-      return publicUrlData.publicUrl;
+      // Public URL is deterministic — no need for a second request
+      return `${supabaseUrl}/storage/v1/object/public/avatars/${filePath}`;
     } catch (error) {
       if (retryCount < 2) {
         const delay = (retryCount + 1) * 1500;
@@ -1168,55 +1179,78 @@ const Onboarding = () => {
         }
       }
 
-      // Call the SECURITY DEFINER RPC — bypasses RLS entirely so the upsert
-      // never stalls waiting for a policy check.
-      // Pass the access token explicitly so the call is authenticated even if
-      // the Supabase client's internal session cache is stale.
+      // Call complete_onboarding via raw fetch — bypasses the Supabase JS
+      // client's internal session handling which can stall on this deployment.
       setSaveProgress("Saving your profile...");
-      const { error: rpcError } = await withTimeout(
-        supabase.rpc("complete_onboarding", {
-          p_role:                    finalRole,
-          p_full_name:               fullName.trim() || null,
-          p_display_name:            displayName.trim() || null,
-          p_avatar_url:              avatarUrl,
-          p_email:                   user.email || null,
-          p_phone:                   buildFullPhoneNumber(phoneCountryCode, phone) || null,
-          p_country:                 country.trim() || null,
-          p_city:                    city.trim() || null,
-          p_bio:                     bio.trim() || null,
-          p_profession:              profession.trim() || null,
-          p_experience:              experience.trim() || null,
-          p_certification:           certification.trim() || null,
-          p_specialization_type:     specialization.trim() || null,
-          p_specialization_slug:     resolvedSpecialization ? slugify(resolvedSpecialization) : null,
-          p_business_name:           businessName.trim() || null,
-          p_business_email:          businessEmail.trim() || null,
-          p_business_phone:          businessPhone.trim() || null,
-          p_business_website:        businessWebsite.trim() || null,
-          p_business_address:        businessAddress.trim() || null,
-          p_business_description:    businessDescription.trim() || null,
-          p_learner_goal:            resolvedLearnerGoal || null,
-          p_learner_looking_forward: learnerLookingForward.trim() || null,
-          p_profile_slug:            profileSlug,
-          p_onboarding_completed:    true,
-        }),
-        15000,
-        "Save timed out. Check your connection and try again."
-      );
 
-      if (rpcError) {
-        console.error("complete_onboarding RPC error:", rpcError);
-        // "Not authenticated" means the token expired — send to login
-        if (rpcError.message?.includes("Not authenticated") || rpcError.code === "P0001") {
-          toast.error("Your session has expired. Please log in again.");
-          setLoading(false);
-          setSaveProgress("");
-          await supabase.auth.signOut();
-          window.location.replace("/login");
-          return;
-        }
-        throw new Error(rpcError.message || "Failed to save profile.");
+      const rpcPayload = {
+        p_role:                    finalRole,
+        p_full_name:               fullName.trim() || null,
+        p_display_name:            displayName.trim() || null,
+        p_avatar_url:              avatarUrl,
+        p_email:                   user.email || null,
+        p_phone:                   buildFullPhoneNumber(phoneCountryCode, phone) || null,
+        p_country:                 country.trim() || null,
+        p_city:                    city.trim() || null,
+        p_bio:                     bio.trim() || null,
+        p_profession:              profession.trim() || null,
+        p_experience:              experience.trim() || null,
+        p_certification:           certification.trim() || null,
+        p_specialization_type:     specialization.trim() || null,
+        p_specialization_slug:     resolvedSpecialization ? slugify(resolvedSpecialization) : null,
+        p_business_name:           businessName.trim() || null,
+        p_business_email:          businessEmail.trim() || null,
+        p_business_phone:          businessPhone.trim() || null,
+        p_business_website:        businessWebsite.trim() || null,
+        p_business_address:        businessAddress.trim() || null,
+        p_business_description:    businessDescription.trim() || null,
+        p_learner_goal:            resolvedLearnerGoal || null,
+        p_learner_looking_forward: learnerLookingForward.trim() || null,
+        p_profile_slug:            profileSlug,
+        p_onboarding_completed:    true,
+      };
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const controller = new AbortController();
+      const rpcTimeout = setTimeout(() => controller.abort(), 15000);
+
+      let rpcResponse: Response;
+      try {
+        rpcResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/complete_onboarding`, {
+          method: "POST",
+          signal: controller.signal,
+          headers: {
+            "Content-Type":  "application/json",
+            "apikey":        supabaseAnonKey,
+            "Authorization": `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(rpcPayload),
+        });
+      } finally {
+        clearTimeout(rpcTimeout);
       }
+
+      if (!rpcResponse.ok) {
+        const errBody = await rpcResponse.text();
+        console.error("complete_onboarding RPC error:", errBody);
+        let errMsg = "Failed to save profile.";
+        try {
+          const parsed = JSON.parse(errBody);
+          if (parsed?.message?.includes("Not authenticated") || parsed?.code === "P0001") {
+            toast.error("Your session has expired. Please log in again.");
+            setLoading(false);
+            setSaveProgress("");
+            await supabase.auth.signOut();
+            window.location.replace("/login");
+            return;
+          }
+          errMsg = parsed?.message || errMsg;
+        } catch {}
+        throw new Error(errMsg);
+      }
+
       console.log("✅ Onboarding saved via RPC");
 
       // Success!
