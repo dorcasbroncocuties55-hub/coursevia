@@ -1124,11 +1124,10 @@ const Onboarding = () => {
       setSaveProgress("Starting onboarding completion...");
       console.log("✅ Loading state set to true");
 
-      // Get authenticated user
-      console.log("🔐 Getting authenticated user...");
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      if (authError || !authUser?.id) {
-        console.error("Auth error:", authError);
+      // Use the user already in context — avoids calling supabase.auth.getUser()
+      // which can hang indefinitely when the refresh token is stale.
+      const authUser = user;
+      if (!authUser?.id) {
         throw new Error("Authentication required to complete onboarding");
       }
       console.log("✅ Auth user found:", authUser.id);
@@ -1155,9 +1154,11 @@ const Onboarding = () => {
 
       // Save profile
       console.log("💾 Saving to profiles table...");
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .upsert(profileData, { onConflict: "user_id" });
+      const { error: profileError } = await withTimeout(
+        supabase.from("profiles").upsert(profileData, { onConflict: "user_id" }),
+        10000,
+        "Profile save timed out. Check your connection and try again."
+      );
 
       if (profileError) {
         console.error("Profile save error:", profileError);
@@ -1168,9 +1169,11 @@ const Onboarding = () => {
       // Create user role
       setSaveProgress("Setting up permissions...");
       console.log("🔑 Creating user role...");
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .upsert({ user_id: authUser.id, role: finalRole }, { onConflict: "user_id,role" });
+      const { error: roleError } = await withTimeout(
+        supabase.from("user_roles").upsert({ user_id: authUser.id, role: finalRole }, { onConflict: "user_id,role" }),
+        10000,
+        "Role setup timed out."
+      );
 
       if (roleError) {
         console.warn("Role creation warning:", roleError);
@@ -1181,15 +1184,17 @@ const Onboarding = () => {
       // Create wallet
       setSaveProgress("Creating wallet...");
       console.log("💰 Creating wallet...");
-      const { error: walletError } = await supabase
-        .from("wallets")
-        .upsert({
+      const { error: walletError } = await withTimeout(
+        supabase.from("wallets").upsert({
           user_id: authUser.id,
           currency: "USD",
           balance: 0,
           pending_balance: 0,
           available_balance: 0
-        }, { onConflict: "user_id" });
+        }, { onConflict: "user_id" }),
+        10000,
+        "Wallet setup timed out."
+      );
 
       if (walletError) {
         console.warn("Wallet creation warning:", walletError);
