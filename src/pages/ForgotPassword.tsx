@@ -23,6 +23,30 @@ const ForgotPassword = () => {
 
     setLoading(true);
 
+    // Check whether this email belongs to a registered user before sending.
+    // We query the profiles table (publicly readable by email) so we never
+    // call resetPasswordForEmail for an address that has no account.
+    const { data: existingProfile, error: lookupError } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("email", trimmedEmail)
+      .maybeSingle();
+
+    if (lookupError) {
+      setLoading(false);
+      toast.error("Something went wrong. Please try again.");
+      return;
+    }
+
+    if (!existingProfile) {
+      // No account found — show the same success UI so we don't leak
+      // whether an address is registered (security best practice), but
+      // we do NOT send any email.
+      setLoading(false);
+      setSent(true);
+      return;
+    }
+
     // redirectTo must be whitelisted in Supabase Dashboard →
     // Authentication → URL Configuration → Redirect URLs
     const redirectTo = `${window.location.origin}/reset-password`;
@@ -34,11 +58,8 @@ const ForgotPassword = () => {
     setLoading(false);
 
     if (error) {
-      // Surface the actual Supabase error message
       toast.error(error.message || "Failed to send reset email. Please try again.");
     } else {
-      // Supabase always returns success even if the email doesn't exist
-      // (intentional — prevents email enumeration)
       setSent(true);
     }
   };

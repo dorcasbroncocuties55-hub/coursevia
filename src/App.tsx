@@ -113,6 +113,7 @@ const AdminCoaches = lazy(() => import("./pages/admin/AdminCoaches"));
 const AdminCreators = lazy(() => import("./pages/admin/AdminCreators"));
 const AdminPayments = lazy(() => import("./pages/admin/AdminPayments"));
 const AdminWallet = lazy(() => import("./pages/admin/AdminWallet"));
+const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const AdminWithdrawals = lazy(() => import("./pages/admin/AdminWithdrawals"));
 const AdminTransactions = lazy(() => import("./pages/admin/AdminTransactions"));
 const AdminVerifications = lazy(() => import("./pages/admin/AdminVerifications"));
