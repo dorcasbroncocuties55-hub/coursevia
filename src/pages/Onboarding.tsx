@@ -974,14 +974,14 @@ const Onboarding = () => {
     setAvatarPreview(objectUrl);
   };
 
-  const uploadAvatar = async (retryCount = 0) => {
+  const uploadAvatar = async (accessToken: string, retryCount = 0): Promise<string | null> => {
     if (!user?.id || !avatarFile) return null;
 
     const extension = avatarFile.name.split(".").pop() || "jpg";
-    const safeExtension = extension.toLowerCase();
-    const fileName = `${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}.${safeExtension}`;
+    const safeExtension = ["jpg", "jpeg", "png", "webp"].includes(extension.toLowerCase())
+      ? extension.toLowerCase()
+      : "jpg";
+    const fileName = `${user.id}-${Date.now()}.${safeExtension}`;
     const filePath = `${user.id}/${fileName}`;
 
     try {
@@ -1000,12 +1000,11 @@ const Onboarding = () => {
 
       return publicUrlData.publicUrl;
     } catch (error) {
-      // Retry up to 3 times with exponential backoff
-      if (retryCount < 3) {
-        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-        console.warn(`Avatar upload failed, retrying in ${delay}ms (attempt ${retryCount + 1}/3):`, error);
+      if (retryCount < 2) {
+        const delay = (retryCount + 1) * 1500;
+        console.warn(`Avatar upload attempt ${retryCount + 1} failed, retrying in ${delay}ms`, error);
         await new Promise(resolve => setTimeout(resolve, delay));
-        return uploadAvatar(retryCount + 1);
+        return uploadAvatar(accessToken, retryCount + 1);
       }
       throw error;
     }
@@ -1144,6 +1143,16 @@ const Onboarding = () => {
 
       console.log("✅ User confirmed:", user.id);
 
+      // Force the Supabase client to use the session from React context.
+      // Without this, supabase-js v2 may have a stale or missing internal
+      // session, causing every authenticated call to be rejected silently.
+      if (session?.access_token && session?.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+      }
+
       // Build the profile slug from display name or full name
       const slugBase = displayName.trim() || fullName.trim() || "user";
       const profileSlug = slugify(slugBase) + "-" + Math.random().toString(36).slice(2, 7);
@@ -1153,10 +1162,18 @@ const Onboarding = () => {
       if (avatarFile) {
         setSaveProgress("Uploading profile photo...");
         try {
-          avatarUrl = await withTimeout(uploadAvatar(), 15000, "Avatar upload timed out.");
-        } catch {
-          // Non-fatal — proceed without the new avatar
-          console.warn("Avatar upload failed, using existing preview.");
+          const uploaded = await withTimeout(
+            uploadAvatar(accessToken),
+            20000,
+            "Profile photo upload timed out. Check your connection."
+          );
+          if (uploaded) {
+            avatarUrl = uploaded;
+            console.log("✅ Avatar uploaded:", avatarUrl);
+          }
+        } catch (err: any) {
+          // Non-fatal — proceed with existing preview URL if any
+          console.warn("Avatar upload failed, continuing without new photo:", err?.message);
           avatarUrl = avatarPreview || null;
         }
       }
@@ -1192,7 +1209,7 @@ const Onboarding = () => {
           p_learner_looking_forward: learnerLookingForward.trim() || null,
           p_profile_slug:            profileSlug,
           p_onboarding_completed:    true,
-        }, { headers: { Authorization: `Bearer ${accessToken}` } }),
+        }),
         15000,
         "Save timed out. Check your connection and try again."
       );
