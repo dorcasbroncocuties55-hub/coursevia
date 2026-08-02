@@ -1203,23 +1203,19 @@ const Onboarding = () => {
       
       toast.success("Welcome to Coursevia!");
       
-      // Mark as redirecting to prevent interference
+      // Mark as redirecting BEFORE clearing loading — this blocks the redirect
+      // useEffect from firing and also keeps the button disabled until the page unloads
       redirectingRef.current = true;
-      
-      // Clear loading state
-      setLoading(false);
-      setSaveProgress("");
       
       console.log("🔄 About to redirect...");
       
-      // Redirect to dashboard
+      // Redirect to dashboard — do NOT call setLoading(false) here; keep the
+      // button disabled so the user cannot trigger a second submission while
+      // window.location.replace() is in flight.
       const dashboardRoute = getDashboardRoute(finalRole);
       console.log("🎯 Dashboard route:", dashboardRoute);
       
-      setTimeout(() => {
-        console.log("🚀 Executing redirect...");
-        window.location.replace(dashboardRoute);
-      }, 1000);
+      window.location.replace(dashboardRoute);
 
     } catch (error: any) {
       console.error("💥 Onboarding completion failed:", error);
@@ -1272,6 +1268,11 @@ const Onboarding = () => {
     // Already doing a hard redirect from finishOnboarding — don't interfere
     if (redirectingRef.current) return;
 
+    // Don't redirect while a save is in progress — the auth state change
+    // triggered by the DB write can flip profile.onboarding_completed to true
+    // before finishOnboarding has finished, causing a mid-save redirect.
+    if (loading) return;
+
     // Only redirect if we have definitive data (not loading anymore)
     if (authLoading) return;
 
@@ -1285,7 +1286,7 @@ const Onboarding = () => {
       redirectingRef.current = true;
       window.location.replace(roleToDashboardPath(role as any));
     }
-  }, [authLoading, user, profile, navigate]);
+  }, [authLoading, loading, user, profile, navigate]);
 
   // CRITICAL FIX: Show the form as soon as we have a user, don't wait for profile to load
   // This prevents the infinite spinner issue with Google OAuth

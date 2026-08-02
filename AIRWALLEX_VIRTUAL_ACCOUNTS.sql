@@ -3,6 +3,22 @@
 -- Run this in your Supabase SQL editor
 -- ============================================================
 
+-- 0. Create has_role helper if it doesn't exist
+create or replace function public.has_role(p_user_id uuid, p_role text)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.user_roles
+    where user_id = p_user_id
+      and role::text = p_role
+  );
+$$;
+grant execute on function public.has_role(uuid, text) to authenticated, anon;
+
 -- 1. Virtual accounts — one per user
 create table if not exists public.virtual_accounts (
   id                  uuid        primary key default gen_random_uuid(),
