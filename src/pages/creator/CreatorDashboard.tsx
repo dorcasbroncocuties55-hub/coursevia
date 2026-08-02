@@ -18,22 +18,10 @@ const CreatorDashboard = () => {
   const [recentContent, setRecentContent] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
-  // ✅ Handle auth loading state
-  if (authLoading) {
-    return <PageLoading />;
-  }
-
-  // ✅ Handle no user
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
   useEffect(() => {
-    // ✅ user is now guaranteed to be non-null
-    
+    if (!user?.id) return;
     const fetchDashboardData = async () => {
       setDataLoading(true);
-      
       try {
         const [courses, videos, wallet, payments, contentData] = await Promise.all([
           safeSingle<any>(supabase.from("courses").select("id", { count: "exact", head: true }).eq("creator_id", user.id), { count: 0 }),
@@ -49,11 +37,10 @@ const CreatorDashboard = () => {
           courses: Number(courses?.count || 0),
           videos: Number(videos?.count || 0),
           balance: Number(wallet?.balance || 0),
-          students: 0, // TODO: Calculate unique students
+          students: 0,
           totalEarnings: totalEarnings
         });
 
-        // Set recent content activity
         const activityItems = contentData.data?.map(item => ({
           id: item.id,
           type: item.content_type === "course" ? "course" : "video" as const,
@@ -63,18 +50,18 @@ const CreatorDashboard = () => {
           status: "success" as const,
           href: `/creator/content`
         })) || [];
-        
         setRecentContent(activityItems);
-        
       } catch (error) {
         console.error("Error fetching creator dashboard data:", error);
       } finally {
         setDataLoading(false);
       }
     };
-
     fetchDashboardData();
-  }, [user]);
+  }, [user?.id]);
+
+  if (authLoading) return <PageLoading />;
+  if (!user) return <Navigate to="/login" replace />;
 
   const firstName = profile?.full_name?.split(" ")[0] || "Creator";
 

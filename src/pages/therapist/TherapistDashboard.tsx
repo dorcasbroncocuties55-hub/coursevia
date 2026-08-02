@@ -20,18 +20,8 @@ const TherapistDashboard = () => {
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
-  // ✅ Handle auth loading state
-  if (authLoading) {
-    return <PageLoading />;
-  }
-
-  // ✅ Handle no user
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
   useEffect(() => {
-    // ✅ user is now guaranteed to be non-null
+    if (!user?.id) return;
     const run = async () => {
       setDataLoading(true);
       const [bookingRes, walletRes, providerRow, unread, bookingsData] = await Promise.all([
@@ -56,6 +46,9 @@ const TherapistDashboard = () => {
     };
     run();
   }, [user?.id]);
+
+  if (authLoading) return <PageLoading />;
+  if (!user) return <Navigate to="/login" replace />;
 
   const isVerified = (profile as any)?.is_verified || (profile as any)?.kyc_status === "approved";
   const kycStatus = (profile as any)?.kyc_status;

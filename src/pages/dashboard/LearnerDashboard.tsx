@@ -25,10 +25,9 @@ const LearnerDashboard = () => {
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
-  if (authLoading) return <PageLoading />;
-  if (!user) return <Navigate to="/login" replace />;
-
   useEffect(() => {
+    if (!user?.id) return;
+
     const fetchDashboardData = async () => {
       setDataLoading(true);
       try {
@@ -77,7 +76,10 @@ const LearnerDashboard = () => {
     };
 
     fetchDashboardData();
-  }, [user]);
+  }, [user?.id]);
+
+  if (authLoading) return <PageLoading />;
+  if (!user) return <Navigate to="/login" replace />;
 
   const firstName = profile?.full_name?.split(" ")[0] || "Learner";
 
