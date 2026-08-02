@@ -1143,16 +1143,6 @@ const Onboarding = () => {
 
       console.log("✅ User confirmed:", user.id);
 
-      // Force the Supabase client to use the session from React context.
-      // Without this, supabase-js v2 may have a stale or missing internal
-      // session, causing every authenticated call to be rejected silently.
-      if (session?.access_token && session?.refresh_token) {
-        await supabase.auth.setSession({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-        });
-      }
-
       // Build the profile slug from display name or full name
       const slugBase = displayName.trim() || fullName.trim() || "user";
       const profileSlug = slugify(slugBase) + "-" + Math.random().toString(36).slice(2, 7);
