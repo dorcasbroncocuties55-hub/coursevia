@@ -1121,86 +1121,65 @@ const Onboarding = () => {
 
     try {
       setLoading(true);
-      setSaveProgress("Starting onboarding completion...");
+      setSaveProgress("Saving your profile...");
       console.log("✅ Loading state set to true");
 
-      // Use the user already in context — avoids calling supabase.auth.getUser()
-      // which can hang indefinitely when the refresh token is stale.
-      const authUser = user;
-      if (!authUser?.id) {
-        throw new Error("Authentication required to complete onboarding");
-      }
-      console.log("✅ Auth user found:", authUser.id);
+      // Build the profile slug from display name or full name
+      const slugBase = displayName.trim() || fullName.trim() || "user";
+      const profileSlug = slugify(slugBase) + "-" + Math.random().toString(36).slice(2, 7);
 
-      // Skip avatar upload for now to simplify
+      // Upload avatar if a new file was selected
       let avatarUrl: string | null = avatarPreview || null;
-      console.log("📷 Avatar URL:", avatarUrl);
-
-      // Prepare minimal profile data
-      setSaveProgress("Saving profile data...");
-      console.log("💾 Preparing profile data...");
-      
-      const profileData = {
-        user_id: authUser.id,
-        email: authUser.email || null,
-        full_name: fullName.trim() || "User",
-        role: finalRole,
-        onboarding_completed: true,
-        status: "active",
-        account_type: finalRole,
-      };
-
-      console.log("Profile data to save:", profileData);
-
-      // Save profile
-      console.log("💾 Saving to profiles table...");
-      const { error: profileError } = await withTimeout(
-        supabase.from("profiles").upsert(profileData, { onConflict: "user_id" }),
-        10000,
-        "Profile save timed out. Check your connection and try again."
-      );
-
-      if (profileError) {
-        console.error("Profile save error:", profileError);
-        throw new Error(`Failed to save profile: ${profileError.message}`);
-      }
-      console.log("✅ Profile saved successfully");
-
-      // Create user role
-      setSaveProgress("Setting up permissions...");
-      console.log("🔑 Creating user role...");
-      const { error: roleError } = await withTimeout(
-        supabase.from("user_roles").upsert({ user_id: authUser.id, role: finalRole }, { onConflict: "user_id,role" }),
-        10000,
-        "Role setup timed out."
-      );
-
-      if (roleError) {
-        console.warn("Role creation warning:", roleError);
-      } else {
-        console.log("✅ User role created");
+      if (avatarFile) {
+        setSaveProgress("Uploading profile photo...");
+        try {
+          avatarUrl = await withTimeout(uploadAvatar(), 15000, "Avatar upload timed out.");
+        } catch {
+          // Non-fatal — proceed without the new avatar
+          console.warn("Avatar upload failed, using existing preview.");
+          avatarUrl = avatarPreview || null;
+        }
       }
 
-      // Create wallet
-      setSaveProgress("Creating wallet...");
-      console.log("💰 Creating wallet...");
-      const { error: walletError } = await withTimeout(
-        supabase.from("wallets").upsert({
-          user_id: authUser.id,
-          currency: "USD",
-          balance: 0,
-          pending_balance: 0,
-          available_balance: 0
-        }, { onConflict: "user_id" }),
-        10000,
-        "Wallet setup timed out."
+      // Call the SECURITY DEFINER RPC — bypasses RLS entirely so the upsert
+      // never stalls waiting for a policy check.
+      setSaveProgress("Saving your profile...");
+      const { error: rpcError } = await withTimeout(
+        supabase.rpc("complete_onboarding", {
+          p_role:                    finalRole,
+          p_full_name:               fullName.trim() || null,
+          p_display_name:            displayName.trim() || null,
+          p_avatar_url:              avatarUrl,
+          p_email:                   user.email || null,
+          p_phone:                   buildFullPhoneNumber(phoneCountryCode, phone) || null,
+          p_country:                 country.trim() || null,
+          p_city:                    city.trim() || null,
+          p_bio:                     bio.trim() || null,
+          p_profession:              profession.trim() || null,
+          p_experience:              experience.trim() || null,
+          p_certification:           certification.trim() || null,
+          p_specialization_type:     specialization.trim() || null,
+          p_specialization_slug:     resolvedSpecialization ? slugify(resolvedSpecialization) : null,
+          p_business_name:           businessName.trim() || null,
+          p_business_email:          businessEmail.trim() || null,
+          p_business_phone:          businessPhone.trim() || null,
+          p_business_website:        businessWebsite.trim() || null,
+          p_business_address:        businessAddress.trim() || null,
+          p_business_description:    businessDescription.trim() || null,
+          p_learner_goal:            resolvedLearnerGoal || null,
+          p_learner_looking_forward: learnerLookingForward.trim() || null,
+          p_profile_slug:            profileSlug,
+          p_onboarding_completed:    true,
+        }),
+        15000,
+        "Save timed out. Check your connection and try again."
       );
 
-      if (walletError) {
-        console.warn("Wallet creation warning:", walletError);
-      } else {
-        console.log("✅ Wallet created");
+      if (rpcError) {
+        console.error("complete_onboarding RPC error:", rpcError);
+        throw new Error(rpcError.message || "Failed to save profile.");
       }
+      console.log("✅ Onboarding saved via RPC");
 
       // Success!
       setSaveProgress("Redirecting to dashboard...");
