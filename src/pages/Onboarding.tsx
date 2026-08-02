@@ -522,7 +522,7 @@ const getDashboardRoute = (role: RoleOption) => roleToDashboardPath(role);
 
 const Onboarding = () => {
   const navigate = useNavigate();
-  const { user, profile, refreshProfile, refreshRoles, refreshAll, loading: authLoading } = useAuth();
+  const { user, session, profile, refreshProfile, refreshRoles, refreshAll, loading: authLoading } = useAuth();
 
   // Prevent double-redirect when window.location.replace() is already in flight
   const redirectingRef = useRef(false);
@@ -1116,13 +1116,33 @@ const Onboarding = () => {
     const finalRole = safeRoleOption(selectedRole, "learner");
     console.log("Selected role:", finalRole);
 
-    // TEMPORARILY SKIP VALIDATIONS FOR DEBUGGING
-    console.log("⚠️ Skipping validations for debugging purposes");
-
     try {
       setLoading(true);
       setSaveProgress("Saving your profile...");
-      console.log("✅ Loading state set to true");
+
+      // user is already verified by AuthContext — no need to call getSession()
+      // which can hang when localStorage was recently cleared.
+      if (!user?.id) {
+        toast.error("Your session has expired. Please log in again.");
+        setLoading(false);
+        setSaveProgress("");
+        window.location.replace("/login");
+        return;
+      }
+
+      // If session token is missing the RPC will reject with "Not authenticated".
+      // Catch this early and send the user to login.
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        toast.error("Your session has expired. Please log in again.");
+        setLoading(false);
+        setSaveProgress("");
+        await supabase.auth.signOut();
+        window.location.replace("/login");
+        return;
+      }
+
+      console.log("✅ User confirmed:", user.id);
 
       // Build the profile slug from display name or full name
       const slugBase = displayName.trim() || fullName.trim() || "user";
@@ -1143,6 +1163,8 @@ const Onboarding = () => {
 
       // Call the SECURITY DEFINER RPC — bypasses RLS entirely so the upsert
       // never stalls waiting for a policy check.
+      // Pass the access token explicitly so the call is authenticated even if
+      // the Supabase client's internal session cache is stale.
       setSaveProgress("Saving your profile...");
       const { error: rpcError } = await withTimeout(
         supabase.rpc("complete_onboarding", {
@@ -1170,13 +1192,22 @@ const Onboarding = () => {
           p_learner_looking_forward: learnerLookingForward.trim() || null,
           p_profile_slug:            profileSlug,
           p_onboarding_completed:    true,
-        }),
+        }, { headers: { Authorization: `Bearer ${accessToken}` } }),
         15000,
         "Save timed out. Check your connection and try again."
       );
 
       if (rpcError) {
         console.error("complete_onboarding RPC error:", rpcError);
+        // "Not authenticated" means the token expired — send to login
+        if (rpcError.message?.includes("Not authenticated") || rpcError.code === "P0001") {
+          toast.error("Your session has expired. Please log in again.");
+          setLoading(false);
+          setSaveProgress("");
+          await supabase.auth.signOut();
+          window.location.replace("/login");
+          return;
+        }
         throw new Error(rpcError.message || "Failed to save profile.");
       }
       console.log("✅ Onboarding saved via RPC");
