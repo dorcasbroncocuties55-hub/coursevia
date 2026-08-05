@@ -62,6 +62,12 @@ const ProtectedRoute = ({
     );
   }
 
+  // Block anonymous users (no email = signed in anonymously or via magic link stub)
+  // Send them to login so they create a real account
+  if (!user.email || user.is_anonymous) {
+    return <Navigate to="/login" replace />;
+  }
+
   // User is logged in but profile hasn't loaded yet from DB.
   // Keep showing spinner — do NOT redirect to onboarding prematurely.
   // This is the main cause of the "refresh → onboarding" bug.
