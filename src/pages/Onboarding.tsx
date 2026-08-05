@@ -578,6 +578,7 @@ const Onboarding = () => {
   const [loading, setLoading] = useState(false);
   const [saveProgress, setSaveProgress] = useState("");
   const [didInitializeRole, setDidInitializeRole] = useState(false);
+  const [didInitializeFields, setDidInitializeFields] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const finalRoleRef = useRef<string>("learner");
 
@@ -626,6 +627,7 @@ const Onboarding = () => {
 
   useEffect(() => {
     if (!user) return;
+    if (didInitializeFields) return; // only run once — never overwrite user edits
 
     const authName =
       typeof user.user_metadata?.full_name === "string" &&
@@ -636,11 +638,11 @@ const Onboarding = () => {
         ? user.user_metadata.name.trim()
         : "";
 
-    if (authName && !fullName) setFullName(authName);
-    if (authName && !displayName) setDisplayName(authName);
-    if (profile?.country && !country) setCountry(profile.country);
+    if (authName) setFullName(authName);
+    if (authName) setDisplayName(authName);
+    if (profile?.country) setCountry(profile.country);
 
-    if (profile?.phone && !phone) {
+    if (profile?.phone) {
       const savedPhone = String(profile.phone).trim();
       const matchedPhoneCode = COUNTRY_PHONE_CODE_OPTIONS.find((option) =>
         savedPhone.startsWith(normalizeCountryPhoneCode(option.value))
@@ -658,7 +660,9 @@ const Onboarding = () => {
     if (profile?.avatar_url && !avatarPreview) {
       setAvatarPreview(profile.avatar_url);
     }
-  }, [user, profile, fullName, displayName, country, phone, avatarPreview]);
+
+    setDidInitializeFields(true);
+  }, [user, profile, didInitializeFields]);
 
   useEffect(() => {
     return () => {

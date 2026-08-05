@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { Video, Calendar, Bell, CreditCard, Wallet, Users, Star, TrendingUp } from "lucide-react";
-import { safeSingle } from "@/lib/dashboardQueries";
-import { getWallet } from "@/lib/walletApi";
+import { dbCount, dbRows } from "@/lib/supabaseFetch";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { WelcomeBanner } from "@/components/dashboard/WelcomeBanner";
 import { QuickActions } from "@/components/dashboard/QuickActions";
@@ -13,70 +11,64 @@ import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { PageLoading } from "@/components/LoadingSpinner";
 
 const LearnerDashboard = () => {
-  const { user, profile, loading: authLoading } = useAuth();
-  const [stats, setStats] = useState({
-    videos: 0,
-    bookings: 0,
-    notifications: 0,
-    paymentMethods: 0,
-    totalSpent: 0,
-  });
+  const { user, profile, session, loading: authLoading } = useAuth();
+  const [stats, setStats] = useState({ videos: 0, bookings: 0, notifications: 0, paymentMethods: 0, totalSpent: 0 });
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !session?.access_token) return;
+    const token = session.access_token;
 
-    const fetchDashboardData = async () => {
+    const load = async () => {
       setDataLoading(true);
       try {
-        const [videos, bookings, notifs, paymentMethods, payments] = await Promise.all([
-          safeSingle<any>(supabase.from("content_access").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("content_type", "video"), { count: 0 }),
-          safeSingle<any>(supabase.from("bookings").select("id", { count: "exact", head: true }).eq("learner_id", user.id), { count: 0 }),
-          safeSingle<any>(supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("is_read", false), { count: 0 }),
-          safeSingle<any>(supabase.from("payment_methods" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id), { count: 0 }),
-          supabase.from("payments").select("amount, created_at, payment_type").eq("payer_id", user.id).eq("status", "success").order("created_at", { ascending: false }).limit(10),
+        const [videos, bookings, notifs, paymentMethods, payments, walletRows] = await Promise.all([
+          dbCount(token, "content_access",  { user_id: user.id, content_type: "video" }),
+          dbCount(token, "bookings",         { learner_id: user.id }),
+          dbCount(token, "notifications",    { user_id: user.id, is_read: "false" }),
+          dbCount(token, "payment_methods",  { user_id: user.id }),
+          dbRows<any>(token, "payments", {
+            select: "amount,created_at,payment_type",
+            filters: { payer_id: user.id, status: "success" },
+            order: { column: "created_at", ascending: false },
+            limit: 10,
+          }),
+          dbRows<any>(token, "wallets", {
+            select: "balance,available_balance",
+            filters: { user_id: user.id },
+            limit: 1,
+          }),
         ]);
 
-        const totalSpent = payments.data?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
-
-        setStats({
-          videos: Number(videos?.count || 0),
-          bookings: Number(bookings?.count || 0),
-          notifications: Number(notifs?.count || 0),
-          paymentMethods: Number(paymentMethods?.count || 0),
-          totalSpent,
-        });
+        const totalSpent = payments.reduce((s: number, p: any) => s + (p.amount || 0), 0);
+        setStats({ videos, bookings, notifications: notifs, paymentMethods, totalSpent });
 
         setRecentActivity(
-          payments.data?.map((p) => ({
+          payments.map((p: any) => ({
             id: p.created_at,
-            type: p.payment_type === "subscription" ? "payment" : (p.payment_type as any),
-            title:
-              p.payment_type === "subscription" ? "Subscription Payment" :
-              p.payment_type === "booking" ? "Session Booking" : "Payment",
+            type: p.payment_type === "subscription" ? "payment" : p.payment_type,
+            title: p.payment_type === "subscription" ? "Subscription Payment"
+                 : p.payment_type === "booking"      ? "Session Booking"
+                 : "Payment",
             description: `$${p.amount} payment completed`,
             timestamp: p.created_at,
             status: "success" as const,
-          })) || []
+          }))
         );
 
-        try {
-          const wallet = await getWallet(user.id);
-          setWalletBalance(Number((wallet as any)?.available_balance ?? wallet?.balance ?? 0));
-        } catch {
-          setWalletBalance(0);
-        }
+        const wallet = walletRows[0];
+        setWalletBalance(Number(wallet?.available_balance ?? wallet?.balance ?? 0));
       } catch (err) {
-        console.error("Error fetching dashboard data:", err);
+        console.error("Learner dashboard fetch error:", err);
       } finally {
         setDataLoading(false);
       }
     };
 
-    fetchDashboardData();
-  }, [user?.id]);
+    load();
+  }, [user?.id, session?.access_token]);
 
   if (authLoading) return <PageLoading />;
   if (!user) return <Navigate to="/login" replace />;
@@ -84,9 +76,9 @@ const LearnerDashboard = () => {
   const firstName = profile?.full_name?.split(" ")[0] || "Learner";
 
   const quickActions = [
-    { label: "Find Coaches",       href: "/coaches",                   description: "Book 1-on-1 sessions with expert coaches",    icon: Users },
-    { label: "Watch Videos",       href: "/videos",                    description: "Access our library of educational videos",    icon: Video },
-    { label: "Find Therapists",    href: "/therapists",                description: "Connect with verified therapists",            icon: Star },
+    { label: "Find Coaches",       href: "/coaches",                  description: "Book 1-on-1 sessions with expert coaches",   icon: Users },
+    { label: "Watch Videos",       href: "/videos",                   description: "Access our library of educational videos",   icon: Video },
+    { label: "Find Therapists",    href: "/therapists",               description: "Connect with verified therapists",           icon: Star },
     {
       label: "Manage Subscription", href: "/dashboard/subscription",
       description: "View and update your membership plan", icon: Star,
