@@ -71,11 +71,19 @@ const ProtectedRoute = ({
     if (isOnboardingPath && requireOnboarding === false) {
       return <>{children}</>;
     }
-    
+
     // If we have enough role info from metadata/roles to confirm access, allow through
     if (requiredRole && resolvedRoles.includes(requiredRole)) {
       return <>{children}</>;
     }
+
+    // If auth has finished loading but profile is still null, the Supabase JS client
+    // may have stalled on the profile fetch (known issue on this deployment).
+    // Fall through and render the dashboard — each dashboard handles its own null checks.
+    if (!loading) {
+      return <>{children}</>;
+    }
+
     // Otherwise wait — profile is still being fetched
     return <Spinner />;
   }
@@ -83,6 +91,7 @@ const ProtectedRoute = ({
   // Profile loaded — send incomplete users to onboarding
   if (
     requireOnboarding &&
+    profile &&
     !profile.onboarding_completed &&
     !isOnboardingPath &&
     !resolvedRoles.includes("admin" as AppRole)

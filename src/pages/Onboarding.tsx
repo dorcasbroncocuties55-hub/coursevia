@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { OnboardingWelcome } from "@/components/OnboardingWelcome";
 import { toast } from "sonner";
 import ProfileAvatar from "@/components/shared/ProfileAvatar";
 import { normalizeRole } from "@/lib/authRoles";
@@ -577,6 +578,8 @@ const Onboarding = () => {
   const [loading, setLoading] = useState(false);
   const [saveProgress, setSaveProgress] = useState("");
   const [didInitializeRole, setDidInitializeRole] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const finalRoleRef = useRef<string>("learner");
 
   const currentSpecializationConfig = useMemo(
     () => specializationConfig[selectedRole],
@@ -1125,6 +1128,20 @@ const Onboarding = () => {
 
     const finalRole = safeRoleOption(selectedRole, "learner");
     console.log("Selected role:", finalRole);
+    finalRoleRef.current = finalRole;
+
+    // Final validation gate — runs for all roles before any save
+    if (!validateAvatar()) return;
+    if (!validatePersonalInfo()) return;
+    if (isLearner && !validateLearnerInfo()) return;
+    if ((isCoach || isTherapist || isCreator) && !validateSpecialization()) return;
+    if (isCoach && !validateCoachProfileInfo()) return;
+    if (isCoach && !validateCoachProfessionalInfo()) return;
+    if (isTherapist && !validateTherapistProfileInfo()) return;
+    if (isTherapist && !validateTherapistProfessionalInfo()) return;
+    if (isCreator && !validateCreatorProfileInfo()) return;
+    if (isCreator && !validateCreatorBusinessInfo()) return;
+    if (isProviderRole && !validateProviderServiceSetup()) return;
 
     try {
       setLoading(true);
@@ -1213,6 +1230,8 @@ const Onboarding = () => {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+      console.log("📦 RPC payload:", JSON.stringify(rpcPayload, null, 2));
+
       const controller = new AbortController();
       const rpcTimeout = setTimeout(() => controller.abort(), 15000);
 
@@ -1251,27 +1270,15 @@ const Onboarding = () => {
         throw new Error(errMsg);
       }
 
-      console.log("✅ Onboarding saved via RPC");
+      const rpcResult = await rpcResponse.text();
+      console.log("✅ Onboarding RPC response:", rpcResult || "(void — success)");
 
-      // Success!
-      setSaveProgress("Redirecting to dashboard...");
-      console.log("🎉 All saves completed successfully!");
-      
-      toast.success("Welcome to Coursevia!");
-      
-      // Mark as redirecting BEFORE clearing loading — this blocks the redirect
-      // useEffect from firing and also keeps the button disabled until the page unloads
+      // Show the welcome animation — it will call onFinished() when done,
+      // which triggers the actual dashboard redirect.
+      setSaveProgress("");
       redirectingRef.current = true;
-      
-      console.log("🔄 About to redirect...");
-      
-      // Redirect to dashboard — do NOT call setLoading(false) here; keep the
-      // button disabled so the user cannot trigger a second submission while
-      // window.location.replace() is in flight.
-      const dashboardRoute = getDashboardRoute(finalRole);
-      console.log("🎯 Dashboard route:", dashboardRoute);
-      
-      window.location.replace(dashboardRoute);
+      toast.success("Welcome to Coursevia!");
+      setShowWelcome(true);
 
     } catch (error: any) {
       console.error("💥 Onboarding completion failed:", error);
@@ -1379,6 +1386,16 @@ const Onboarding = () => {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.10),_transparent_35%),linear-gradient(180deg,#f8fafc_0%,#ffffff_48%,#f8fafc_100%)] px-4 py-10">
+      {/* Welcome animation overlay — shown after successful save */}
+      {showWelcome && (
+        <OnboardingWelcome
+          name={fullName || displayName || ""}
+          role={finalRoleRef.current as any}
+          onFinished={() => {
+            window.location.replace(getDashboardRoute(finalRoleRef.current as any));
+          }}
+        />
+      )}
       <ScrollableContent maxHeight="h-screen" className="mx-auto w-full max-w-5xl">
         <div className="mb-8 text-center">
           <p className="mb-2 text-sm font-medium text-primary">
