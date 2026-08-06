@@ -26,7 +26,6 @@ const Courses = lazy(() => import("./pages/public/Courses"));
 const CourseDetails = lazy(() => import("./pages/public/CourseDetails"));
 const Videos = lazy(() => import("./pages/public/Videos"));
 const VideoDetails = lazy(() => import("./pages/public/VideoDetails"));
-const Cart = lazy(() => import("./pages/public/Cart"));
 const Coaches = lazy(() => import("./pages/public/Coaches"));
 const CoachDetails = lazy(() => import("./pages/public/CoachDetails"));
 const Creators = lazy(() => import("./pages/public/Creators"));

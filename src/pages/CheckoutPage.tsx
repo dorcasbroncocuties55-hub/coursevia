@@ -4,40 +4,44 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
+import { Wallet } from "lucide-react";
+import WalletCheckoutModal from "@/components/WalletCheckoutModal";
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { cart } = useCart();
-  const [loading, setLoading] = useState(false);
+  const { cart, clearCart } = useCart();
+  const [showWallet, setShowWallet] = useState(false);
 
   const totalAmount = useMemo(
     () => cart.reduce((sum: number, item: any) => sum + Number(item.price || 0), 0),
     [cart]
   );
 
-  const handleCheckout = async () => {
-    if (!user?.id || !user?.email) { toast.error("Please log in first."); return; }
-    if (!cart.length) { toast.error("Your cart is empty."); return; }
+  // Build a combined title for multi-item carts
+  const orderTitle = useMemo(() => {
+    if (cart.length === 0) return "Order";
+    if (cart.length === 1) return cart[0]?.title || "Order";
+    return `${cart.length} items`;
+  }, [cart]);
 
-    setLoading(true);
-    try {
-      const firstItem = cart[0];
-      // Redirect to internal payment page — no external processor
-      const params = new URLSearchParams({
-        type:       "course",
-        amount:     String(totalAmount),
-        title:      firstItem?.title || "Course purchase",
-        content_id: firstItem?.id    || "",
-        redirect:   "/dashboard/courses",
-      });
-      navigate(`/pay?${params.toString()}`);
-    } catch (err: any) {
-      toast.error(err?.message || "Checkout failed.");
-    } finally {
-      setLoading(false);
-    }
+  // For the wallet endpoint we need a single content_id.
+  // Multi-item carts: pass null and handle access grants per-item via the
+  // wallet pay endpoint's content_items lookup (best-effort on backend).
+  // For now we send the first item's id so the backend can at least resolve
+  // the provider split — a full multi-item wallet checkout is a future improvement.
+  const primaryItem = cart[0];
+
+  const handleWalletSuccess = (ref: string) => {
+    clearCart();
+    toast.success("Payment complete! Your content is now accessible.");
+    navigate("/dashboard/courses");
   };
+
+  if (!user) {
+    navigate("/login");
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background px-4 py-10">
@@ -60,7 +64,7 @@ const CheckoutPage = () => {
                     className="flex items-center justify-between rounded-2xl border border-border p-4">
                     <div>
                       <p className="font-medium text-foreground">{item.title || item.name || "Untitled item"}</p>
-                      <p className="text-sm text-muted-foreground">{item.category || item.type || "Course"}</p>
+                      <p className="text-sm text-muted-foreground capitalize">{item.category || item.type || "Course"}</p>
                     </div>
                     <p className="font-semibold text-foreground">${Number(item.price || 0).toFixed(2)}</p>
                   </div>
@@ -70,9 +74,9 @@ const CheckoutPage = () => {
           </div>
 
           {/* Summary */}
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+          <div className="rounded-3xl border border-border bg-card p-6 shadow-sm space-y-5">
             <h2 className="text-xl font-semibold text-foreground">Order summary</h2>
-            <div className="mt-5 space-y-3 text-sm">
+            <div className="space-y-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Items</span>
                 <span className="text-foreground">{cart.length}</span>
@@ -86,13 +90,37 @@ const CheckoutPage = () => {
                 <span className="text-foreground">${totalAmount.toFixed(2)}</span>
               </div>
             </div>
-            <Button className="mt-6 w-full" onClick={handleCheckout}
-              disabled={loading || cart.length === 0}>
-              {loading ? "Redirecting…" : "Proceed to payment"}
+
+            {/* Wallet pay — primary path */}
+            <Button
+              className="w-full gap-2"
+              disabled={cart.length === 0}
+              onClick={() => setShowWallet(true)}
+            >
+              <Wallet size={16} />
+              Pay with Wallet
             </Button>
+
+            <p className="text-xs text-center text-muted-foreground">
+              Funds are deducted from your Coursevia wallet balance.{" "}
+              <a href="/dashboard/wallet" className="text-primary hover:underline">
+                Top up wallet
+              </a>
+            </p>
           </div>
         </div>
       </div>
+
+      {showWallet && (
+        <WalletCheckoutModal
+          contentType={(primaryItem?.type as any) || "course"}
+          contentId={primaryItem?.id || null}
+          contentTitle={orderTitle}
+          amount={totalAmount}
+          onClose={() => setShowWallet(false)}
+          onSuccess={handleWalletSuccess}
+        />
+      )}
     </div>
   );
 };

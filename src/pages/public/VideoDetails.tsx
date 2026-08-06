@@ -1,11 +1,11 @@
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Lock, Play, ShoppingCart } from "lucide-react";
+import { Lock, Play, ShoppingCart, Wallet } from "lucide-react";
 import { addCartItem } from "@/lib/cart";
 import { toast } from "sonner";
 import {
@@ -14,6 +14,7 @@ import {
   hasPendingVideoPayment,
   isOwnerOrHasVideoAccess,
 } from "@/lib/videoAccess";
+import WalletCheckoutModal from "@/components/WalletCheckoutModal";
 
 type EpisodeRow = {
   id: string;
@@ -27,6 +28,7 @@ type EpisodeRow = {
 
 const VideoDetails = () => {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [video, setVideo] = useState<any>(null);
   const [episodes, setEpisodes] = useState<EpisodeRow[]>([]);
@@ -38,6 +40,7 @@ const VideoDetails = () => {
   const [paymentPending, setPaymentPending] = useState(false);
   const [playbackUrl, setPlaybackUrl] = useState("");
   const [useRpcMode, setUseRpcMode] = useState<"content" | "video" | null>(null);
+  const [showWalletModal, setShowWalletModal] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -233,16 +236,23 @@ const VideoDetails = () => {
                 )}
                 {isLocked && (
                   <div className="absolute inset-0 bg-black/70 flex items-center justify-center text-white p-6">
-                    <div className="text-center max-w-sm">
-                      <Lock className="mx-auto mb-3" />
-                      <h2 className="text-xl font-semibold mb-2">Preview ended</h2>
-                      <p className="text-sm text-white/80 mb-4">
-                        This platform does not allow free full videos. Watch the full content after payment approval. Only the first {previewSeconds} seconds are previewable.
+                    <div className="text-center max-w-sm space-y-3">
+                      <Lock className="mx-auto mb-1" />
+                      <h2 className="text-xl font-semibold">Preview ended</h2>
+                      <p className="text-sm text-white/80">
+                        This platform does not allow free full videos. Watch the full content after purchase. Only the first {previewSeconds} seconds are previewable.
                       </p>
-                      <Button onClick={handleAddToCart}>
-                        <ShoppingCart size={16} className="mr-2" />
-                        Add to Cart
-                      </Button>
+                      {user ? (
+                        <Button onClick={() => setShowWalletModal(true)} className="gap-2">
+                          <Wallet size={16} />
+                          Buy with Wallet
+                        </Button>
+                      ) : (
+                        <Button onClick={handleAddToCart} className="gap-2">
+                          <ShoppingCart size={16} className="mr-1" />
+                          Add to Cart
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -314,22 +324,41 @@ const VideoDetails = () => {
                     : `Only the first ${previewSeconds} seconds are available as a preview before purchase.`}
               </p>
               {!hasAccess ? (
-                <Button
-                  className="w-full"
-                  onClick={handleAddToCart}
-                  disabled={paymentPending || addingToCart}
-                >
-                  {paymentPending ? (
-                    "Payment Pending"
-                  ) : addingToCart ? (
-                    "Adding..."
-                  ) : (
-                    <>
-                      <ShoppingCart size={16} className="mr-2" />
-                      Add to Cart
-                    </>
+                <div className="space-y-2">
+                  {/* Primary: pay from wallet */}
+                  {user && (
+                    <Button
+                      className="w-full gap-2"
+                      disabled={paymentPending}
+                      onClick={() => setShowWalletModal(true)}
+                    >
+                      <Wallet size={16} />
+                      {paymentPending ? "Payment Pending" : "Buy with Wallet"}
+                    </Button>
                   )}
-                </Button>
+                  {/* Secondary: add to cart */}
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={handleAddToCart}
+                    disabled={paymentPending || addingToCart}
+                  >
+                    {addingToCart ? (
+                      "Adding..."
+                    ) : (
+                      <>
+                        <ShoppingCart size={16} className="mr-2" />
+                        Add to Cart
+                      </>
+                    )}
+                  </Button>
+                  {!user && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      <a href="/login" className="text-primary hover:underline">Sign in</a>{" "}
+                      to pay from your wallet
+                    </p>
+                  )}
+                </div>
               ) : (
                 <Button className="w-full" variant="outline">
                   Purchased
@@ -341,6 +370,22 @@ const VideoDetails = () => {
       </div>
 
       <Footer />
+
+      {/* Wallet checkout modal */}
+      {showWalletModal && video && (
+        <WalletCheckoutModal
+          contentType="video"
+          contentId={video.id}
+          contentTitle={video.title}
+          amount={Number(video.price || 0)}
+          onClose={() => setShowWalletModal(false)}
+          onSuccess={() => {
+            setShowWalletModal(false);
+            setHasAccess(true);
+            toast.success("Access granted! You can now watch the full video.");
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -8,10 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Star, Shield, Clock, Globe, MessageSquare } from "lucide-react";
+import { Star, Shield, Clock, Globe, Wallet } from "lucide-react";
 import { toast } from "sonner";
-import { initializeCheckout, verifyCheckout } from "@/lib/paymentGateway";
-import { openSecureCheckoutWindow } from "@/lib/checkoutWindow";
+import WalletCheckoutModal from "@/components/WalletCheckoutModal";
 
 const CoachDetails = () => {
   const { id } = useParams();
@@ -23,6 +22,8 @@ const CoachDetails = () => {
   const [bookingDate, setBookingDate] = useState("");
   const [bookingNotes, setBookingNotes] = useState("");
   const [bookingLoading, setBookingLoading] = useState(false);
+  // Pending booking id — set after booking row is created, before wallet payment
+  const [pendingBookingId, setPendingBookingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -57,51 +58,28 @@ const CoachDetails = () => {
       if (error) throw error;
 
       if (Number(bookingService.price) > 0) {
-        const {
-          data: { user: authUser },
-        } = await supabase.auth.getUser();
-
-        if (!authUser?.email) {
-          throw new Error("A valid learner email is required before starting payment.");
-        }
-
-        const checkout = await initializeCheckout({
-          email: authUser.email,
-          user_id: user.id,
-          type: "booking",
-          amount: Number(bookingService.price),
-          content_id: booking.id,
-          content_title: `Coaching: ${bookingService.title}`,
-        });
-
-        const opened = openSecureCheckoutWindow({
-          url: checkout.authorization_url || checkout.redirect_url || "",
-          reference: checkout.reference,
-          onOpened: () => toast.success("Booking created. Secure payment window opened."),
-          onBlocked: () => {
-            toast.error("Popup was blocked. Opening secure checkout in this tab instead.");
-            window.location.assign(checkout.authorization_url || checkout.redirect_url || "");
-          },
-          onComplete: async () => {
-            const result = await verifyCheckout(checkout.reference);
-            toast.success(result.message || "Booking payment verified successfully.");
-            window.location.assign(result.redirectTo || "/dashboard/bookings");
-          },
-        });
-
-        if (!opened) return;
-        return;
+        // Open wallet modal — it will confirm the booking on success
+        setPendingBookingId(booking.id);
+      } else {
+        toast.success("Booking created! Awaiting confirmation.");
+        setBookingService(null);
+        setBookingDate("");
+        setBookingNotes("");
       }
-
-      toast.success("Booking created! Awaiting confirmation.");
-      setBookingService(null);
-      setBookingDate("");
-      setBookingNotes("");
     } catch (error: any) {
       toast.error(error.message);
     } finally {
       setBookingLoading(false);
     }
+  };
+
+  const handleBookingPaymentSuccess = () => {
+    setPendingBookingId(null);
+    setBookingService(null);
+    setBookingDate("");
+    setBookingNotes("");
+    toast.success("Booking confirmed and payment complete!");
+    window.location.assign("/dashboard/bookings");
   };
 
   if (!coach) return (
@@ -274,6 +252,22 @@ const CoachDetails = () => {
       )}
 
       <Footer />
+
+      {/* Wallet payment modal — shown after booking row is created */}
+      {pendingBookingId && bookingService && (
+        <WalletCheckoutModal
+          contentType="booking"
+          contentId={pendingBookingId}
+          contentTitle={`Coaching: ${bookingService.title}`}
+          amount={Number(bookingService.price)}
+          onClose={() => {
+            // User cancelled — delete the pending booking
+            supabase.from("bookings").delete().eq("id", pendingBookingId).then(() => {});
+            setPendingBookingId(null);
+          }}
+          onSuccess={handleBookingPaymentSuccess}
+        />
+      )}
     </div>
   );
 };

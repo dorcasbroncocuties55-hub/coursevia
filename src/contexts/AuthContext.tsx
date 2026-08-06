@@ -52,10 +52,12 @@ const clearStoredRequestedRole = () => {
   window.localStorage.removeItem(OAUTH_ROLE_STORAGE_KEY);
 };
 
-const getUserDisplayName = (authUser: User) => {
+const getUserDisplayName = (authUser: User): string | null => {
   const fullName = typeof authUser.user_metadata?.full_name === "string" ? authUser.user_metadata.full_name.trim() : "";
   const name = typeof authUser.user_metadata?.name === "string" ? authUser.user_metadata.name.trim() : "";
-  return fullName || name || authUser.email?.split("@")[0] || "User";
+  // Return null for the generic fallback so we never write "User" or an email
+  // prefix to the profile — those aren't real display names from the provider.
+  return fullName || name || null;
 };
 
 const logSupabaseError = (label: string, error: any) => {
@@ -70,6 +72,15 @@ const logSupabaseError = (label: string, error: any) => {
   });
 };
 
+/**
+ * Returns true when `next` has a value and differs from `current`.
+ * Covers both "field was empty" and "field changed in the provider".
+ */
+const shouldSync = (
+  current: string | null | undefined,
+  next: string | null | undefined,
+): boolean => !!next && current !== next;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -77,8 +88,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const syncingRef = useRef(false);
-  const lastSyncedUserIdRef = useRef<string | null>(null);
+  // Generation counter: each syncAuthState call captures the current value at start.
+  // If the counter increments (new call started or timeout fired) before we finish,
+  // we know our result is stale and skip any further state updates.
+  const syncGenRef = useRef(0);
   const initialSessionHandledRef = useRef(false);
 
   const clearAuthState = () => {
@@ -86,7 +99,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setProfile(null);
     setRoles([]);
-    lastSyncedUserIdRef.current = null;
   };
 
   const fetchProfile = async (userId: string) => {
@@ -151,6 +163,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (existingProfile) {
+      // Always sync mutable auth metadata to keep profile fresh after OAuth re-auth.
+      // This handles cases where users update their name/avatar in Google/GitHub/etc.
+      const needsNameUpdate = !existingProfile.full_name && !!fullName;
+      const needsAvatarUpdate = !existingProfile.avatar_url && !!avatarUrl;
+      const needsEmailUpdate = !existingProfile.email && !!authUser.email;
+      
+      // Also sync when existing values differ from auth (user changed them in provider)
+      const nameChanged = existingProfile.full_name && fullName && existingProfile.full_name !== fullName;
+      const avatarChanged = existingProfile.avatar_url && avatarUrl && existingProfile.avatar_url !== avatarUrl;
+      const emailChanged = existingProfile.email && authUser.email && existingProfile.email !== authUser.email;
+
+      if (needsNameUpdate || needsAvatarUpdate || needsEmailUpdate || nameChanged || avatarChanged || emailChanged) {
+        const updatePayload: Record<string, string | null> = {};
+        if (needsNameUpdate || nameChanged) updatePayload.full_name = fullName;
+        if (needsAvatarUpdate || avatarChanged) updatePayload.avatar_url = avatarUrl;
+        if (needsEmailUpdate || emailChanged) updatePayload.email = authUser.email ?? null;
+
+        const { error: updateErr } = await supabase
+          .from("profiles")
+          .update(updatePayload)
+          .eq("user_id", authUser.id);
+
+        if (updateErr) {
+          logSupabaseError("ensureProfileRecord sync update error:", updateErr);
+        }
+      }
+
       return parseRole(existingProfile.role) || resolvedRole || null;
     }
 
@@ -291,17 +330,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return resolvedRole;
   };
 
-  const syncAuthState = async (nextSession: Session | null) => {
+  const syncAuthState = async (nextSession: Session | null, { fullSync = true } = {}) => {
     if (syncingRef.current) return;
     syncingRef.current = true;
+    let aborted = false;
 
     // Hard timeout — never block UI for more than 8 seconds
     const timeout = setTimeout(() => {
+      aborted = true;
       syncingRef.current = false;
       setLoading(false);
     }, 8000);
 
     try {
+      if (aborted) return;
       setSession(nextSession ?? null);
       setUser(nextSession?.user ?? null);
 
@@ -313,18 +355,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const currentUserId = nextSession.user.id;
       const metadataRole = parseRole(nextSession.user.user_metadata?.requested_role);
 
-      if (lastSyncedUserIdRef.current === currentUserId) {
-        const nextProfile = await fetchProfile(currentUserId);
-        await fetchRoles(currentUserId, parseRole(nextProfile?.role), metadataRole);
-        return;
+      // Only run ensureUserRecords (DB writes) on sign-in events, not on token refreshes.
+      // This avoids 3-4 redundant DB round-trips on every TOKEN_REFRESHED event.
+      let ensuredRole: AppRole | null = null;
+      if (fullSync) {
+        ensuredRole = await ensureUserRecords(nextSession.user);
       }
 
-      const ensuredRole = await ensureUserRecords(nextSession.user);
+      if (aborted) return;
       const nextProfile = await fetchProfile(currentUserId);
 
+      if (aborted) return;
       await fetchRoles(currentUserId, parseRole(nextProfile?.role), ensuredRole || metadataRole);
-
-      lastSyncedUserIdRef.current = currentUserId;
 
       if (nextProfile?.onboarding_completed) {
         clearStoredRequestedRole();
@@ -332,7 +374,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("syncAuthState error:", err);
     } finally {
-      clearTimeout(timeout);
+      if (!aborted) clearTimeout(timeout);
       syncingRef.current = false;
     }
   };
@@ -355,9 +397,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     clearStoredRequestedRole();
-    // Clear all Supabase auth data from localStorage immediately
+    // Clear Supabase auth tokens from localStorage immediately.
+    // Use precise patterns to avoid accidentally removing unrelated "sb-" keys.
     Object.keys(localStorage).forEach(key => {
-      if (key.startsWith("sb-") || key.includes("supabase")) {
+      if (
+        (key.startsWith("sb-") && key.includes("-auth-token")) ||
+        key.startsWith("supabase.auth.")
+      ) {
         localStorage.removeItem(key);
       }
     });
@@ -458,7 +504,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      await syncAuthState(nextSession ?? null);
+      // Only run DB writes (ensureUserRecords) on actual sign-in events.
+      // TOKEN_REFRESHED and USER_UPDATED only need a lightweight profile/role refresh.
+      const isSignInEvent = event === "SIGNED_IN" || event === "PASSWORD_RECOVERY";
+      await syncAuthState(nextSession ?? null, { fullSync: isSignInEvent });
 
       if (mounted) {
         setLoading(false);

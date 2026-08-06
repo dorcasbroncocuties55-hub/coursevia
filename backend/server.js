@@ -1665,6 +1665,85 @@ app.post("/api/refunds/approve", async (req, res) => {
     let refundMethod = "original_payment";
     let stripeRefundId = null;
 
+    // ── Check if the original payment was via wallet ─────────────────────────
+    if (refund.payment_id) {
+      const { data: origPayment } = await supabaseAdmin
+        .from("payments")
+        .select("payment_method")
+        .eq("id", refund.payment_id)
+        .maybeSingle();
+
+      if (origPayment?.payment_method === "wallet") {
+        refundMethod = "wallet_original";
+      }
+    }
+
+    // ── If wallet payment, refund straight back to wallet ────────────────────
+    if (refundMethod === "wallet_original") {
+      await supabaseAdmin.from("wallets").upsert(
+        { user_id: refund.user_id, currency: "USD", balance: 0, pending_balance: 0, available_balance: 0 },
+        { onConflict: "user_id", ignoreDuplicates: true }
+      );
+      const { data: wallet } = await supabaseAdmin.from("wallets").select("*").eq("user_id", refund.user_id).maybeSingle();
+      if (wallet) {
+        const newBal = safeNumber(wallet.available_balance) + amount;
+        await supabaseAdmin.from("wallets").update({
+          balance:           safeNumber(wallet.balance) + amount,
+          available_balance: newBal,
+          updated_at:        new Date().toISOString(),
+        }).eq("user_id", refund.user_id);
+        await supabaseAdmin.from("wallet_ledger").insert({
+          wallet_id:    wallet.id,
+          amount,
+          type:         "credit",
+          description:  `Refund credited to wallet (original wallet payment)`,
+          balance_after: newBal,
+        });
+      }
+
+      // Revoke content access on refund
+      if (refund.payment_id) {
+        const { data: origPay } = await supabaseAdmin.from("payments").select("reference_id, payment_type").eq("id", refund.payment_id).maybeSingle();
+        if (origPay?.payment_type === "course" || origPay?.payment_type === "video") {
+          const contentId = (origPay?.reference_id || "").split(":").pop();
+          if (contentId) {
+            await supabaseAdmin.from("content_access")
+              .delete()
+              .eq("user_id", refund.user_id)
+              .eq("content_id", contentId);
+          }
+        }
+      }
+
+      await supabaseAdmin.from("refunds").update({
+        status:         "processed",
+        processed_at:   new Date().toISOString(),
+        refund_method:  "wallet_original",
+        stripe_refund_id: null,
+      }).eq("id", refund_id);
+
+      if (refund.booking_id) {
+        await supabaseAdmin.from("bookings")
+          .update({ status: "cancelled", updated_at: new Date().toISOString() })
+          .eq("id", refund.booking_id)
+          .in("status", ["pending", "confirmed"]);
+      }
+
+      await supabaseAdmin.from("notifications").insert({
+        user_id: refund.user_id,
+        title:   "Refund Approved",
+        message: `Your refund of $${amount.toFixed(2)} has been credited back to your Coursevia wallet.`,
+        type:    "refund",
+      }).catch(() => {});
+
+      return res.json({
+        success:       true,
+        message:       `Refund of $${amount.toFixed(2)} credited to learner's wallet (original wallet payment).`,
+        refund_method: "wallet_original",
+        stripe_refund_id: null,
+      });
+    }
+
     // ── Try Stripe refund to original payment method first ──────────────────
     if (stripe && refund.payment_id) {
       try {
@@ -2348,6 +2427,253 @@ app.get("/api/virtual-account/:userId/topups", async (req, res) => {
     return res.json({ topups: [] });
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Could not load topups." });
+  }
+});
+
+// ── Wallet-based purchase ─────────────────────────────────────────────────────
+//
+// POST /api/wallet/pay
+// Deducts from the learner's wallet, records the payment as "success",
+// credits the provider's pending wallet (8-day hold), and grants content
+// access — all in one request. No card required.
+//
+// Body: { user_id, email, type, amount, content_id?, content_title?, plan? }
+// type: "course" | "video" | "booking" | "subscription"
+//
+app.post("/api/wallet/pay", async (req, res) => {
+  try {
+    const {
+      user_id:        userId,
+      email,
+      type = "payment",
+      amount,
+      content_id:     contentId   = null,
+      content_title:  contentTitle = null,
+      plan            = null,
+    } = req.body || {};
+
+    if (!userId || !email) {
+      return res.status(400).json({ message: "user_id and email are required." });
+    }
+
+    const numericAmount = safeNumber(amount, 0);
+    if (numericAmount <= 0) {
+      return res.status(400).json({ message: "Amount must be greater than 0." });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({ message: "Database unavailable." });
+    }
+
+    // ── 1. Load learner wallet and verify balance ─────────────────────────
+    const { data: learnerWallet, error: walletLoadErr } = await supabaseAdmin
+      .from("wallets")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (walletLoadErr) throw new Error(walletLoadErr.message);
+
+    const currentBalance = safeNumber(learnerWallet?.available_balance ?? learnerWallet?.balance ?? 0);
+    if (currentBalance < numericAmount) {
+      return res.status(402).json({
+        message: `Insufficient wallet balance. Available: $${currentBalance.toFixed(2)}, Required: $${numericAmount.toFixed(2)}`,
+        available: currentBalance,
+        required:  numericAmount,
+      });
+    }
+
+    // ── 2. Deduct from learner wallet ─────────────────────────────────────
+    const newLearnerBalance = Math.max(0, currentBalance - numericAmount);
+    const { error: deductErr } = await supabaseAdmin
+      .from("wallets")
+      .update({
+        available_balance: newLearnerBalance,
+        balance:           Math.max(0, safeNumber(learnerWallet?.balance ?? 0) - numericAmount),
+        updated_at:        new Date().toISOString(),
+      })
+      .eq("user_id", userId);
+
+    if (deductErr) throw new Error(`Wallet deduction failed: ${deductErr.message}`);
+
+    // Ledger entry — debit
+    if (learnerWallet?.id) {
+      await supabaseAdmin.from("wallet_ledger").insert({
+        wallet_id:    learnerWallet.id,
+        type:         "debit",
+        amount:       numericAmount,
+        balance_after: newLearnerBalance,
+        description:  `${String(type).replace(/_/g, " ")} payment${contentTitle ? `: ${contentTitle}` : ""}`,
+      });
+    }
+
+    // ── 3. Record payment as success ──────────────────────────────────────
+    const ref = buildReference("wpay");
+    const { error: payErr } = await supabaseAdmin.from("payments").insert({
+      payer_id:       userId,
+      amount:         numericAmount,
+      currency:       CURRENCY,
+      payment_type:   type,
+      reference_id:   ref,
+      status:         "success",
+      payment_method: "wallet",
+      admin_notes:    [
+        contentId    ? `content_id:${contentId}`  : null,
+        contentTitle ? `title:${contentTitle}`     : null,
+        "method:wallet",
+      ].filter(Boolean).join(" | ") || null,
+    });
+    if (payErr) console.warn("[wallet/pay] payment insert warning:", payErr.message);
+
+    // ── 4. Split: 5% admin, 95% provider (same as card flow) ─────────────
+    const normalizedType = String(type).toLowerCase();
+    const adminShare    = normalizedType === "subscription" ? numericAmount : Math.round(numericAmount * 0.05 * 100) / 100;
+    const providerShare = numericAmount - adminShare;
+
+    let providerId = null;
+    if (contentId && normalizedType !== "subscription") {
+      if (normalizedType === "booking") {
+        const { data: booking } = await supabaseAdmin.from("bookings").select("provider_id").eq("id", contentId).maybeSingle();
+        providerId = booking?.provider_id || null;
+      } else if (normalizedType === "course" || normalizedType === "video") {
+        const { data: ci } = await supabaseAdmin.from("content_items").select("owner_id").eq("id", contentId).maybeSingle();
+        providerId = ci?.owner_id || null;
+        if (!providerId) {
+          const { data: c } = await supabaseAdmin.from("courses").select("creator_id").eq("id", contentId).maybeSingle();
+          providerId = c?.creator_id || null;
+        }
+      }
+    }
+
+    // Credit admin wallet
+    const { data: adminRole } = await supabaseAdmin.from("user_roles").select("user_id").eq("role", "admin").limit(1).maybeSingle();
+    if (adminRole?.user_id) {
+      const { data: adminWallet } = await supabaseAdmin.from("wallets").select("*").eq("user_id", adminRole.user_id).maybeSingle();
+      if (adminWallet) {
+        const newAdminBal = safeNumber(adminWallet.available_balance) + adminShare;
+        await supabaseAdmin.from("wallets").update({
+          balance:           safeNumber(adminWallet.balance) + adminShare,
+          available_balance: newAdminBal,
+          updated_at:        new Date().toISOString(),
+        }).eq("id", adminWallet.id);
+        await supabaseAdmin.from("wallet_ledger").insert({
+          wallet_id:    adminWallet.id,
+          type:         "credit",
+          amount:       adminShare,
+          balance_after: newAdminBal,
+          description:  `Admin share from wallet ${type} payment`,
+        });
+      }
+    }
+
+    // Credit provider wallet (pending — 8-day hold)
+    if (providerShare > 0 && providerId) {
+      await supabaseAdmin.from("wallets").upsert(
+        { user_id: providerId, currency: CURRENCY, balance: 0, pending_balance: 0, available_balance: 0 },
+        { onConflict: "user_id", ignoreDuplicates: true }
+      );
+      const { data: provWallet } = await supabaseAdmin.from("wallets").select("*").eq("user_id", providerId).maybeSingle();
+      if (provWallet) {
+        const newPending = safeNumber(provWallet.pending_balance) + providerShare;
+        await supabaseAdmin.from("wallets").update({
+          pending_balance: newPending,
+          updated_at:      new Date().toISOString(),
+        }).eq("id", provWallet.id);
+        await supabaseAdmin.from("wallet_ledger").insert({
+          wallet_id:    provWallet.id,
+          type:         "credit",
+          amount:       providerShare,
+          balance_after: newPending,
+          description:  `95% provider share from wallet ${type} (pending 8-day release)`,
+        });
+      }
+    }
+
+    // ── 5. Grant content access ───────────────────────────────────────────
+    if (contentId && (normalizedType === "course" || normalizedType === "video")) {
+      await supabaseAdmin.from("content_access").upsert({
+        user_id:      userId,
+        content_id:   contentId,
+        content_type: normalizedType,
+        granted_at:   new Date().toISOString(),
+      }, { onConflict: "user_id,content_id", ignoreDuplicates: true });
+    }
+
+    // Confirm booking if applicable
+    if (normalizedType === "booking" && contentId) {
+      await supabaseAdmin.from("bookings").update({
+        status:     "confirmed",
+        updated_at: new Date().toISOString(),
+      }).eq("id", contentId);
+    }
+
+    // Activate subscription if applicable
+    if (normalizedType === "subscription" && userId && plan) {
+      const endsAt = new Date();
+      String(plan).toLowerCase() === "yearly"
+        ? endsAt.setFullYear(endsAt.getFullYear() + 1)
+        : endsAt.setMonth(endsAt.getMonth() + 1);
+      const existing = await readSubscription(userId);
+      const subData = {
+        plan,
+        status:           "active",
+        payment_provider: "wallet",
+        provider_name:    "Wallet",
+        starts_at:        new Date().toISOString(),
+        ends_at:          endsAt.toISOString(),
+      };
+      if (existing?.id) {
+        await supabaseAdmin.from("subscriptions").update(subData).eq("id", existing.id);
+      } else {
+        await supabaseAdmin.from("subscriptions").insert({ user_id: userId, ...subData });
+      }
+    }
+
+    // ── 6. Notify learner ─────────────────────────────────────────────────
+    await supabaseAdmin.from("notifications").insert({
+      user_id: userId,
+      type:    "payment_success",
+      title:   "Payment successful",
+      message: `$${numericAmount.toFixed(2)} paid from your wallet${contentTitle ? ` for "${contentTitle}"` : ""}.`,
+      metadata: { type, amount: numericAmount, content_id: contentId, reference: ref },
+    }).catch(() => {});
+
+    return res.json({
+      success:   true,
+      reference: ref,
+      status:    "success",
+      message:   "Payment completed from wallet.",
+      amount:    numericAmount,
+      balance_after: newLearnerBalance,
+    });
+  } catch (error) {
+    console.error("[wallet/pay] error:", error);
+    return res.status(500).json({ message: error instanceof Error ? error.message : "Wallet payment failed." });
+  }
+});
+
+// ── Wallet refund endpoint ────────────────────────────────────────────────────
+// GET /api/wallet/balance/:userId — quick balance check for frontend
+app.get("/api/wallet/balance/:userId", async (req, res) => {
+  try {
+    const userId = String(req.params.userId || "").trim();
+    if (!userId) return res.status(400).json({ error: "userId is required." });
+    if (!supabaseAdmin) return res.json({ available: 0, pending: 0, balance: 0 });
+
+    const { data, error } = await supabaseAdmin
+      .from("wallets")
+      .select("balance, available_balance, pending_balance")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    return res.json({
+      available: safeNumber(data?.available_balance ?? data?.balance ?? 0),
+      pending:   safeNumber(data?.pending_balance ?? 0),
+      balance:   safeNumber(data?.balance ?? 0),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Could not load balance." });
   }
 });
 

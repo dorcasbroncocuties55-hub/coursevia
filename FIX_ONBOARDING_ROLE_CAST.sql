@@ -15,7 +15,7 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS specialization_type     text,
   ADD COLUMN IF NOT EXISTS specialization_slug     text,
   ADD COLUMN IF NOT EXISTS headline                text,
-  ADD COLUMN IF NOT EXISTS languages               text,
+  ADD COLUMN IF NOT EXISTS languages               text[],
   ADD COLUMN IF NOT EXISTS services_offered        text,
   ADD COLUMN IF NOT EXISTS works_with              text,
   ADD COLUMN IF NOT EXISTS expertise_areas         text,
@@ -68,7 +68,7 @@ CREATE OR REPLACE FUNCTION public.complete_onboarding(
   p_city                    text    DEFAULT NULL,
   p_bio                     text    DEFAULT NULL,
   p_headline                text    DEFAULT NULL,
-  p_languages               text[]  DEFAULT NULL,
+  p_languages               text    DEFAULT NULL,
   p_profession              text    DEFAULT NULL,
   p_experience              text    DEFAULT NULL,
   p_certification           text    DEFAULT NULL,
@@ -133,7 +133,10 @@ BEGIN
     created_at, updated_at
   ) VALUES (
     v_user_id, p_email, p_full_name, p_display_name, p_avatar_url,
-    v_role, p_role::text, p_bio, p_headline, p_languages,
+    v_role, p_role::text, p_bio, p_headline,
+    CASE WHEN p_languages IS NOT NULL
+         THEN ARRAY(SELECT trim(x) FROM unnest(string_to_array(p_languages, ',')) AS x WHERE trim(x) <> '')
+         ELSE NULL END,
     p_phone, p_country, p_city,
     p_profession, p_experience, p_certification,
     p_specialization_type, p_specialization_slug,
@@ -156,7 +159,12 @@ BEGIN
     account_type            = p_role::text,
     bio                     = COALESCE(p_bio,                     profiles.bio),
     headline                = COALESCE(p_headline,                profiles.headline),
-    languages               = COALESCE(p_languages,               profiles.languages),
+    languages               = COALESCE(
+                                CASE WHEN p_languages IS NOT NULL
+                                     THEN ARRAY(SELECT trim(x) FROM unnest(string_to_array(p_languages, ',')) AS x WHERE trim(x) <> '')
+                                     ELSE NULL END,
+                                profiles.languages
+                              ),
     phone                   = COALESCE(p_phone,                   profiles.phone),
     country                 = COALESCE(p_country,                 profiles.country),
     city                    = COALESCE(p_city,                    profiles.city),
@@ -202,4 +210,4 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.complete_onboarding TO authenticated;
 
-SELECT 'complete_onboarding rebuilt with full column set and app_role cast' AS result;
+SELECT 'complete_onboarding rebuilt with full column set, app_role cast, and text→text[] languages coercion' AS result;

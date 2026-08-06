@@ -671,6 +671,206 @@
             ]
           },
           {
+            "name": "Get Wallet Balance",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/wallet/balance/{{user_id}}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns balance fields', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body).to.have.property('available');",
+                    "  pm.expect(body).to.have.property('pending');",
+                    "  pm.expect(body).to.have.property('balance');",
+                    "  pm.expect(body.available).to.be.a('number');",
+                    "  pm.expect(body.pending).to.be.a('number');",
+                    "  pm.expect(body.balance).to.be.a('number');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Get Wallet Balance - Missing userId",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/wallet/balance/"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 or 404 when userId missing', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([400, 404]);",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Wallet Pay (Course Purchase)",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/wallet/pay",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"email\": \"{{email}}\",\n  \"type\": \"course\",\n  \"amount\": 25,\n  \"content_id\": \"course-123\",\n  \"content_title\": \"Test Course\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200 or 402', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 402, 503]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Returns success and reference', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.success).to.be.true;",
+                    "    pm.expect(body.reference).to.be.a('string');",
+                    "    pm.expect(body.status).to.equal('success');",
+                    "    pm.expect(body.amount).to.be.a('number').and.above(0);",
+                    "    pm.expect(body.balance_after).to.be.a('number');",
+                    "  });",
+                    "} else if (pm.response.code === 402) {",
+                    "  pm.test('Returns insufficient balance error', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.message).to.include('Insufficient wallet balance');",
+                    "    pm.expect(body.available).to.be.a('number');",
+                    "    pm.expect(body.required).to.be.a('number');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Wallet Pay (Booking Purchase)",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/wallet/pay",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"email\": \"{{email}}\",\n  \"type\": \"booking\",\n  \"amount\": 50,\n  \"content_id\": \"booking-123\",\n  \"content_title\": \"Test Booking Session\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200, 402, or 503', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 402, 503]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Returns success with booking confirmation', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.success).to.be.true;",
+                    "    pm.expect(body.reference).to.be.a('string');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Wallet Pay (Subscription Purchase)",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/wallet/pay",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"email\": \"{{email}}\",\n  \"type\": \"subscription\",\n  \"amount\": 9.99,\n  \"plan\": \"monthly\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200, 402, or 503', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 402, 503]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Returns success with subscription activation', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.success).to.be.true;",
+                    "    pm.expect(body.status).to.equal('success');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Wallet Pay - Missing Required Fields",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/wallet/pay",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when email missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.include('email');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Wallet Pay - Invalid Amount",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/wallet/pay",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"email\": \"{{email}}\",\n  \"type\": \"course\",\n  \"amount\": 0\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 for zero amount', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.include('Amount must be greater than 0');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
             "name": "Wallet Withdraw",
             "request": {
               "method": "POST",
