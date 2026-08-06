@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { roleToDashboardPath } from "@/lib/authRoles";
-import { buildBackendUrl } from "@/lib/backendApi";
 import {
   Briefcase,
   Camera,
@@ -733,6 +732,11 @@ const Onboarding = () => {
       return false;
     }
 
+    if (!isValidHumanName(displayName)) {
+      toast.error("Enter a display name (at least 2 characters).");
+      return false;
+    }
+
     if (!isValidPhone(phoneCountryCode, phone)) {
       toast.error("Enter a valid phone number with the selected country code.");
       return false;
@@ -740,6 +744,11 @@ const Onboarding = () => {
 
     if (!country.trim() || country.trim().length < 2) {
       toast.error("Enter your country.");
+      return false;
+    }
+
+    if (!city.trim() || city.trim().length < 2) {
+      toast.error("Enter your city.");
       return false;
     }
 
@@ -752,8 +761,13 @@ const Onboarding = () => {
       return false;
     }
 
-    if (learnerLookingForward.trim() && !isValidLongText(learnerLookingForward, 5, 1)) {
-      toast.error("Tell us what you are looking forward to.");
+    if (!isValidLongText(learnerLookingForward, 5, 1)) {
+      toast.error("Tell us what you are looking forward to learning.");
+      return false;
+    }
+
+    if (!learnerInterests.trim() || learnerInterests.trim().length < 3) {
+      toast.error("Add at least one interest.");
       return false;
     }
 
@@ -1215,7 +1229,7 @@ const Onboarding = () => {
         p_city:                    city.trim() || null,
         p_bio:                     bio.trim() || null,
         p_headline:                headline.trim() || null,
-        p_languages:               languages.trim() || null,
+        p_languages:               languages.trim() ? languages.split(",").map(l => l.trim()).filter(Boolean) : null,
         p_profession:              profession.trim() || null,
         p_experience:              experience.trim() || null,
         p_certification:           certification.trim() || null,

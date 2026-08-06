@@ -469,19 +469,6 @@ export const RefundPolicy = () => (
   </div>
 );
 
-// ─── SIMPLE PAGES ────────────────────────────────────────────────────────────
-
-const simplePage = (title: string, content: string) => () => (
-  <div className="min-h-screen bg-background">
-    <Navbar />
-    <div className="container-tight section-spacing">
-      <h1 className="text-4xl font-bold text-foreground mb-6">{title}</h1>
-      <div className="prose prose-sm max-w-none text-muted-foreground leading-relaxed whitespace-pre-line">{content}</div>
-    </div>
-    <Footer />
-  </div>
-);
-
 // Blog is now a full dedicated component — see Blog.tsx
 export { Blog } from "./Blog";
 

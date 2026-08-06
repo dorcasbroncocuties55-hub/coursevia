@@ -68,7 +68,7 @@ CREATE OR REPLACE FUNCTION public.complete_onboarding(
   p_city                    text    DEFAULT NULL,
   p_bio                     text    DEFAULT NULL,
   p_headline                text    DEFAULT NULL,
-  p_languages               text    DEFAULT NULL,
+  p_languages               text[]  DEFAULT NULL,
   p_profession              text    DEFAULT NULL,
   p_experience              text    DEFAULT NULL,
   p_certification           text    DEFAULT NULL,

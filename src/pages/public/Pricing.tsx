@@ -132,7 +132,10 @@ const Pricing = () => {
 
   const handleSubscriptionClick = (plan: LearnerSubscriptionPlan) => {
     if (!user) {
-      navigate(`/dashboard/subscription?plan=${plan}`);
+      // Send unauthenticated users to the auth gate, then bring them back to pricing.
+      // Going straight to /dashboard/subscription would hit the ProtectedRoute guard
+      // and drop the plan selection context entirely.
+      navigate("/auth-gate", { state: { destinationPath: `/pricing` } });
       return;
     }
 
