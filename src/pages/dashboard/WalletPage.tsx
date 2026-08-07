@@ -16,7 +16,6 @@ import {
   type EscrowRecord,
 } from "@/lib/walletApi";
 import { PageLoading } from "@/components/LoadingSpinner";
-import { VirtualAccountCard } from "@/components/wallet/VirtualAccountCard";
 import { PaddleTopUp } from "@/components/wallet/PaddleTopUp";
 
 type WalletRole = "learner" | "coach" | "creator" | "therapist";
@@ -90,7 +89,7 @@ const WalletPage = ({ role = "learner" }: { role?: WalletRole }) => {
             <p className="text-sm text-muted-foreground mt-0.5">
               {isProvider
                 ? "Track earnings, escrow holds, and withdraw to your bank."
-                : "Refunds and credits from cancelled bookings appear here."}
+                : "Top up your wallet with a card. Refunds and credits from cancelled bookings appear here."}
             </p>
           </div>
           {isProvider && (
@@ -196,13 +195,12 @@ const WalletPage = ({ role = "learner" }: { role?: WalletRole }) => {
                   </div>
                   <div>
                     <p className="font-semibold text-foreground">No balance yet</p>
-                    <p className="text-xs text-muted-foreground">Top up your wallet below to pay instantly without a card</p>
+                    <p className="text-xs text-muted-foreground">Top up your wallet with a card to pay instantly without entering card details at checkout</p>
                   </div>
                 </div>
               </div>
             )}
 
-            <VirtualAccountCard />
             <PaddleTopUp onSuccess={() => load()} />
             <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
               <p className="text-sm font-medium text-blue-800">Refund credits</p>

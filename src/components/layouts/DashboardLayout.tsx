@@ -39,6 +39,7 @@ const learnerNav: NavItem[] = [
   { label: "Bookings", href: "/dashboard/bookings", icon: Calendar },
   { label: "Wishlist", href: "/dashboard/wishlist", icon: Heart },
   { label: "Messages", href: "/dashboard/messages", icon: MessageSquare },
+  { label: "Wallet", href: "/dashboard/wallet", icon: Wallet },
   { label: "Payments", href: "/dashboard/payments", icon: CreditCard },
   { label: "Payment Methods", href: "/dashboard/payment-methods", icon: Wallet },
   { label: "Subscription", href: "/dashboard/subscription", icon: FileText },
