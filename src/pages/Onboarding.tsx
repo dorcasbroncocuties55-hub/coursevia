@@ -1223,19 +1223,42 @@ const Onboarding = () => {
       } catch (refreshError: any) {
         console.log("⚠️ Session refresh failed:", refreshError.message, "- using current session");
         
-        // Fallback: use current session instead
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        if (!currentSession?.access_token) {
-          toast.error("Your session has expired. Please log in again.");
-          setLoading(false);
-          setSaveProgress("");
-          await supabase.auth.signOut();
-          window.location.replace("/login");
-          return;
+        // Fallback: use current session instead with timeout
+        try {
+          const getSessionPromise = supabase.auth.getSession();
+          const sessionTimeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("getSession timeout")), 5000)
+          );
+          
+          const { data: { session: currentSession } } = await Promise.race([
+            getSessionPromise,
+            sessionTimeoutPromise
+          ]) as any;
+          
+          if (!currentSession?.access_token) {
+            throw new Error("No session token available");
+          }
+          
+          accessToken = currentSession.access_token;
+          console.log("✅ Using current session token as fallback");
+          
+        } catch (sessionError: any) {
+          console.log("⚠️ getSession failed:", sessionError.message, "- using context session");
+          
+          // Last resort: use session from AuthContext
+          if (!session?.access_token) {
+            console.log("❌ No valid session available");
+            toast.error("Your session has expired. Please log in again.");
+            setLoading(false);
+            setSaveProgress("");
+            await supabase.auth.signOut();
+            window.location.replace("/login");
+            return;
+          }
+          
+          accessToken = session.access_token;
+          console.log("✅ Using AuthContext session token as last resort");
         }
-        
-        accessToken = currentSession.access_token;
-        console.log("✅ Using current session token as fallback");
       }
 
       console.log("✅ Session confirmed, user:", user.id);
