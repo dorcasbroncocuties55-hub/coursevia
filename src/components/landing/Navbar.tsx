@@ -129,7 +129,8 @@ const Navbar = () => {
                 <ProfileAvatar
                   src={profile?.avatar_url}
                   name={accountName}
-                  className="h-8 w-8"
+                  className="h-8 w-8 rounded-lg"
+                  asImage={true}
                 />
                 <span className="max-w-[130px] truncate text-sm font-medium text-foreground">
                   {accountName}
@@ -186,7 +187,8 @@ const Navbar = () => {
                   <ProfileAvatar
                     src={profile?.avatar_url}
                     name={accountName}
-                    className="h-11 w-11"
+                    className="h-11 w-11 rounded-lg"
+                    asImage={true}
                   />
                   <div>
                     <p className="font-semibold text-foreground">{accountName}</p>
