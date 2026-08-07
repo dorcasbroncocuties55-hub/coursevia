@@ -113,7 +113,6 @@ const TherapistDashboard = () => {
           <RecentActivity title="Recent Sessions" items={recentActivity} loading={dataLoading} emptyMessage="No sessions yet" viewAllHref="/therapist/bookings" />
           <QuickActions title="Quick Actions" actions={quickActions} />
         </div>
-        )}
       </div>
     </DashboardLayout>
   );
