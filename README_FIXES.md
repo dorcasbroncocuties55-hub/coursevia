@@ -9,6 +9,7 @@
 4. ✅ **Search spinning** - All directories (coaches, therapists, creators, admin) have 10s timeout
 5. ✅ **Learner wallet** - Navigation link added, accessible at `/dashboard/wallet`
 6. ✅ **Top-up with Paddle** - Card payment only (Airwallex removed)
+7. ✅ **Build error** - Fixed missing PaymentModal import in CourseDetails
 
 ### Avatar Images & Profile Updates - Setup Required
 

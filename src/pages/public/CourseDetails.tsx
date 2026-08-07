@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Clock, ChevronDown, ChevronRight, Lock, Star, Users, Globe, CheckCircle2, Play, Award, ShieldCheck } from "lucide-react";
-import PaymentModal from "@/components/PaymentModal";
+import WalletCheckoutModal from "@/components/WalletCheckoutModal";
 
 const CourseDetails = () => {
   const { slug } = useParams();
@@ -252,8 +252,10 @@ const CourseDetails = () => {
       </div>
 
       {showPayment && (
-        <PaymentModal contentType="course" contentId={course.id} contentTitle={course.title}
-          amount={price} onClose={() => setShowPayment(false)} onSuccess={() => setShowPayment(false)} />
+        <WalletCheckoutModal contentType="course" contentId={course.id}
+          title={course.title} amount={price} 
+          onClose={() => setShowPayment(false)} 
+          onSuccess={() => { setShowPayment(false); setHasAccess(true); }} />
       )}
 
       <Footer />
