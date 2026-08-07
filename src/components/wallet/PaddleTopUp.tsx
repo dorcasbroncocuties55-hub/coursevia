@@ -112,8 +112,8 @@ export const PaddleTopUp = ({ onSuccess }: PaddleTopUpProps) => {
     setState("creating");
     setErrorMsg("");
 
-    try {
-      // 1. Create a Paddle transaction server-side to get a transaction ID
+    // Retry up to 2 times to handle Render free-tier 503 cold starts
+    const createTransaction = async (attempt = 0): Promise<any> => {
       const res = await fetch(buildBackendUrl("/api/paddle/create-transaction"), {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -130,8 +130,22 @@ export const PaddleTopUp = ({ onSuccess }: PaddleTopUpProps) => {
         }),
       });
 
+      // 503 = Render backend is cold-starting — wait and retry
+      if (res.status === 503 && attempt < 2) {
+        setErrorMsg(`Payment server is waking up… retrying (${attempt + 1}/2)`);
+        await new Promise(r => setTimeout(r, 8000));
+        setErrorMsg("");
+        return createTransaction(attempt + 1);
+      }
+
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Could not create checkout session.");
+      if (!res.ok) throw new Error(data?.error || `Server error (${res.status}) — please try again.`);
+      return data;
+    };
+
+    try {
+      // 1. Create a Paddle transaction server-side to get a transaction ID
+      const data = await createTransaction();
 
       txIdRef.current = data.transaction_id;
       setState("checkout");
@@ -167,7 +181,13 @@ export const PaddleTopUp = ({ onSuccess }: PaddleTopUpProps) => {
         },
       });
     } catch (err: any) {
-      setErrorMsg(err.message || "Could not start checkout.");
+      const msg = err.message || "";
+      const isColdStart = msg.includes("503") || msg.includes("fetch") || msg.includes("Failed to fetch") || msg.includes("NetworkError");
+      setErrorMsg(
+        isColdStart
+          ? "Payment server is still starting up. Please wait 30 seconds and try again."
+          : msg || "Could not start checkout."
+      );
       setState("error");
     }
   };
@@ -363,7 +383,7 @@ export const PaddleTopUp = ({ onSuccess }: PaddleTopUpProps) => {
           className="w-full h-11 gap-2 text-base"
         >
           {state === "creating"
-            ? <><Loader2 size={16} className="animate-spin" /> Preparing checkout…</>
+            ? <><Loader2 size={16} className="animate-spin" /> {errorMsg || "Preparing checkout…"}</>
             : <><CreditCard size={16} /> Top up ${resolvedAmount > 0 ? resolvedAmount.toFixed(2) : "—"}</>}
         </Button>
 

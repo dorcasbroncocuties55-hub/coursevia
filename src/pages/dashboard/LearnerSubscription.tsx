@@ -57,9 +57,9 @@ const LearnerSubscription = () => {
     }
     setPageLoading(true);
     try {
-      // Add timeout to prevent infinite loading
+      // 30s timeout — Supabase can be slow on cold starts
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timeout')), 10000)
+        setTimeout(() => reject(new Error('Loading is taking longer than usual — please try again')), 30000)
       );
 
       const loadPromise = Promise.all([

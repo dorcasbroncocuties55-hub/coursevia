@@ -328,9 +328,9 @@ export const getRoleCopy = (type: ProviderRole) => {
 
 export const loadProviders = async (type: ProviderRole): Promise<ProviderDirectoryResult> => {
   try {
-    // Add 10-second timeout to prevent infinite loading
+    // 30s timeout — Supabase can be slow on free tier cold starts
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Request timeout - please try again')), 10000)
+      setTimeout(() => reject(new Error('Loading is taking longer than usual — please try again')), 30000)
     );
 
     const fetchPromise = supabase

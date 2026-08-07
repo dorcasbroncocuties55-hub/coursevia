@@ -18,9 +18,9 @@ const Creators = () => {
     const loadCreators = async () => {
       setLoading(true);
       try {
-        // Add 10-second timeout to prevent infinite loading
+        // 30s timeout — Supabase can be slow on cold starts
         const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Request timeout')), 10000)
+          setTimeout(() => reject(new Error('Loading is taking longer than usual — please try again')), 30000)
         );
 
         const fetchPromise = supabase

@@ -340,11 +340,15 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
   }
   if (/\b(my payment|payment history|last payment|my transactions|what.*paid|recent.*payment|payment.*record|billing history|purchase history)\b/.test(q)) {
     if (!uid) return { reply: "Please sign in to see your payments.", nav: "/login" };
+    // Redirect learners to wallet
+    if (role === "learner") {
+      return { reply: "View your transaction history in your wallet.", nav: "/dashboard/wallet" };
+    }
     try {
       const { data } = await supabase.from("payments").select("amount,payment_type,status,created_at").eq("payer_id", uid).order("created_at", { ascending: false }).limit(3);
-      if (data && data.length > 0) return { reply: `Recent payments: ${(data as any[]).map(p => `$${p.amount} for ${p.payment_type} on ${new Date(p.created_at).toLocaleDateString()}`).join(", ")}.`, nav: "/dashboard/payments" };
-      return { reply: "No payments found.", nav: "/dashboard/payments" };
-    } catch { return { reply: "Opening payments.", nav: "/dashboard/payments" }; }
+      if (data && data.length > 0) return { reply: `Recent payments: ${(data as any[]).map(p => `$${p.amount} for ${p.payment_type} on ${new Date(p.created_at).toLocaleDateString()}`).join(", ")}.`, nav: "/dashboard/wallet" };
+      return { reply: "No payments found.", nav: "/dashboard/wallet" };
+    } catch { return { reply: "Opening wallet.", nav: "/dashboard/wallet" }; }
   }
   if (/\b(subscription|my plan|membership|current plan|active plan|what plan|which plan|am i subscribed|my subscription)\b/.test(q)) {
     if (!uid) return { reply: "Please sign in to check your subscription.", nav: "/login" };
@@ -368,11 +372,11 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
       const { data } = await supabase.from("payments").select("id,amount,status,payment_type,created_at").eq("payer_id", uid).eq("status", "success").order("created_at", { ascending: false }).limit(3);
       if (data && data.length > 0) {
         const eligible = (data as any[]).filter(p => Math.floor((Date.now() - new Date(p.created_at).getTime()) / 86400000) <= 7);
-        if (eligible.length > 0) return { reply: `You have ${eligible.length} payment${eligible.length > 1 ? "s" : ""} eligible for a refund. Go to Dashboard then Payments and click Request Refund.`, nav: "/dashboard/payments" };
-        return { reply: "Your payments are outside the 7-day refund window. Our team reviews exceptions.", nav: "/dashboard/payments" };
+        if (eligible.length > 0) return { reply: `You have ${eligible.length} payment${eligible.length > 1 ? "s" : ""} eligible for a refund. Go to your wallet and contact support to request a refund.`, nav: "/dashboard/wallet" };
+        return { reply: "Your payments are outside the 7-day refund window. Our team reviews exceptions.", nav: "/dashboard/wallet" };
       }
-      return { reply: "No payments found to refund.", nav: "/dashboard/payments" };
-    } catch { return { reply: "Opening payments.", nav: "/dashboard/payments" }; }
+      return { reply: "No payments found to refund.", nav: "/dashboard/wallet" };
+    } catch { return { reply: "Opening wallet.", nav: "/dashboard/wallet" }; }
   }
   if (/\b(who am i|my account|am i logged in|am i signed in|my profile info|what.*my account|check.*account|account details|my details)\b/.test(q)) {
     if (uid) return { reply: `You are signed in as ${ctx.name || ctx.email || "a user"}. Your role is ${ctx.role || "learner"}.` };
@@ -401,7 +405,7 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
     [["cart","shopping cart","my cart","checkout cart"], "/cart", "Opening cart."],
     [["my bookings","bookings","my sessions","sessions","appointments"], rp("/dashboard/bookings","/coach/bookings","/therapist/bookings","/dashboard/bookings"), "Opening bookings."],
     [["messages","inbox","my messages","chats"], rp("/dashboard/messages","/coach/messages","/therapist/messages","/creator/messages"), "Opening messages."],
-    [["payments","payment history","my payments","transactions"], "/dashboard/payments", "Opening payments."],
+    [["payments","payment history","my payments","transactions"], rp("/dashboard/wallet","/coach/wallet","/therapist/wallet","/creator/wallet"), "Opening wallet."],
     [["wallet","my wallet","my balance","earnings"], rp("/dashboard/wallet","/coach/wallet","/therapist/wallet","/creator/wallet"), "Opening wallet."],
     [["subscription","my plan","my subscription","membership"], "/dashboard/subscription", "Opening subscription."],
     [["profile","my profile","profile settings","account settings","edit profile"], rp("/dashboard/profile","/coach/profile","/therapist/profile","/dashboard/profile"), "Opening profile."],

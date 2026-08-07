@@ -51,7 +51,6 @@ const InviteFriendsPage = lazy(() => import("./pages/dashboard/InviteFriendsPage
 const CoachInvitePage = lazy(() => import("./pages/coach/CoachInvitePage"));
 const CreatorInvitePage = lazy(() => import("./pages/creator/CreatorInvitePage"));
 const TherapistInvitePage = lazy(() => import("./pages/therapist/TherapistInvitePage"));
-const LearnerPayments = lazy(() => import("./pages/dashboard/LearnerPayments"));
 const LearnerSubscription = lazy(() => import("./pages/dashboard/LearnerSubscription"));
 const LearnerNotifications = lazy(() => import("./pages/dashboard/LearnerNotifications"));
 const LearnerProfile = lazy(() => import("./pages/dashboard/ProfileSettings").then(m => ({ default: m.LearnerProfile })));
@@ -135,11 +134,16 @@ const HelpCenter = lazy(() => import("./pages/public/StaticPages").then(m => ({ 
 
 import Preloader from "@/components/Preloader";
 import VoiceAssistant from "@/components/VoiceAssistant";
+import { pingBackend } from "@/lib/backendApi";
 
 // Reuse the same branded preloader for lazy-route suspense fallback
 const PageLoader = () => <Preloader onDone={() => {}} />;
 
 const queryClient = new QueryClient();
+
+// Ping backend immediately on app load so Render free tier wakes up
+// before the user needs payments/checkout (cold start takes 30-50s)
+pingBackend().catch(() => {});
 
 const App = () => {
   return (
@@ -302,14 +306,6 @@ const App = () => {
                   element={
                     <ProtectedRoute requiredRole="learner">
                       <LearnerMessages />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/dashboard/payments"
-                  element={
-                    <ProtectedRoute requiredRole="learner">
-                      <LearnerPayments />
                     </ProtectedRoute>
                   }
                 />

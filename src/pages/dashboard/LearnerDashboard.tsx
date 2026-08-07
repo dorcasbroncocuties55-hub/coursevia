@@ -130,7 +130,7 @@ const LearnerDashboard = () => {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
-          <RecentActivity title="Recent Activity" items={recentActivity} loading={dataLoading} emptyMessage="No recent activity" viewAllHref="/dashboard/payments" />
+          <RecentActivity title="Recent Activity" items={recentActivity} loading={dataLoading} emptyMessage="No recent activity" viewAllHref="/dashboard/wallet" />
           <QuickActions title="Quick Actions" actions={quickActions} />
         </div>
 
