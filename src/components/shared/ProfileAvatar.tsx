@@ -20,19 +20,26 @@ const initialsFromName = (name?: string | null) => {
 };
 
 export default function ProfileAvatar({ src, name, className, fallbackClassName, asImage }: Props) {
-  // If asImage is true and we have a src, show it as a regular image
-  if (asImage && src) {
-    return (
-      <img 
-        src={src} 
-        alt={name || "Profile"} 
-        className={`object-cover ${className || ""}`}
-      />
-    );
-  }
-
-  // If asImage is true but no src, show initials in a rounded square
+  // Always show actual image if src exists and asImage is true
   if (asImage) {
+    if (src) {
+      return (
+        <img 
+          src={src} 
+          alt={name || "Profile"} 
+          className={`object-cover rounded-lg ${className || ""}`}
+          onError={(e) => {
+            // If image fails to load, hide it and show initials
+            e.currentTarget.style.display = 'none';
+            const fallback = document.createElement('div');
+            fallback.className = `flex items-center justify-center rounded-lg ${fallbackClassName || "bg-slate-950 text-white font-semibold"} ${className || ""}`;
+            fallback.textContent = initialsFromName(name);
+            e.currentTarget.parentElement?.appendChild(fallback);
+          }}
+        />
+      );
+    }
+    // No src - show initials in rounded square
     return (
       <div className={`flex items-center justify-center rounded-lg ${fallbackClassName || "bg-slate-950 text-white font-semibold"} ${className || ""}`}>
         {initialsFromName(name)}
@@ -40,7 +47,7 @@ export default function ProfileAvatar({ src, name, className, fallbackClassName,
     );
   }
 
-  // Default circular avatar behavior
+  // Default circular avatar behavior (when asImage is false)
   return (
     <Avatar className={className}>
       {src ? <AvatarImage src={src} alt={name || "Profile"} className="object-cover" /> : null}
