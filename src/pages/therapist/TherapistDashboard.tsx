@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { CalendarDays, Wallet, Users, MessageSquare, HeartHandshake, User, Shield, Video } from "lucide-react";
 import { getServiceModeLabel } from "@/lib/providerModes";
+import { getFirstName } from "@/lib/authRoles";
 import { dbCount, dbRows } from "@/lib/supabaseFetch";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { WelcomeBanner } from "@/components/dashboard/WelcomeBanner";
@@ -64,7 +65,7 @@ const TherapistDashboard = () => {
   const needsKyc    = !isVerified && (!kycStatus || kycStatus === "not_started" || kycStatus === "pending_setup");
   const kycPending  = kycStatus === "pending";
   const serviceMode = getServiceModeLabel((profile as any)?.service_delivery_mode);
-  const firstName   = profile?.full_name?.split(" ")[0] || "Therapist";
+  const firstName   = getFirstName(profile, user, "Therapist");
 
   const recentActivity = recentBookings.map(b => ({
     id: b.id,

@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { BookOpen, Video, Wallet, Upload, BarChart3, Settings, TrendingUp } from "lucide-react";
 import { dbCount, dbRows } from "@/lib/supabaseFetch";
+import { getFirstName } from "@/lib/authRoles";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { WelcomeBanner } from "@/components/dashboard/WelcomeBanner";
 import { QuickActions } from "@/components/dashboard/QuickActions";
@@ -70,7 +71,7 @@ const CreatorDashboard = () => {
   if (authLoading) return <PageLoading />;
   if (!user) return <Navigate to="/login" replace />;
 
-  const firstName = profile?.full_name?.split(" ")[0] || "Creator";
+  const firstName = getFirstName(profile, user, "Creator");
 
   const quickActions = [
     { label: "Upload Video",      href: "/creator/upload-video",      description: "Share your expertise through video content",  icon: Upload,   priority: "high" as const },

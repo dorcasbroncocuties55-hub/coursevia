@@ -76,3 +76,26 @@ export const roleToDashboardPath = (role?: unknown): string => {
       return "/onboarding";
   }
 };
+
+/**
+ * Resolves the best available first name for greeting the user.
+ * Priority: profile.full_name → profile.display_name → user metadata name → fallback label.
+ *
+ * @param profile  - The profile object from AuthContext (or any partial shape with name fields).
+ * @param user     - The Supabase User object (for metadata fallback).
+ * @param fallback - Role-specific fallback string shown when no name is available (e.g. "Learner").
+ */
+export const getFirstName = (
+  profile: { full_name?: string | null; display_name?: string | null } | null | undefined,
+  user: { user_metadata?: { full_name?: string; name?: string } } | null | undefined,
+  fallback: string,
+): string => {
+  const raw =
+    profile?.full_name?.trim() ||
+    profile?.display_name?.trim() ||
+    (typeof user?.user_metadata?.full_name === "string" ? user.user_metadata.full_name.trim() : "") ||
+    (typeof user?.user_metadata?.name === "string" ? user.user_metadata.name.trim() : "");
+
+  if (!raw) return fallback;
+  return raw.split(" ")[0];
+};

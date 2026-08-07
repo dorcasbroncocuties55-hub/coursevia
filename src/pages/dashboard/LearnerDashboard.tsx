@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { Video, Calendar, Bell, CreditCard, Wallet, Users, Star, TrendingUp } from "lucide-react";
 import { dbCount, dbRows } from "@/lib/supabaseFetch";
+import { getFirstName } from "@/lib/authRoles";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { WelcomeBanner } from "@/components/dashboard/WelcomeBanner";
 import { QuickActions } from "@/components/dashboard/QuickActions";
@@ -73,7 +74,7 @@ const LearnerDashboard = () => {
   if (authLoading) return <PageLoading />;
   if (!user) return <Navigate to="/login" replace />;
 
-  const firstName = profile?.full_name?.split(" ")[0] || "Learner";
+  const firstName = getFirstName(profile, user, "Learner");
 
   const quickActions = [
     { label: "Find Coaches",       href: "/coaches",                  description: "Book 1-on-1 sessions with expert coaches",   icon: Users },
