@@ -1181,10 +1181,12 @@ const Onboarding = () => {
     try {
       setLoading(true);
       setSaveProgress("Saving your profile...");
+      console.log("🔄 Starting try block...");
 
       // user is already verified by AuthContext — no need to call getSession()
       // which can hang when localStorage was recently cleared.
       if (!user?.id) {
+        console.log("❌ No user.id found");
         toast.error("Your session has expired. Please log in again.");
         setLoading(false);
         setSaveProgress("");
@@ -1192,11 +1194,13 @@ const Onboarding = () => {
         return;
       }
 
+      console.log("🔄 Refreshing session...");
       // Always refresh the session right before the RPC call to get a
       // non-expired token. The session in React state may be stale if the
       // user spent a long time on the onboarding form.
       const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
       if (refreshErr || !refreshed?.session?.access_token) {
+        console.log("❌ Session refresh failed:", refreshErr);
         toast.error("Your session has expired. Please log in again.");
         setLoading(false);
         setSaveProgress("");
@@ -1206,7 +1210,7 @@ const Onboarding = () => {
       }
       const accessToken = refreshed.session.access_token;
 
-      console.log("✅ User confirmed:", user.id);
+      console.log("✅ Session refreshed, user confirmed:", user.id);
 
       // Build the profile slug from display name or full name
       const slugBase = displayName.trim() || fullName.trim() || "user";
@@ -1279,11 +1283,13 @@ const Onboarding = () => {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+      console.log("📦 Preparing RPC payload...");
       console.log("📦 RPC payload:", JSON.stringify(rpcPayload, null, 2));
 
       const controller = new AbortController();
       const rpcTimeout = setTimeout(() => controller.abort(), 15000);
 
+      console.log("🚀 Calling complete_onboarding RPC...");
       let rpcResponse: Response;
       try {
         rpcResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/complete_onboarding`, {
@@ -1301,9 +1307,11 @@ const Onboarding = () => {
         clearTimeout(rpcTimeout);
       }
 
+      console.log("📨 RPC response status:", rpcResponse.status);
+      
       if (!rpcResponse.ok) {
         const errBody = await rpcResponse.text();
-        console.error("complete_onboarding RPC error:", errBody);
+        console.error("❌ complete_onboarding RPC error:", errBody);
         let errMsg = "Failed to save profile.";
         try {
           const parsed = JSON.parse(errBody);
@@ -1325,10 +1333,12 @@ const Onboarding = () => {
 
       // Show the welcome animation — it will call onFinished() when done,
       // which triggers the actual dashboard redirect.
+      console.log("🎉 RPC succeeded! Showing welcome screen...");
       setSaveProgress("");
       redirectingRef.current = true;
       toast.success("Welcome to Coursevia!");
       setShowWelcome(true);
+      console.log("✅ showWelcome set to true");
 
     } catch (error: any) {
       console.error("💥 Onboarding completion failed:", error);
