@@ -8,7 +8,7 @@
 --   3. Re-creates the RPC with the exact parameter set the
 --      frontend sends (p_languages as text[], not text)
 --   4. Fixes RLS policies (public read + owner write)
--- ============================================================
+-- ==================================ac==========================
 
 -- ── 1. Ensure all columns exist ───────────────────────────────────────────
 

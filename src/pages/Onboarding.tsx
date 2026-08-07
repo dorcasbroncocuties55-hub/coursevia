@@ -1175,10 +1175,11 @@ const Onboarding = () => {
         return;
       }
 
-      // If session token is missing the RPC will reject with "Not authenticated".
-      // Catch this early and send the user to login.
-      const accessToken = session?.access_token;
-      if (!accessToken) {
+      // Always refresh the session right before the RPC call to get a
+      // non-expired token. The session in React state may be stale if the
+      // user spent a long time on the onboarding form.
+      const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
+      if (refreshErr || !refreshed?.session?.access_token) {
         toast.error("Your session has expired. Please log in again.");
         setLoading(false);
         setSaveProgress("");
@@ -1186,6 +1187,7 @@ const Onboarding = () => {
         window.location.replace("/login");
         return;
       }
+      const accessToken = refreshed.session.access_token;
 
       console.log("✅ User confirmed:", user.id);
 

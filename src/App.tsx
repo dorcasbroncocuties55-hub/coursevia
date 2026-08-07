@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -31,9 +31,8 @@ const CoachDetails = lazy(() => import("./pages/public/CoachDetails"));
 const Creators = lazy(() => import("./pages/public/Creators"));
 const Pricing = lazy(() => import("./pages/public/Pricing"));
 const AuthGate = lazy(() => import("./pages/AuthGate"));
-const CartPage = lazy(() => import("./pages/CartPage"));
-const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
-const PaymentPage = lazy(() => import("./pages/PaymentPage"));
+// Remove old imports for deleted pages
+// CheckoutPage, PaymentPage, BankAccountsPage removed
 const FAQ = lazy(() => import("./pages/public/FAQ"));
 const SubscriptionCallback = lazy(() => import("./pages/billing/SubscriptionCallback"));
 
@@ -53,7 +52,6 @@ const CreatorInvitePage = lazy(() => import("./pages/creator/CreatorInvitePage")
 const TherapistInvitePage = lazy(() => import("./pages/therapist/TherapistInvitePage"));
 const LearnerPayments = lazy(() => import("./pages/dashboard/LearnerPayments"));
 const LearnerSubscription = lazy(() => import("./pages/dashboard/LearnerSubscription"));
-const LearnerPaymentMethods = lazy(() => import("./pages/dashboard/LearnerPaymentMethods"));
 const LearnerNotifications = lazy(() => import("./pages/dashboard/LearnerNotifications"));
 const LearnerProfile = lazy(() => import("./pages/dashboard/ProfileSettings").then(m => ({ default: m.LearnerProfile })));
 
@@ -92,7 +90,6 @@ const CreatorWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage"
 const TherapistWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage").then(m => ({ default: m.TherapistWithdrawals })));
 const BookingMeetingRoom = lazy(() => import("./pages/dashboard/BookingMeetingRoom"));
 const ProfessionalProfileSettings = lazy(() => import("./pages/dashboard/ProfessionalProfileSettings"));
-const BankAccountsPage = lazy(() => import("./pages/dashboard/BankAccountsPage"));
 
 // Creator dashboard
 const CreatorDashboard = lazy(() => import("./pages/creator/CreatorDashboard"));
@@ -200,23 +197,9 @@ const App = () => {
                   }
                 />
 
-                <Route
-                  path="/checkout"
-                  element={
-                    <AuthDecisionGuard>
-                      <CheckoutPage />
-                    </AuthDecisionGuard>
-                  }
-                />
-
-                <Route
-                  path="/pay"
-                  element={
-                    <AuthDecisionGuard>
-                      <PaymentPage />
-                    </AuthDecisionGuard>
-                  }
-                />
+                {/* /checkout and /pay now redirect to wallet — all purchases use wallet balance */}
+                <Route path="/checkout" element={<Navigate to="/dashboard/wallet" replace />} />
+                <Route path="/pay"      element={<Navigate to="/dashboard/wallet" replace />} />
 
                 <Route
                   path="/subscription/callback"
@@ -341,7 +324,7 @@ const App = () => {
                   path="/dashboard/payment-methods"
                   element={
                     <ProtectedRoute requiredRole="learner">
-                      <LearnerPaymentMethods />
+                      <Navigate to="/dashboard/wallet" replace />
                     </ProtectedRoute>
                   }
                 />
@@ -508,11 +491,7 @@ const App = () => {
                 />
                 <Route
                   path="/coach/bank-accounts"
-                  element={
-                    <ProtectedRoute requiredRole="coach">
-                      <BankAccountsPage role="coach" />
-                    </ProtectedRoute>
-                  }
+                  element={<Navigate to="/coach/withdrawals" replace />}
                 />
                 <Route
                   path="/coach/refunds"
@@ -637,11 +616,7 @@ const App = () => {
                 />
                 <Route
                   path="/therapist/bank-accounts"
-                  element={
-                    <ProtectedRoute requiredRole="therapist">
-                      <BankAccountsPage role="therapist" />
-                    </ProtectedRoute>
-                  }
+                  element={<Navigate to="/therapist/withdrawals" replace />}
                 />
                 <Route
                   path="/therapist/refunds"
@@ -726,11 +701,7 @@ const App = () => {
                 />
                 <Route
                   path="/creator/bank-accounts"
-                  element={
-                    <ProtectedRoute requiredRole="creator">
-                      <BankAccountsPage role="creator" />
-                    </ProtectedRoute>
-                  }
+                  element={<Navigate to="/creator/withdrawals" replace />}
                 />
                 <Route path="/admin-login" element={<AdminLogin />} />
                 <Route path="/support-agent" element={<SupportAgentLogin />} />
@@ -785,11 +756,7 @@ const App = () => {
                 />
                 <Route
                   path="/admin/bank-accounts"
-                  element={
-                    <ProtectedRoute requiredRole="admin">
-                      <BankAccountsPage role={"coach" as any} />
-                    </ProtectedRoute>
-                  }
+                  element={<Navigate to="/admin/withdrawals" replace />}
                 />
                 <Route
                   path="/admin/withdrawals"

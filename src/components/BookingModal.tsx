@@ -3,9 +3,9 @@ import { createBooking } from "@/services/bookingService";
 import { checkConflict } from "@/services/conflictService";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { initializeCheckout } from "@/lib/paymentGateway";
+import { walletPay, getWalletBalance } from "@/lib/walletPay";
 import { getServiceModeLabel } from "@/lib/providerModes";
-import { CalendarDays, Clock, Globe, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
+import { CalendarDays, Clock, Globe, MapPin, MessageCircle, ShieldCheck, Wallet, AlertCircle, Loader2 } from "lucide-react";
 
 type Props = {
   provider: {
@@ -34,6 +34,8 @@ export default function BookingModal({ provider, learner, selectedService }: Pro
   const [date, setDate] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [checkingBalance, setCheckingBalance] = useState(false);
 
   const offeredMode = selectedService?.service_delivery_mode || provider.service_delivery_mode || "online";
   const calendarMode = provider.calendar_mode || "provider_calendar";
@@ -81,29 +83,22 @@ export default function BookingModal({ provider, learner, selectedService }: Pro
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (!authUser?.email) throw new Error("A valid email is required before payment.");
 
-        const checkout = await initializeCheckout({
-          email: authUser.email,
-          user_id: learner.id,
-          type: "booking",
-          amount: price,
-          content_id: booking.id,
+        // Pay with wallet balance
+        await walletPay({
+          user_id:       learner.id,
+          email:         authUser.email,
+          type:          "booking",
+          amount:        price,
+          content_id:    booking.id,
           content_title: selectedService?.title || "Session booking",
         });
-
-        // Redirect to Stripe checkout directly
-        const dest = checkout.authorization_url || checkout.redirect_url;
-        if (!dest) throw new Error("No payment URL returned.");
-        window.location.href = dest;
-        return;
       }
 
-      // Free bookings
       toast.success(
         sessionMode === "in_person"
           ? "In-person booking created. Check your email for office address."
-          : "Booking created successfully. Check your email for session details."
+          : "Booking confirmed! Check your email for session details."
       );
-
       window.location.href = "/dashboard/bookings";
     } catch (error: any) {
       toast.error(error.message || "Booking failed.");
@@ -193,10 +188,21 @@ export default function BookingModal({ provider, learner, selectedService }: Pro
       </div>
 
       {/* Security note */}
-      {price > 0 && sessionMode === "online" && (
+      {price > 0 && (
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <ShieldCheck size={13} className="text-emerald-500" />
-          Payment processed securely via Checkout.com. Booking confirmed after verification.
+          Payment deducted from your wallet balance. Booking confirmed instantly.
+        </div>
+      )}
+
+      {/* Low-balance warning */}
+      {price > 0 && walletBalance !== null && walletBalance < price && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          <AlertCircle size={13} className="shrink-0 mt-0.5"/>
+          <span>
+            Your wallet balance (${walletBalance.toFixed(2)}) is less than the booking price (${price.toFixed(2)}).{" "}
+            <a href="/dashboard/wallet" className="font-medium underline">Top up your wallet</a> first.
+          </span>
         </div>
       )}
 

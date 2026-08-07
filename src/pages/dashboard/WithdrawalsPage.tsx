@@ -1,292 +1,210 @@
+/**
+ * WithdrawalsPage — Airwallex-powered international bank transfer.
+ * Providers enter recipient bank details inline and send earnings
+ * to any bank in the world. No pre-saved accounts required.
+ */
 import { Navigate, Link } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { buildBackendUrl } from "@/lib/backendApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   Wallet, Lock, ArrowRight, Clock, CheckCircle2, XCircle,
-  Loader2, Building2, CreditCard, ChevronLeft, Send,
-  Copy, Download, AlertCircle,
+  Loader2, Building2, Send, Copy, ChevronLeft, AlertCircle, Globe,
 } from "lucide-react";
 import { PageLoading } from "@/components/LoadingSpinner";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+type Step = "form" | "review" | "processing" | "receipt";
 
-type TransferRow = {
+type Payout = {
   id: string;
   amount: number;
-  status: string;
-  created_at: string;
-  notes?: string;
-  reference?: string;
-};
-
-type BankAccount = {
-  id: string;
-  bank_name: string;
-  account_number: string;
-  account_name?: string;
-  is_default: boolean;
   currency: string;
+  status: string;
+  reference: string;
+  account_name: string;
+  bank_name: string;
+  country_code: string;
+  created_at: string;
+  note?: string;
 };
 
-type Step = "amount" | "review" | "processing" | "receipt";
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Generate a bank-style reference: TRF-YYYYMMDD-XXXXXX */
-const buildReference = () => {
-  const today = new Date();
-  const date = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
-  const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `TRF-${date}-${rand}`;
+const buildRef = () => {
+  const d = new Date();
+  const date = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+  return `TRF-${date}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
 };
 
-/** Arrival date: 1–3 business days from now */
 const estimatedArrival = () => {
   const d = new Date();
   let added = 0;
-  while (added < 3) {
-    d.setDate(d.getDate() + 1);
-    if (d.getDay() !== 0 && d.getDay() !== 6) added++;
-  }
-  return d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  while (added < 3) { d.setDate(d.getDate()+1); if (d.getDay()!==0 && d.getDay()!==6) added++; }
+  return d.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"});
 };
 
-const statusIcon = (s: string) => {
-  if (s === "completed" || s === "processed") return <CheckCircle2 size={13} className="text-emerald-500" />;
-  if (s === "failed"    || s === "rejected")  return <XCircle     size={13} className="text-red-500" />;
-  return <Clock size={13} className="text-amber-500" />;
-};
-
-const statusClass = (s: string) => {
-  if (s === "completed" || s === "processed") return "bg-emerald-50 text-emerald-700 border-emerald-200";
-  if (s === "failed"    || s === "rejected")  return "bg-red-50 text-red-600 border-red-200";
+const statusBadge = (s: string) => {
+  if (s==="completed"||s==="submitted"||s==="processed") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (s==="failed"||s==="rejected") return "bg-red-50 text-red-600 border-red-200";
   return "bg-amber-50 text-amber-700 border-amber-200";
 };
 
-// ── Step indicator ────────────────────────────────────────────────────────────
-
-const STEPS: { key: Step; label: string }[] = [
-  { key: "amount",     label: "Amount"  },
-  { key: "review",     label: "Review"  },
-  { key: "processing", label: "Process" },
-  { key: "receipt",    label: "Receipt" },
+const STEP_LABELS: { key: Step; label: string }[] = [
+  { key: "form",       label: "Details"  },
+  { key: "review",     label: "Review"   },
+  { key: "processing", label: "Sending"  },
+  { key: "receipt",    label: "Done"     },
 ];
 
 const StepBar = ({ current }: { current: Step }) => {
-  const idx = STEPS.findIndex(s => s.key === current);
+  const idx = STEP_LABELS.findIndex(s => s.key === current);
   return (
-    <div className="flex items-center justify-center gap-0 mb-8">
-      {STEPS.map((s, i) => {
-        const done    = i < idx;
-        const active  = i === idx;
-        return (
-          <div key={s.key} className="flex items-center">
-            <div className="flex flex-col items-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors
-                ${done   ? "bg-primary text-primary-foreground"
-                : active ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
-                :          "bg-muted text-muted-foreground"}`}>
-                {done ? <CheckCircle2 size={14} /> : i + 1}
-              </div>
-              <span className={`text-[10px] mt-1 font-medium ${active ? "text-primary" : "text-muted-foreground"}`}>
-                {s.label}
-              </span>
+    <div className="flex items-center justify-center gap-0 mb-6">
+      {STEP_LABELS.map((s, i) => (
+        <div key={s.key} className="flex items-center">
+          <div className="flex flex-col items-center">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors
+              ${i < idx ? "bg-primary text-primary-foreground"
+              : i === idx ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
+              : "bg-muted text-muted-foreground"}`}>
+              {i < idx ? <CheckCircle2 size={14}/> : i+1}
             </div>
-            {i < STEPS.length - 1 && (
-              <div className={`w-12 h-0.5 mx-1 mb-4 ${i < idx ? "bg-primary" : "bg-border"}`} />
-            )}
+            <span className={`text-[10px] mt-1 font-medium ${i===idx?"text-primary":"text-muted-foreground"}`}>{s.label}</span>
           </div>
-        );
-      })}
+          {i < STEP_LABELS.length-1 && <div className={`w-10 h-0.5 mx-1 mb-4 ${i<idx?"bg-primary":"bg-border"}`}/>}
+        </div>
+      ))}
     </div>
   );
 };
 
-// ── Main component ─────────────────────────────────────────────────────────
+const Row = ({ label, value, bold, mono }: { label:string; value:string; bold?:boolean; mono?:boolean }) => (
+  <div className="flex items-center justify-between px-4 py-3 gap-4">
+    <span className="text-xs text-muted-foreground shrink-0">{label}</span>
+    <span className={`text-xs text-right break-all ${bold?"font-semibold text-foreground":"text-foreground"} ${mono?"font-mono":""}`}>{value}</span>
+  </div>
+);
 
 const TransferPage = ({ role }: { role: "coach" | "creator" | "therapist" }) => {
   const { user, loading: authLoading } = useAuth();
 
-  // Data
-  const [transfers,    setTransfers]    = useState<TransferRow[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
-  const [wallet,       setWallet]       = useState<any>(null);
-  const [loading,      setLoading]      = useState(true);
+  const [wallet,     setWallet]     = useState<any>(null);
+  const [payouts,    setPayouts]    = useState<Payout[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [step,       setStep]       = useState<Step>("form");
+  const [submitting, setSubmitting] = useState(false);
+  const [receipt,    setReceipt]    = useState<any>(null);
 
-  // Transfer form state
-  const [step,         setStep]         = useState<Step>("amount");
-  const [amount,       setAmount]       = useState("");
-  const [selectedBank, setSelectedBank] = useState("");
-  const [note,         setNote]         = useState("");
-  const [processing,   setProcessing]   = useState(false);
-  const [reference,    setReference]    = useState("");
-  const [arrival,      setArrival]      = useState("");
+  // Form fields
+  const [amount,         setAmount]         = useState("");
+  const [currency,       setCurrency]       = useState("USD");
+  const [accountName,    setAccountName]    = useState("");
+  const [accountNumber,  setAccountNumber]  = useState("");
+  const [bankName,       setBankName]       = useState("");
+  const [bankCode,       setBankCode]       = useState("");
+  const [swiftCode,      setSwiftCode]      = useState("");
+  const [iban,           setIban]           = useState("");
+  const [routingNumber,  setRoutingNumber]  = useState("");
+  const [countryCode,    setCountryCode]    = useState("US");
+  const [note,           setNote]           = useState("");
 
-  const available = Number(wallet?.available_balance ?? wallet?.balance ?? 0);
-  const pending   = Number(wallet?.pending_balance ?? 0);
-  const amt       = Number(amount);
-  const chosenBank = bankAccounts.find(b => b.id === selectedBank);
+  const available = safeNum(wallet?.available_balance ?? wallet?.balance);
+  const pending   = safeNum(wallet?.pending_balance);
+  const amt       = safeNum(amount);
 
-  // ── Load ──────────────────────────────────────────────────────────────────
+  function safeNum(v: any) { return Number.isFinite(Number(v)) ? Number(v) : 0; }
 
   const loadData = async () => {
-    if (!user) { setLoading(false); return; }
+    if (!user?.id) { setLoading(false); return; }
     setLoading(true);
     try {
-      const [walletRes, transfersRes, banksRes] = await Promise.all([
+      const [walletRes, payoutsRes] = await Promise.all([
         supabase.from("wallets").select("*").eq("user_id", user.id).maybeSingle(),
-        supabase.from("withdrawals" as any).select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("bank_accounts")
-          .select("id, bank_name, account_number, account_name, is_default, currency")
-          .eq("user_id", user.id)
-          .order("is_default", { ascending: false }),
+        fetch(buildBackendUrl(`/api/payouts/history?user_id=${user.id}`)),
       ]);
       setWallet(walletRes.data);
-      setTransfers((transfersRes.data as any) || []);
-      setBankAccounts(banksRes.data || []);
-      const def = banksRes.data?.find(b => b.is_default) || banksRes.data?.[0];
-      if (def) setSelectedBank(def.id);
-    } catch (err: any) {
-      console.error("Load error:", err);
-    } finally {
-      setLoading(false);
-    }
+      const pd = await payoutsRes.json().catch(() => ({}));
+      setPayouts(pd.payouts || []);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => { loadData(); }, [user]);
+  useEffect(() => { loadData(); }, [user?.id]);
 
-  // ── Step handlers ─────────────────────────────────────────────────────────
-
-  const handleContinueToReview = () => {
-    if (!amt || amt <= 0)   { toast.error("Enter a valid amount"); return; }
-    if (amt > available)    { toast.error(`Max available: $${available.toFixed(2)}`); return; }
-    if (!selectedBank)      { toast.error("Select a destination account"); return; }
-    setStep("review");
+  const validate = () => {
+    if (!amt || amt <= 0)       { toast.error("Enter a valid amount"); return false; }
+    if (amt > available)        { toast.error(`Max available: $${available.toFixed(2)}`); return false; }
+    if (!accountName.trim())    { toast.error("Account holder name is required"); return false; }
+    if (!accountNumber.trim() && !iban.trim()) { toast.error("Account number or IBAN is required"); return false; }
+    if (!bankName.trim())       { toast.error("Bank name is required"); return false; }
+    return true;
   };
 
-  const handleConfirmTransfer = async () => {
+  const handleSubmit = async () => {
+    if (!validate()) return;
     setStep("processing");
-    setProcessing(true);
-
-    // Simulate a brief processing animation (like a real bank)
-    await new Promise(r => setTimeout(r, 2200));
-
+    setSubmitting(true);
+    await new Promise(r => setTimeout(r, 1800)); // brief animation
     try {
-      const { data: walletData } = await supabase
-        .from("wallets").select("id, available_balance, balance")
-        .eq("user_id", user!.id).maybeSingle();
-      if (!walletData) throw new Error("Wallet not found. Contact support.");
-
-      const currentBal = Number((walletData as any).available_balance ?? (walletData as any).balance ?? 0);
-      const newBal     = Math.max(0, currentBal - amt);
-      const ref        = buildReference();
-      const arrivalStr = estimatedArrival();
-
-      // Deduct from wallet
-      const { error: walletErr } = await supabase.from("wallets").update({
-        available_balance: newBal,
-        balance: newBal,
-        updated_at: new Date().toISOString(),
-      }).eq("id", (walletData as any).id);
-      if (walletErr) throw walletErr;
-
-      // Record transfer — notes stores the reference since the DB schema
-      // has no dedicated reference/processed_at columns
-      const noteText = [
-        `REF:${ref}`,
-        note.trim() || "Bank transfer",
-        `To: ${chosenBank?.bank_name} ****${chosenBank?.account_number?.slice(-4)}`,
-      ].join(" | ");
-
-      const { error: txErr } = await supabase.from("withdrawals" as any).insert({
-        user_id:         user!.id,
-        amount:          amt,
-        bank_account_id: selectedBank,
-        status:          "completed",
-        notes:           noteText,
+      const res = await fetch(buildBackendUrl("/api/payouts/transfer"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user!.id, amount: amt, currency,
+          account_name: accountName.trim(),
+          account_number: accountNumber.trim() || undefined,
+          bank_name: bankName.trim(),
+          bank_code: bankCode.trim() || undefined,
+          swift_code: swiftCode.trim() || undefined,
+          iban: iban.trim() || undefined,
+          routing_number: routingNumber.trim() || undefined,
+          country_code: countryCode.trim().toUpperCase(),
+          note: note.trim() || undefined,
+        }),
       });
-      if (txErr) throw txErr;
-
-      // Ledger entry
-      await supabase.from("wallet_ledger").insert({
-        wallet_id:    (walletData as any).id,
-        type:         "debit",
-        amount:       amt,
-        balance_after: newBal,
-        description:  `Transfer to ${chosenBank?.bank_name} ****${chosenBank?.account_number?.slice(-4)}`,
-      });
-
-      setReference(ref);
-      setArrival(arrivalStr);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Transfer failed");
+      setReceipt({ ...data, arrival: estimatedArrival() });
       setStep("receipt");
       await loadData();
     } catch (err: any) {
       toast.error(err.message || "Transfer failed. Please try again.");
       setStep("review");
-    } finally {
-      setProcessing(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
-  const handleNewTransfer = () => {
-    setAmount("");
-    setNote("");
-    setReference("");
-    setArrival("");
-    setStep("amount");
+  const reset = () => {
+    setAmount(""); setAccountName(""); setAccountNumber(""); setBankName("");
+    setBankCode(""); setSwiftCode(""); setIban(""); setRoutingNumber("");
+    setCountryCode("US"); setNote(""); setReceipt(null); setStep("form");
   };
-
-  // ── Copy reference ────────────────────────────────────────────────────────
-
-  const copyRef = () => {
-    navigator.clipboard.writeText(reference).then(() => toast.success("Reference copied"));
-  };
-
-  // ── Auth guards ───────────────────────────────────────────────────────────
 
   if (authLoading) return <PageLoading />;
   if (!user)       return <Navigate to="/login" replace />;
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  const CURRENCIES = ["USD","EUR","GBP","AUD","CAD","NGN","GHS","KES","ZAR","INR","SGD","HKD","JPY","CNY","BRL","MXN","AED","SAR"];
 
   return (
     <DashboardLayout role={role}>
-      <div className="space-y-8 max-w-2xl">
-
-        {/* Page header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Bank Transfer</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Send your earnings directly to your bank account
-            </p>
-          </div>
-          <Button size="sm" variant="outline" asChild>
-            <Link to={`/${role}/bank-accounts`}>Manage accounts</Link>
-          </Button>
+      <div className="space-y-6 max-w-2xl">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Transfer Earnings</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Send your earnings to any bank in the world via Airwallex</p>
         </div>
 
-        {/* Balance summary */}
+        {/* Balances */}
         <div className="grid grid-cols-2 gap-4">
           <div className="rounded-2xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <Wallet size={15} className="text-emerald-500" />
-              <p className="text-sm text-muted-foreground">Available to transfer</p>
-            </div>
+            <div className="flex items-center gap-2 mb-2"><Wallet size={15} className="text-emerald-500"/><p className="text-sm text-muted-foreground">Available</p></div>
             <p className="text-3xl font-bold text-foreground">${available.toFixed(2)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{chosenBank?.currency || "USD"}</p>
           </div>
           <div className="rounded-2xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <Lock size={15} className="text-amber-500" />
-              <p className="text-sm text-muted-foreground">Clearing (8-day hold)</p>
-            </div>
+            <div className="flex items-center gap-2 mb-2"><Lock size={15} className="text-amber-500"/><p className="text-sm text-muted-foreground">Clearing (8-day hold)</p></div>
             <p className="text-3xl font-bold text-foreground">${pending.toFixed(2)}</p>
             <p className="text-xs text-muted-foreground mt-1">Released automatically</p>
           </div>
@@ -295,316 +213,159 @@ const TransferPage = ({ role }: { role: "coach" | "creator" | "therapist" }) => 
         {/* Transfer card */}
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
 
-          {/* ── Step 1: Amount + Account ──────────────────────────────────── */}
-          {step === "amount" && (
+          {/* ── FORM ── */}
+          {step === "form" && (
             <div className="p-6 space-y-5">
-              <StepBar current="amount" />
-
-              {/* Amount */}
-              <div>
-                <Label className="text-sm font-medium">Transfer amount</Label>
-                <div className="relative mt-1.5">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">$</span>
-                  <Input
-                    type="number" min="1" step="0.01" max={available}
-                    value={amount}
-                    onChange={e => setAmount(e.target.value)}
-                    placeholder="0.00"
-                    className="pl-7 text-lg font-semibold h-12"
-                  />
+              <StepBar current="form"/>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Amount *</Label>
+                  <div className="relative mt-1.5">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">$</span>
+                    <Input type="number" min="1" step="0.01" max={available} value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0.00" className="pl-7 text-lg font-semibold h-12"/>
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-xs text-muted-foreground">Available: ${available.toFixed(2)}</span>
+                    <button onClick={()=>setAmount(available.toFixed(2))} className="text-xs text-primary hover:underline">Transfer all</button>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between mt-1.5">
-                  <p className="text-xs text-muted-foreground">
-                    Available: <span className="font-medium text-foreground">${available.toFixed(2)}</span>
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setAmount(available.toFixed(2))}
-                    className="text-xs text-primary hover:underline font-medium"
-                  >
-                    Transfer all
-                  </button>
+                <div>
+                  <Label>Currency</Label>
+                  <select value={currency} onChange={e=>setCurrency(e.target.value)} className="mt-1.5 h-12 w-full rounded-xl border border-input bg-background px-3 text-sm">
+                    {CURRENCIES.map(c=><option key={c} value={c}>{c}</option>)}
+                  </select>
                 </div>
               </div>
 
-              {/* Destination account */}
-              <div>
-                <Label className="text-sm font-medium">Destination account</Label>
-                {loading ? (
-                  <div className="mt-1.5 h-16 rounded-xl bg-muted animate-pulse" />
-                ) : bankAccounts.length === 0 ? (
-                  <div className="mt-1.5 rounded-xl border border-dashed border-border p-5 text-center space-y-2">
-                    <AlertCircle size={20} className="mx-auto text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">No bank accounts linked yet</p>
-                    <Button size="sm" variant="outline" asChild>
-                      <Link to={`/${role}/bank-accounts`}>Add bank account</Link>
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="mt-1.5 space-y-2">
-                    {bankAccounts.map(bank => (
-                      <button
-                        key={bank.id}
-                        type="button"
-                        onClick={() => setSelectedBank(bank.id)}
-                        className={`w-full flex items-center gap-3 rounded-xl border p-3.5 text-left transition-all
-                          ${selectedBank === bank.id
-                            ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                            : "border-border hover:border-primary/40 bg-background"}`}
-                      >
-                        <div className="rounded-lg bg-primary/10 p-2 shrink-0">
-                          {bank.bank_name?.toLowerCase().includes("paypal")
-                            ? <CreditCard size={17} className="text-primary" />
-                            : <Building2  size={17} className="text-primary" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-foreground">{bank.bank_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            ****{bank.account_number?.slice(-4)}
-                            {bank.account_name && ` · ${bank.account_name}`}
-                            <span className="ml-2 uppercase">{bank.currency || "USD"}</span>
-                            {bank.is_default && <span className="ml-2 text-primary font-medium">Default</span>}
-                          </p>
-                        </div>
-                        {selectedBank === bank.id && (
-                          <CheckCircle2 size={16} className="text-primary shrink-0" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
+              <div className="rounded-xl bg-muted/30 border border-border p-4 space-y-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Building2 size={12}/>Recipient Bank Details</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div><Label>Account Holder Name *</Label><Input className="mt-1" value={accountName} onChange={e=>setAccountName(e.target.value)} placeholder="Full legal name"/></div>
+                  <div><Label>Account Number</Label><Input className="mt-1" value={accountNumber} onChange={e=>setAccountNumber(e.target.value)} placeholder="Account / NUBAN number"/></div>
+                  <div><Label>Bank Name *</Label><Input className="mt-1" value={bankName} onChange={e=>setBankName(e.target.value)} placeholder="e.g. Access Bank, Chase"/></div>
+                  <div><Label>Bank Code / Sort Code</Label><Input className="mt-1" value={bankCode} onChange={e=>setBankCode(e.target.value)} placeholder="Optional"/></div>
+                  <div><Label>SWIFT / BIC Code</Label><Input className="mt-1" value={swiftCode} onChange={e=>setSwiftCode(e.target.value)} placeholder="For international SWIFT"/></div>
+                  <div><Label>IBAN</Label><Input className="mt-1" value={iban} onChange={e=>setIban(e.target.value)} placeholder="For EU / SEPA transfers"/></div>
+                  <div><Label>Routing Number</Label><Input className="mt-1" value={routingNumber} onChange={e=>setRoutingNumber(e.target.value)} placeholder="US ACH routing"/></div>
+                  <div><Label>Country Code *</Label><Input className="mt-1" value={countryCode} onChange={e=>setCountryCode(e.target.value.toUpperCase())} placeholder="e.g. US, NG, GB" maxLength={2}/></div>
+                </div>
               </div>
 
-              {/* Note (optional) */}
-              <div>
-                <Label className="text-sm font-medium">
-                  Transfer note <span className="text-muted-foreground font-normal">(optional)</span>
-                </Label>
-                <Input
-                  className="mt-1.5"
-                  value={note}
-                  onChange={e => setNote(e.target.value)}
-                  placeholder="e.g. Earnings payout — July"
-                  maxLength={80}
-                />
+              <div><Label>Transfer Note <span className="text-muted-foreground font-normal">(optional)</span></Label><Input className="mt-1.5" value={note} onChange={e=>setNote(e.target.value)} placeholder="e.g. Earnings — July 2026" maxLength={80}/></div>
+
+              <div className="flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3.5 text-xs text-blue-800">
+                <Globe size={13} className="shrink-0 mt-0.5"/>
+                <span>Transfers are sent worldwide via Airwallex. Fill only the fields relevant to your recipient's country — SWIFT + IBAN for Europe, routing number for US ACH, bank code for Nigeria/Africa.</span>
               </div>
 
-              <Button
-                onClick={handleContinueToReview}
-                disabled={!amt || amt <= 0 || amt > available || !selectedBank}
-                className="w-full h-11 gap-2 text-base"
-              >
-                Continue <ArrowRight size={16} />
+              <Button onClick={()=>{ if(validate()) setStep("review"); }} className="w-full h-11 gap-2 text-base">
+                Review Transfer <ArrowRight size={16}/>
               </Button>
-
-              {available <= 0 && (
-                <p className="text-xs text-center text-muted-foreground">
-                  No available balance — funds clear after the 8-day hold period
-                </p>
-              )}
             </div>
           )}
 
-          {/* ── Step 2: Review ────────────────────────────────────────────── */}
+          {/* ── REVIEW ── */}
           {step === "review" && (
             <div className="p-6 space-y-5">
-              <StepBar current="review" />
-
-              <div className="text-center mb-2">
-                <p className="text-sm text-muted-foreground">You are about to transfer</p>
-                <p className="text-4xl font-bold text-foreground mt-1">${amt.toFixed(2)}</p>
-                <p className="text-sm text-muted-foreground mt-0.5">{chosenBank?.currency || "USD"}</p>
+              <StepBar current="review"/>
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">Transferring</p>
+                <p className="text-4xl font-bold text-foreground mt-1">{currency} {amt.toFixed(2)}</p>
               </div>
-
-              {/* Transfer details table */}
-              <div className="rounded-xl border border-border overflow-hidden">
-                <div className="divide-y divide-border">
-                  <DetailRow label="From"      value="Your Coursevia wallet" />
-                  <DetailRow label="To"        value={`${chosenBank?.bank_name} ****${chosenBank?.account_number?.slice(-4)}`} />
-                  {chosenBank?.account_name && (
-                    <DetailRow label="Account holder" value={chosenBank.account_name} />
-                  )}
-                  <DetailRow label="Amount"    value={`$${amt.toFixed(2)} ${chosenBank?.currency || "USD"}`} bold />
-                  <DetailRow label="Fee"       value="Free" className="text-emerald-600" />
-                  <DetailRow label="Estimated arrival" value="1 – 3 business days" />
-                  {note && <DetailRow label="Note" value={note} />}
-                </div>
+              <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
+                <Row label="From"            value="Your Coursevia Wallet"/>
+                <Row label="To"              value={`${bankName}${accountNumber ? " ****"+accountNumber.slice(-4) : ""}`}/>
+                <Row label="Account Holder"  value={accountName}/>
+                {iban         && <Row label="IBAN"          value={iban}/>}
+                {swiftCode    && <Row label="SWIFT/BIC"     value={swiftCode}/>}
+                {routingNumber&& <Row label="Routing"       value={routingNumber}/>}
+                <Row label="Country"         value={countryCode.toUpperCase()}/>
+                <Row label="Amount"          value={`${currency} ${amt.toFixed(2)}`} bold/>
+                <Row label="Fee"             value="Free"/>
+                <Row label="Est. arrival"    value="1–3 business days"/>
+                {note && <Row label="Note"   value={note}/>}
               </div>
-
-              <div className="rounded-xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-800 flex gap-2">
-                <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                <span>
-                  Please verify the destination account before confirming.
-                  Transfers cannot be reversed once submitted.
-                </span>
+              <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-800">
+                <AlertCircle size={13} className="shrink-0 mt-0.5"/>
+                Verify the recipient details carefully. Transfers cannot be reversed once submitted.
               </div>
-
               <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1 gap-1"
-                  onClick={() => setStep("amount")}
-                >
-                  <ChevronLeft size={15} /> Back
-                </Button>
-                <Button
-                  className="flex-1 gap-2 h-11"
-                  onClick={handleConfirmTransfer}
-                >
-                  <Send size={15} /> Confirm Transfer
-                </Button>
+                <Button variant="outline" className="flex-1" onClick={()=>setStep("form")}><ChevronLeft size={15}/> Back</Button>
+                <Button className="flex-1 h-11" onClick={handleSubmit}><Send size={15} className="mr-1"/> Confirm & Send</Button>
               </div>
             </div>
           )}
 
-          {/* ── Step 3: Processing ───────────────────────────────────────── */}
+          {/* ── PROCESSING ── */}
           {step === "processing" && (
-            <div className="p-10 flex flex-col items-center justify-center gap-5 min-h-[280px]">
-              <StepBar current="processing" />
+            <div className="p-10 flex flex-col items-center gap-5 min-h-[260px]">
+              <StepBar current="processing"/>
               <div className="relative">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Send size={26} className="text-primary" />
-                </div>
-                <div className="absolute -inset-1 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center"><Send size={26} className="text-primary"/></div>
+                <div className="absolute -inset-1 rounded-full border-2 border-primary/30 border-t-primary animate-spin"/>
               </div>
               <div className="text-center space-y-1">
-                <p className="font-semibold text-foreground">Processing your transfer…</p>
-                <p className="text-sm text-muted-foreground">Communicating with the banking network</p>
-              </div>
-              <div className="flex gap-1.5">
-                {[0, 1, 2].map(i => (
-                  <div
-                    key={i}
-                    className="w-2 h-2 rounded-full bg-primary animate-bounce"
-                    style={{ animationDelay: `${i * 0.15}s` }}
-                  />
-                ))}
+                <p className="font-semibold text-foreground">Sending via Airwallex…</p>
+                <p className="text-sm text-muted-foreground">Connecting to the global banking network</p>
               </div>
             </div>
           )}
 
-          {/* ── Step 4: Receipt ──────────────────────────────────────────── */}
-          {step === "receipt" && (
+          {/* ── RECEIPT ── */}
+          {step === "receipt" && receipt && (
             <div className="p-6 space-y-5">
-              <StepBar current="receipt" />
-
-              {/* Success banner */}
-              <div className="flex flex-col items-center text-center gap-2 py-2">
-                <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <CheckCircle2 size={30} className="text-emerald-600" />
-                </div>
-                <p className="text-lg font-bold text-foreground">Transfer Successful</p>
-                <p className="text-sm text-muted-foreground">
-                  ${amt.toFixed(2)} is on its way to {chosenBank?.bank_name}
-                </p>
+              <StepBar current="receipt"/>
+              <div className="flex flex-col items-center gap-2 text-center py-2">
+                <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center"><CheckCircle2 size={30} className="text-emerald-600"/></div>
+                <p className="text-lg font-bold text-foreground">Transfer Submitted</p>
+                <p className="text-sm text-muted-foreground">{currency} {amt.toFixed(2)} is on its way to {bankName}</p>
               </div>
-
-              {/* Receipt card */}
-              <div className="rounded-xl border border-border overflow-hidden">
-                <div className="bg-muted/40 px-4 py-2.5 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Transfer Receipt
-                  </span>
-                  <button
-                    onClick={copyRef}
-                    className="flex items-center gap-1 text-xs text-primary hover:underline"
-                  >
-                    <Copy size={11} /> Copy ref
-                  </button>
+              <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
+                <div className="bg-muted/40 px-4 py-2.5 flex justify-between items-center">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Transfer Receipt</span>
+                  <button onClick={()=>{navigator.clipboard.writeText(receipt.reference);toast.success("Reference copied");}} className="text-xs text-primary hover:underline flex items-center gap-1"><Copy size={11}/> Copy ref</button>
                 </div>
-                <div className="divide-y divide-border">
-                  <DetailRow label="Reference"       value={reference} mono bold />
-                  <DetailRow label="Amount"          value={`$${amt.toFixed(2)} ${chosenBank?.currency || "USD"}`} bold />
-                  <DetailRow label="To"              value={`${chosenBank?.bank_name} ****${chosenBank?.account_number?.slice(-4)}`} />
-                  {chosenBank?.account_name && (
-                    <DetailRow label="Account holder" value={chosenBank.account_name} />
-                  )}
-                  <DetailRow label="Status"          value="Submitted to bank" className="text-emerald-600" />
-                  <DetailRow label="Estimated arrival" value={arrival} />
-                  <DetailRow label="Date"            value={new Date().toLocaleString()} />
-                  {note && <DetailRow label="Note"  value={note} />}
-                </div>
+                <Row label="Reference"  value={receipt.reference} mono bold/>
+                <Row label="Amount"     value={`${currency} ${amt.toFixed(2)}`} bold/>
+                <Row label="To"         value={`${bankName}${accountNumber?" ****"+accountNumber.slice(-4):""}`}/>
+                <Row label="Status"     value={receipt.status || "Submitted"}/>
+                <Row label="Est. arrival" value={receipt.arrival}/>
+                {receipt.airwallex_transfer_id && <Row label="Airwallex ID" value={receipt.airwallex_transfer_id} mono/>}
               </div>
-
-              <p className="text-xs text-center text-muted-foreground">
-                Keep your reference number <span className="font-semibold text-foreground">{reference}</span> for tracking.
-              </p>
-
-              <Button onClick={handleNewTransfer} className="w-full gap-2">
-                <Send size={14} /> Make Another Transfer
-              </Button>
+              <Button onClick={reset} className="w-full gap-2"><Send size={14}/> New Transfer</Button>
             </div>
           )}
         </div>
 
-        {/* Transfer history */}
+        {/* History */}
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
-          <div className="p-5 border-b border-border flex items-center justify-between">
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold text-foreground">Transfer History</h2>
-            <span className="text-xs text-muted-foreground">{transfers.length} record{transfers.length !== 1 ? "s" : ""}</span>
+            <span className="text-xs text-muted-foreground">{payouts.length} record{payouts.length!==1?"s":""}</span>
           </div>
-          {loading ? (
-            <div className="p-6 text-center text-muted-foreground text-sm">Loading…</div>
-          ) : transfers.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">
-              No transfers yet. Your history will appear here.
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {transfers.map(t => (
-                <div key={t.id} className="flex items-center justify-between px-5 py-3.5">
+          {loading ? <p className="p-6 text-sm text-muted-foreground">Loading…</p>
+          : payouts.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">No transfers yet.</p>
+          : <div className="divide-y divide-border">
+              {payouts.map(p=>(
+                <div key={p.id} className="flex items-center justify-between px-5 py-3.5 gap-3">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                      {statusIcon(t.status)}
+                      {p.status==="completed"||p.status==="submitted" ? <CheckCircle2 size={14} className="text-emerald-500"/> : p.status==="failed" ? <XCircle size={14} className="text-red-500"/> : <Clock size={14} className="text-amber-500"/>}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-foreground">${Number(t.amount).toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(t.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                        {(t as any).notes?.includes("REF:") && (
-                          <span className="ml-2 font-mono text-[10px] text-muted-foreground/70">
-                            {(t as any).notes.match(/REF:([\w-]+)/)?.[1] || ""}
-                          </span>
-                        )}
-                      </p>
+                      <p className="text-sm font-semibold text-foreground">{p.currency} {Number(p.amount).toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">{p.bank_name} · {new Date(p.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>
                     </div>
                   </div>
-                  <span className={`text-xs border rounded-full px-2.5 py-0.5 capitalize font-medium ${statusClass(t.status)}`}>
-                    {t.status === "completed" ? "Transferred" : t.status}
-                  </span>
+                  <span className={`text-xs border rounded-full px-2.5 py-0.5 capitalize font-medium ${statusBadge(p.status)}`}>{p.status==="submitted"?"Sent":p.status}</span>
                 </div>
               ))}
-            </div>
-          )}
+            </div>}
         </div>
       </div>
     </DashboardLayout>
   );
 };
-
-// ── Detail row helper ─────────────────────────────────────────────────────────
-
-const DetailRow = ({
-  label, value, bold, mono, className,
-}: {
-  label: string;
-  value: string;
-  bold?: boolean;
-  mono?: boolean;
-  className?: string;
-}) => (
-  <div className="flex items-center justify-between px-4 py-3 gap-4">
-    <span className="text-xs text-muted-foreground shrink-0">{label}</span>
-    <span className={`text-xs text-right break-all
-      ${bold ? "font-semibold text-foreground" : "text-foreground"}
-      ${mono  ? "font-mono"                    : ""}
-      ${className || ""}`}>
-      {value}
-    </span>
-  </div>
-);
-
-// ── Named exports ─────────────────────────────────────────────────────────────
 
 export default TransferPage;
 export const CoachWithdrawals     = () => <TransferPage role="coach"     />;

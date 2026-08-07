@@ -76,23 +76,38 @@ export const VirtualAccountCard = () => {
   const [showTopups,    setShowTopups]    = useState(false);
   const [selectedCcy,   setSelectedCcy]   = useState("USD");
   const [showCcyPicker, setShowCcyPicker] = useState(false);
+  // null = not checked yet, false = backend reachable, string = error message
+  const [backendError,  setBackendError]  = useState<string | null>(null);
 
   const backendBase = buildBackendUrl("");
 
   const loadAccounts = async () => {
     if (!user?.id) return;
     setLoading(true);
+    setBackendError(null);
     try {
       const [accRes, topRes] = await Promise.all([
         fetch(`${backendBase}/api/virtual-account/${user.id}`),
         fetch(`${backendBase}/api/virtual-account/${user.id}/topups`),
       ]);
+
+      // Surface Airwallex-not-configured and other backend errors clearly
+      if (!accRes.ok) {
+        const body = await accRes.json().catch(() => ({}));
+        const msg = body?.error || `Backend error (${accRes.status})`;
+        setBackendError(msg);
+        setLoading(false);
+        return;
+      }
+
       const accData = await accRes.json().catch(() => ({}));
       const topData = await topRes.json().catch(() => ({}));
       setAccounts(accData.accounts || []);
       setTopups(topData.topups || []);
+      setBackendError(null);
     } catch {
-      // silently fail — backend may not be running locally
+      // Network error — backend unreachable
+      setBackendError("Could not reach the backend. Make sure the server is running.");
     } finally {
       setLoading(false);
     }
@@ -117,8 +132,14 @@ export const VirtualAccountCard = () => {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Failed to create account");
+      if (!res.ok) {
+        const msg = data?.error || "Failed to create account";
+        // Persist as a banner rather than just a fleeting toast for config errors
+        if (res.status === 503) setBackendError(msg);
+        throw new Error(msg);
+      }
       toast.success(`${selectedCcy} account created!`);
+      setBackendError(null);
       await loadAccounts();
     } catch (err: any) {
       toast.error(err.message || "Could not create virtual account");
@@ -167,6 +188,37 @@ export const VirtualAccountCard = () => {
             Transfer money from your personal bank to this account. It will reflect in your Coursevia wallet automatically — usually within minutes.
           </p>
         </div>
+
+        {/* Airwallex / backend error banner */}
+        {backendError && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+            <div className="flex items-start gap-2">
+              <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-900">Bank account service unavailable</p>
+                <p className="text-xs text-amber-800 mt-0.5 break-words">{backendError}</p>
+              </div>
+            </div>
+            {backendError.toLowerCase().includes("airwallex") || backendError.toLowerCase().includes("not configured") ? (
+              <p className="text-xs text-amber-700 pl-5">
+                Add your <strong>AIRWALLEX_CLIENT_ID</strong> and <strong>AIRWALLEX_API_KEY</strong> to{" "}
+                <code className="bg-amber-100 px-1 rounded">backend/.env</code>, then restart the server.
+                See <strong>AIRWALLEX_SETUP.md</strong> in your project root for full instructions.
+              </p>
+            ) : (
+              <p className="text-xs text-amber-700 pl-5">
+                Make sure the backend server is running:{" "}
+                <code className="bg-amber-100 px-1 rounded">cd backend &amp;&amp; npm start</code>
+              </p>
+            )}
+            <button
+              onClick={loadAccounts}
+              className="ml-5 flex items-center gap-1 text-xs text-amber-700 hover:underline font-medium"
+            >
+              <RefreshCw size={11} /> Retry
+            </button>
+          </div>
+        )}
 
         {/* Currency picker */}
         <div>

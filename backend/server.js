@@ -1222,6 +1222,207 @@ app.post("/api/payouts/withdraw", async (req, res) => {
   }
 });
 
+// ── Airwallex Transfers (real international bank payout) ─────────────────────
+//
+// POST /api/payouts/transfer
+// Sends provider earnings to ANY bank in the world via Airwallex Transfers API.
+// The provider enters bank details inline — no pre-registration needed.
+//
+// Body: {
+//   user_id, amount, currency,
+//   account_name, account_number,
+//   bank_name, bank_code,         // bank code / BIC / sort code
+//   swift_code, iban,             // for SWIFT / SEPA rails
+//   routing_number,               // US ACH
+//   country_code,                 // ISO-3166-1 alpha-2
+//   note                          // optional reference
+// }
+//
+app.post("/api/payouts/transfer", async (req, res) => {
+  try {
+    const {
+      user_id:        userId,
+      amount,
+      currency        = "USD",
+      account_name:   accountName,
+      account_number: accountNumber,
+      bank_name:      bankName,
+      bank_code:      bankCode,
+      swift_code:     swiftCode,
+      iban,
+      routing_number: routingNumber,
+      country_code:   countryCode = "US",
+      note            = "Coursevia earnings payout",
+    } = req.body || {};
+
+    if (!userId)          return res.status(400).json({ error: "user_id is required." });
+    if (!accountName)     return res.status(400).json({ error: "account_name is required." });
+    if (!accountNumber && !iban) return res.status(400).json({ error: "account_number or IBAN is required." });
+    if (!bankName)        return res.status(400).json({ error: "bank_name is required." });
+
+    const numericAmount = safeNumber(amount, 0);
+    if (numericAmount <= 0) return res.status(400).json({ error: "Amount must be greater than 0." });
+
+    if (!supabaseAdmin) return res.status(503).json({ error: "Database unavailable." });
+
+    // 1. Verify wallet balance
+    const { data: wallet, error: walletErr } = await supabaseAdmin
+      .from("wallets").select("*").eq("user_id", userId).maybeSingle();
+    if (walletErr || !wallet) return res.status(404).json({ error: "Wallet not found." });
+
+    const available = safeNumber(wallet.available_balance ?? wallet.balance, 0);
+    if (numericAmount > available) {
+      return res.status(402).json({
+        error: `Insufficient balance. Available: $${available.toFixed(2)}, Requested: $${numericAmount.toFixed(2)}`,
+      });
+    }
+
+    const reference = buildReference("pay");
+
+    // 2. Execute via Airwallex Transfers API if configured
+    let airwallexTransferId = null;
+    let transferStatus      = "pending";
+
+    if (AIRWALLEX_CLIENT_ID && AIRWALLEX_API_KEY &&
+        !AIRWALLEX_CLIENT_ID.startsWith("replace_") &&
+        !AIRWALLEX_API_KEY.startsWith("replace_")) {
+      try {
+        // Build bank_details — populate only the fields that are provided
+        const bankDetails = {
+          account_name:   accountName,
+          bank_name:      bankName,
+          ...(accountNumber ? { account_number: accountNumber } : {}),
+          ...(iban          ? { iban }                          : {}),
+          ...(swiftCode     ? { swift_code: swiftCode }         : {}),
+          ...(bankCode      ? { bank_code:   bankCode }         : {}),
+          ...(routingNumber ? { routing_number: routingNumber } : {}),
+        };
+
+        // Determine payment method rail
+        const paymentMethod = iban || swiftCode ? "SWIFT" : "LOCAL_BANK_TRANSFER";
+
+        const transferPayload = {
+          request_id:     reference,
+          amount:         numericAmount,
+          currency:       currency.toUpperCase(),
+          reason:         note,
+          beneficiary: {
+            beneficiary_contact_details: { account_name: accountName },
+            bank_details:                bankDetails,
+            entity_type:                 "PERSONAL",
+            address: {
+              country_code: countryCode.toUpperCase(),
+            },
+          },
+          payment_method: paymentMethod,
+          source_currency: currency.toUpperCase(),
+          payment_currency: currency.toUpperCase(),
+        };
+
+        const awResult = await airwallexRequest("POST", "/api/v1/transfers/create", transferPayload);
+        airwallexTransferId = awResult?.id || awResult?.transfer_id || null;
+        transferStatus      = awResult?.status || "submitted";
+        console.log(`[Payout] Airwallex transfer created: ${airwallexTransferId} status=${transferStatus}`);
+      } catch (awErr) {
+        console.error("[Payout] Airwallex transfer error:", awErr?.message || awErr);
+        // Don't fail the whole request — fall through to record as "processing"
+        // Admin can retry via Airwallex dashboard
+        transferStatus = "processing";
+      }
+    } else {
+      // Airwallex not configured — record as pending for manual processing
+      transferStatus = "pending";
+      console.warn("[Payout] Airwallex not configured — payout recorded as pending for manual processing.");
+    }
+
+    // 3. Deduct from wallet
+    const newBalance = Math.max(0, available - numericAmount);
+    await supabaseAdmin.from("wallets").update({
+      available_balance: newBalance,
+      balance:           Math.max(0, safeNumber(wallet.balance, 0) - numericAmount),
+      updated_at:        new Date().toISOString(),
+    }).eq("user_id", userId);
+
+    // 4. Record payout
+    const payoutRecord = {
+      user_id:              userId,
+      amount:               numericAmount,
+      currency:             currency.toUpperCase(),
+      status:               transferStatus,
+      reference,
+      airwallex_transfer_id: airwallexTransferId,
+      account_name:         accountName,
+      account_number:       accountNumber ? `****${String(accountNumber).slice(-4)}` : null,
+      bank_name:            bankName,
+      country_code:         countryCode.toUpperCase(),
+      note,
+    };
+
+    const { data: saved, error: saveErr } = await supabaseAdmin
+      .from("payouts").insert(payoutRecord).select("*").single();
+    if (saveErr) console.error("[Payout] DB insert error:", saveErr.message);
+
+    // 5. Wallet ledger entry
+    await supabaseAdmin.from("wallet_ledger").insert({
+      wallet_id:     wallet.id,
+      type:          "debit",
+      amount:        numericAmount,
+      balance_after: newBalance,
+      description:   `Payout to ${bankName} ****${String(accountNumber || iban || "").slice(-4)} (${reference})`,
+    }).catch(() => {});
+
+    // 6. Notify provider
+    await supabaseAdmin.from("notifications").insert({
+      user_id: userId,
+      type:    "payout_initiated",
+      title:   "Payout submitted",
+      message: `$${numericAmount.toFixed(2)} ${currency.toUpperCase()} is being transferred to ${bankName}. Reference: ${reference}`,
+      metadata: { amount: numericAmount, currency, reference, airwallex_transfer_id: airwallexTransferId },
+    }).catch(() => {});
+
+    console.log(`[Payout] $${numericAmount} ${currency} → ${bankName} for user ${userId} | ref=${reference}`);
+
+    return res.json({
+      success:    true,
+      reference,
+      status:     transferStatus,
+      amount:     numericAmount,
+      currency:   currency.toUpperCase(),
+      balance_after: newBalance,
+      airwallex_transfer_id: airwallexTransferId,
+      message:    transferStatus === "pending"
+        ? "Payout recorded. Will be processed when Airwallex is configured."
+        : `Payout submitted to ${bankName}. Arrives in 1–3 business days.`,
+    });
+  } catch (error) {
+    console.error("[Payout] Unexpected error:", error);
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Payout failed." });
+  }
+});
+
+// GET /api/payouts/history?user_id=xxx
+app.get("/api/payouts/history", async (req, res) => {
+  try {
+    const userId = String(req.query.user_id || "").trim();
+    if (!userId) return res.status(400).json({ error: "user_id is required." });
+
+    if (supabaseAdmin) {
+      const { data, error } = await supabaseAdmin
+        .from("payouts")
+        .select("id, amount, currency, status, reference, account_name, bank_name, country_code, created_at, note")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw new Error(error.message);
+      return res.json({ payouts: data || [] });
+    }
+
+    return res.json({ payouts: [] });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Could not load payout history." });
+  }
+});
+
 // ── Stripe Connect (Real Bank Verification & Payouts) ────────────────────────
 
 const STRIPE_CLIENT_ID = process.env.STRIPE_CLIENT_ID || "";
@@ -2675,6 +2876,299 @@ app.get("/api/wallet/balance/:userId", async (req, res) => {
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Could not load balance." });
   }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ── Paddle Billing Integration ────────────────────────────────────────────────
+//
+// Paddle is our Merchant of Record — handles global card payments, VAT, fraud.
+// Two surfaces:
+//   1. POST /api/paddle/create-transaction  → server-side transaction for checkout
+//   2. POST /api/webhooks/paddle            → fulfil on transaction.completed
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PADDLE_API_KEY        = process.env.PADDLE_API_KEY        || "";
+const PADDLE_WEBHOOK_SECRET = process.env.PADDLE_WEBHOOK_SECRET || "";
+const PADDLE_ENV            = process.env.PADDLE_ENV            || "production";
+const PADDLE_BASE           = PADDLE_ENV === "sandbox"
+  ? "https://sandbox-api.paddle.com"
+  : "https://api.paddle.com";
+
+// ── Paddle REST helper ────────────────────────────────────────────────────────
+const paddleRequest = async (method, path, body = null) => {
+  const res = await fetch(`${PADDLE_BASE}${path}`, {
+    method,
+    headers: {
+      "Authorization": `Bearer ${PADDLE_API_KEY}`,
+      "Content-Type":  "application/json",
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(
+      data?.error?.detail ||
+      data?.error?.type   ||
+      `Paddle error ${res.status}`
+    );
+  }
+  return data?.data ?? data;
+};
+
+// ── Paddle webhook signature verification ─────────────────────────────────────
+// https://developer.paddle.com/webhooks/signature-verification
+const verifyPaddleWebhook = (req) => {
+  if (!PADDLE_WEBHOOK_SECRET) return true; // skip in dev if not set
+  const sigHeader = req.headers["paddle-signature"] || "";
+  const parts = Object.fromEntries(
+    sigHeader.split(";").map(p => p.split("=", 2))
+  );
+  const ts      = parts["ts"];
+  const h1      = parts["h1"];
+  if (!ts || !h1) return false;
+  const payload = `${ts}:${req.rawBody || JSON.stringify(req.body)}`;
+  const expected = crypto
+    .createHmac("sha256", PADDLE_WEBHOOK_SECRET)
+    .update(payload)
+    .digest("hex");
+  // Constant-time compare
+  try {
+    return crypto.timingSafeEqual(Buffer.from(h1, "hex"), Buffer.from(expected, "hex"));
+  } catch { return false; }
+};
+
+// ── POST /api/paddle/create-transaction ───────────────────────────────────────
+// Called by the frontend before opening Paddle.js overlay checkout.
+// Creates a Paddle transaction and returns the transaction ID.
+// The frontend then passes this to Paddle.Checkout.open({ transactionId }).
+//
+// Body: { price_id, quantity, user_id, email, custom_data }
+app.post("/api/paddle/create-transaction", async (req, res) => {
+  try {
+    if (!PADDLE_API_KEY || PADDLE_API_KEY.startsWith("replace_")) {
+      return res.status(503).json({ error: "Paddle not configured. Add PADDLE_API_KEY to backend/.env" });
+    }
+
+    const {
+      price_id:    priceId,
+      quantity     = 1,
+      user_id:     userId,
+      email,
+      custom_data: customData = {},
+    } = req.body || {};
+
+    if (!priceId)  return res.status(400).json({ error: "price_id is required." });
+    if (!userId)   return res.status(400).json({ error: "user_id is required." });
+    if (!email)    return res.status(400).json({ error: "email is required." });
+
+    const txPayload = {
+      items: [{ price_id: priceId, quantity }],
+      customer: { email },
+      custom_data: { user_id: userId, ...customData },
+    };
+
+    const tx = await paddleRequest("POST", "/transactions", txPayload);
+
+    console.log(`[Paddle] Transaction created: ${tx.id} for user ${userId}`);
+    return res.json({
+      success:        true,
+      transaction_id: tx.id,
+      status:         tx.status,
+    });
+  } catch (error) {
+    console.error("[Paddle] create-transaction error:", error);
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Could not create Paddle transaction." });
+  }
+});
+
+// ── POST /api/webhooks/paddle ─────────────────────────────────────────────────
+// Receives all Paddle events. We need raw body for signature verification,
+// so this route uses express.raw before express.json.
+app.post("/api/webhooks/paddle",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    let event;
+    try {
+      // Attach rawBody for signature verification
+      req.rawBody = req.body.toString("utf8");
+      event = JSON.parse(req.rawBody);
+    } catch {
+      return res.status(400).json({ error: "Invalid JSON" });
+    }
+
+    if (!verifyPaddleWebhook(req)) {
+      console.warn("[Paddle Webhook] Invalid signature");
+      return res.status(401).json({ error: "Invalid signature" });
+    }
+
+    const eventType = event.event_type || event.notification_type || "";
+    const data      = event.data || {};
+
+    console.log(`[Paddle Webhook] ${eventType} | id=${data.id}`);
+
+    try {
+      // ── transaction.completed ──────────────────────────────────────────────
+      // Real money collected. Fulfil: credit wallet or grant access.
+      if (eventType === "transaction.completed") {
+        const txId       = data.id;
+        const customData = data.custom_data || {};
+        const userId     = customData.user_id || null;
+        const topupType  = customData.type    || "topup";   // "topup" | "booking" | "subscription"
+        const email      = data.customer?.email || customData.email || null;
+
+        // Total amount in major units (Paddle sends in minor — cents)
+        const amountMinor  = safeNumber(
+          data.details?.totals?.total ??
+          data.totals?.total          ??
+          data.amount                 ?? 0
+        );
+        const currencyCode = (data.currency_code || "USD").toUpperCase();
+        // Paddle amounts are in the currency's minor unit (cents for USD)
+        const amount = amountMinor / 100;
+
+        console.log(`[Paddle] transaction.completed tx=${txId} user=${userId} amount=${amount} ${currencyCode} type=${topupType}`);
+
+        if (!supabaseAdmin || !userId) {
+          return res.json({ received: true, note: "No DB or userId — skipped fulfil" });
+        }
+
+        // Idempotency — skip if already processed
+        const { data: existing } = await supabaseAdmin
+          .from("paddle_events")
+          .select("id")
+          .eq("paddle_event_id", event.notification_id || txId)
+          .maybeSingle();
+        if (existing) {
+          return res.json({ received: true, action: "duplicate_skipped" });
+        }
+
+        // Record the event
+        await supabaseAdmin.from("paddle_events").insert({
+          paddle_event_id: event.notification_id || txId,
+          event_type:      eventType,
+          transaction_id:  txId,
+          user_id:         userId,
+          amount,
+          currency:        currencyCode,
+          custom_data:     customData,
+        }).catch(() => {});
+
+        if (topupType === "topup" && amount > 0) {
+          // Credit the learner's wallet
+          const { data: wallet } = await supabaseAdmin
+            .from("wallets").select("*").eq("user_id", userId).maybeSingle();
+
+          if (wallet) {
+            const newAvailable = safeNumber(wallet.available_balance) + amount;
+            const newBalance   = safeNumber(wallet.balance)           + amount;
+            await supabaseAdmin.from("wallets").update({
+              available_balance: newAvailable,
+              balance:           newBalance,
+              updated_at:        new Date().toISOString(),
+            }).eq("user_id", userId);
+
+            await supabaseAdmin.from("wallet_ledger").insert({
+              wallet_id:     wallet.id,
+              type:          "credit",
+              amount,
+              balance_after: newAvailable,
+              description:   `Wallet top-up via Paddle (${txId})`,
+            }).catch(() => {});
+
+            await supabaseAdmin.from("notifications").insert({
+              user_id: userId,
+              type:    "wallet_topup",
+              title:   "Wallet funded",
+              message: `$${amount.toFixed(2)} ${currencyCode} has been added to your wallet.`,
+              metadata: { amount, currency: currencyCode, transaction_id: txId },
+            }).catch(() => {});
+
+            console.log(`[Paddle] ✓ Credited $${amount} ${currencyCode} to wallet for user ${userId}`);
+          } else {
+            // Wallet doesn't exist yet — create it
+            await supabaseAdmin.from("wallets").upsert(
+              { user_id: userId, currency: currencyCode, balance: amount, available_balance: amount, pending_balance: 0 },
+              { onConflict: "user_id" }
+            );
+            console.log(`[Paddle] ✓ Created wallet and credited $${amount} for user ${userId}`);
+          }
+        }
+
+        return res.json({ received: true, action: "wallet_credited", amount, userId });
+      }
+
+      // ── subscription.activated ────────────────────────────────────────────
+      if (eventType === "subscription.activated") {
+        const userId   = data.custom_data?.user_id || null;
+        const subId    = data.id;
+        const planName = data.items?.[0]?.price?.name || "Subscription";
+        const nextBill = data.next_billed_at || null;
+
+        if (supabaseAdmin && userId) {
+          await supabaseAdmin.from("subscriptions").upsert({
+            user_id:             userId,
+            paddle_subscription_id: subId,
+            status:              "active",
+            plan:                planName,
+            next_billing_date:   nextBill,
+            updated_at:          new Date().toISOString(),
+          }, { onConflict: "user_id" });
+        }
+        console.log(`[Paddle] Subscription activated: ${subId} for user ${userId}`);
+        return res.json({ received: true, action: "subscription_activated" });
+      }
+
+      // ── subscription.updated ──────────────────────────────────────────────
+      if (eventType === "subscription.updated") {
+        const userId   = data.custom_data?.user_id || null;
+        const subId    = data.id;
+        const status   = data.status || "active";
+        const nextBill = data.next_billed_at || null;
+
+        if (supabaseAdmin && userId) {
+          await supabaseAdmin.from("subscriptions").update({
+            status:            status === "canceled" ? "canceled" : "active",
+            next_billing_date: nextBill,
+            updated_at:        new Date().toISOString(),
+          }).eq("paddle_subscription_id", subId);
+        }
+        console.log(`[Paddle] Subscription updated: ${subId} status=${status}`);
+        return res.json({ received: true, action: "subscription_updated" });
+      }
+
+      // ── subscription.canceled ─────────────────────────────────────────────
+      if (eventType === "subscription.canceled") {
+        const subId = data.id;
+        if (supabaseAdmin) {
+          await supabaseAdmin.from("subscriptions").update({
+            status:     "canceled",
+            updated_at: new Date().toISOString(),
+          }).eq("paddle_subscription_id", subId);
+        }
+        console.log(`[Paddle] Subscription canceled: ${subId}`);
+        return res.json({ received: true, action: "subscription_canceled" });
+      }
+
+      // All other events — acknowledge receipt
+      return res.json({ received: true, action: "ignored", event_type: eventType });
+
+    } catch (err) {
+      console.error("[Paddle Webhook] Handler error:", err);
+      return res.status(500).json({ error: "Webhook handler failed." });
+    }
+  }
+);
+
+// ── GET /api/paddle/config ────────────────────────────────────────────────────
+// Returns the public Paddle config needed by the frontend.
+// Never expose PADDLE_API_KEY — only client token and env.
+app.get("/api/paddle/config", async (_req, res) => {
+  return res.json({
+    configured: !!(PADDLE_API_KEY && !PADDLE_API_KEY.startsWith("replace_")),
+    environment: PADDLE_ENV,
+    // Client token must be set in frontend .env as VITE_PADDLE_CLIENT_TOKEN
+    // This endpoint just confirms the backend is ready
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

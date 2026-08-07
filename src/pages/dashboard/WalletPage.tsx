@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
-import { Wallet, Clock, ArrowDownCircle, ReceiptText, Lock } from "lucide-react";
+import { Wallet, Clock, ReceiptText, Lock, ShoppingBag, Users, Video, Star } from "lucide-react";
 import { ScrollableContent } from "@/components/ui/scrollable-content";
 import {
   getWallet,
@@ -17,6 +17,7 @@ import {
 } from "@/lib/walletApi";
 import { PageLoading } from "@/components/LoadingSpinner";
 import { VirtualAccountCard } from "@/components/wallet/VirtualAccountCard";
+import { PaddleTopUp } from "@/components/wallet/PaddleTopUp";
 
 type WalletRole = "learner" | "coach" | "creator" | "therapist";
 
@@ -70,7 +71,6 @@ const WalletPage = ({ role = "learner" }: { role?: WalletRole }) => {
   );
 
   const withdrawRoute = `/${role}/withdrawals`;
-  const bankRoute     = `/${role}/bank-accounts`;
 
   if (authLoading) {
     return <PageLoading />;
@@ -95,8 +95,7 @@ const WalletPage = ({ role = "learner" }: { role?: WalletRole }) => {
           </div>
           {isProvider && (
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" asChild><Link to={bankRoute}>Bank accounts</Link></Button>
-              <Button size="sm" asChild><Link to={withdrawRoute}>Withdraw</Link></Button>
+              <Button size="sm" asChild><Link to={withdrawRoute}>Transfer Earnings</Link></Button>
             </div>
           )}
         </div>
@@ -145,15 +144,66 @@ const WalletPage = ({ role = "learner" }: { role?: WalletRole }) => {
               <p className="text-sm text-emerald-700">Transfer to your verified bank account.</p>
             </div>
             <Button size="sm" asChild className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0">
-              <Link to={withdrawRoute}>Withdraw now</Link>
+              <Link to={withdrawRoute}>Transfer now</Link>
             </Button>
           </div>
         )}
 
-        {/* Learner: virtual account top-up + refund info */}
+        {/* Learner: spend balance CTA + virtual account top-up + refund info */}
         {!isProvider && (
           <>
+            {/* ── Spend wallet balance ── */}
+            {available > 0 && (
+              <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100">
+                    <Wallet size={16} className="text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-emerald-900">You have {fmt(available)} to spend</p>
+                    <p className="text-xs text-emerald-700">Applied automatically at checkout — or pick something now</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { label: "Find a Coach",     href: "/coaches",     icon: Users,       color: "text-blue-600",   bg: "bg-blue-50 hover:bg-blue-100 border-blue-200" },
+                    { label: "Find a Therapist", href: "/therapists",  icon: Star,        color: "text-purple-600", bg: "bg-purple-50 hover:bg-purple-100 border-purple-200" },
+                    { label: "Browse Videos",    href: "/videos",      icon: Video,       color: "text-rose-600",   bg: "bg-rose-50 hover:bg-rose-100 border-rose-200" },
+                    { label: "Browse Courses",   href: "/courses",     icon: ShoppingBag, color: "text-amber-600",  bg: "bg-amber-50 hover:bg-amber-100 border-amber-200" },
+                  ].map(({ label, href, icon: Icon, color, bg }) => (
+                    <Link
+                      key={href}
+                      to={href}
+                      className={`flex flex-col items-center gap-2 rounded-xl border px-3 py-3 text-center text-xs font-medium transition ${bg}`}
+                    >
+                      <Icon size={18} className={color} />
+                      {label}
+                    </Link>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs text-emerald-700">
+                  Your balance is deducted automatically when you check out — no extra steps needed.
+                </p>
+              </div>
+            )}
+
+            {/* ── Zero balance nudge ── */}
+            {!loading && available === 0 && (
+              <div className="rounded-2xl border border-border bg-card p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted">
+                    <Wallet size={16} className="text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">No balance yet</p>
+                    <p className="text-xs text-muted-foreground">Top up your wallet below to pay instantly without a card</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <VirtualAccountCard />
+            <PaddleTopUp onSuccess={() => load()} />
             <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
               <p className="text-sm font-medium text-blue-800">Refund credits</p>
               <p className="text-sm text-blue-700 mt-1">
