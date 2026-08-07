@@ -578,20 +578,6 @@ const Onboarding = () => {
   const [saveProgress, setSaveProgress] = useState("");
   const [didInitializeRole, setDidInitializeRole] = useState(false);
   const [didInitializeFields, setDidInitializeFields] = useState(false);
-  
-  // Refresh session immediately when component loads to ensure fresh token
-  useEffect(() => {
-    const refreshSessionOnLoad = async () => {
-      try {
-        console.log("🔄 Pre-loading fresh session token...");
-        await supabase.auth.refreshSession();
-        console.log("✅ Session pre-refreshed successfully");
-      } catch (err) {
-        console.warn("⚠️ Session pre-refresh failed, will retry on submit:", err);
-      }
-    };
-    refreshSessionOnLoad();
-  }, []);
   const [showWelcome, setShowWelcome] = useState(false);
   const finalRoleRef = useRef<string>("learner");
 
@@ -1208,40 +1194,50 @@ const Onboarding = () => {
         return;
       }
 
-      console.log("🔄 Refreshing session...");
-      // Always refresh the session right before the RPC call to get a
-      // non-expired token. The session in React state may be stale if the
-      // user spent a long time on the onboarding form.
+      console.log("🔄 Getting session token...");
       
+      // Skip refreshSession() entirely - it hangs on this deployment
+      // Just use the current session token directly
       let accessToken: string;
       
-      try {
-        // Single attempt with 30s timeout (Supabase can be very slow on free tier)
-        console.log("🔄 Getting fresh session token (30s timeout)...");
-        
-        const refreshPromise = supabase.auth.refreshSession();
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Session refresh timeout")), 30000)
-        );
-        
-        const { data: refreshed, error: refreshErr } = await Promise.race([
-          refreshPromise,
-          timeoutPromise
-        ]) as any;
-        
-        if (refreshErr || !refreshed?.session?.access_token) {
-          throw new Error(refreshErr?.message || "No token in response");
-        }
-        
-        accessToken = refreshed.session.access_token;
-        console.log("✅ Session refreshed successfully");
-        
-      } catch (refreshError: any) {
-        console.log("❌ Session refresh failed:", refreshError.message);
-        toast.error("Session refresh failed. Please try again or refresh the page.");
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      
+      if (!currentSession?.access_token) {
+        console.log("❌ No session found");
+        toast.error("Session expired. Please refresh the page and try again.");
         setLoading(false);
         setSaveProgress("");
         return;
+      }
+      
+      accessToken = currentSession.access_token;
+      console.log("✅ Using current session token");
+      
+      // Check if token is expired by looking at exp claim
+      try {
+        const tokenParts = accessToken.split('.');
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(atob(tokenParts[1]));
+          const expiresAt = payload.exp * 1000; // Convert to milliseconds
+          const now = Date.now();
+          const timeLeft = expiresAt - now;
+          
+          console.log(`Token expires in ${Math.floor(timeLeft / 1000)}s`);
+          
+          if (timeLeft < 0) {
+            console.log("❌ Token is expired");
+            toast.error("Your session has expired. Please refresh the page and try again.");
+            setLoading(false);
+            setSaveProgress("");
+            return;
+          }
+          
+          if (timeLeft < 60000) { // Less than 60 seconds
+            console.log("⚠️ Token expires soon, but continuing anyway");
+          }
+        }
+      } catch (e) {
+        console.warn("Could not parse token expiry, continuing anyway");
       }
 
       console.log("✅ Session confirmed, user:", user.id);
