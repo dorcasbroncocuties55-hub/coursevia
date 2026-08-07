@@ -578,6 +578,40 @@ const Onboarding = () => {
   const [saveProgress, setSaveProgress] = useState("");
   const [didInitializeRole, setDidInitializeRole] = useState(false);
   const [didInitializeFields, setDidInitializeFields] = useState(false);
+  
+  // Keep token fresh by auto-refreshing in background every 5 minutes
+  useEffect(() => {
+    const keepTokenFresh = async () => {
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!currentSession?.access_token) return;
+        
+        // Check token expiry
+        const tokenParts = currentSession.access_token.split('.');
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(atob(tokenParts[1]));
+          const expiresAt = payload.exp * 1000;
+          const timeLeft = expiresAt - Date.now();
+          
+          // If token expires in less than 10 minutes, silently refresh page
+          if (timeLeft < 600000 && timeLeft > 0) {
+            console.log("🔄 Token expiring soon, refreshing page to get fresh token...");
+            window.location.reload();
+          }
+        }
+      } catch (e) {
+        console.warn("Token check failed:", e);
+      }
+    };
+    
+    // Check immediately on load
+    keepTokenFresh();
+    
+    // Then check every 5 minutes
+    const interval = setInterval(keepTokenFresh, 5 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
   const [showWelcome, setShowWelcome] = useState(false);
   const finalRoleRef = useRef<string>("learner");
 
@@ -1196,43 +1230,42 @@ const Onboarding = () => {
 
       console.log("🔄 Getting session token...");
       
-      // Skip refreshSession() entirely - it hangs on this deployment
-      // Just use the current session token directly
+      // ALL Supabase auth methods hang on this deployment
+      // Use session directly from AuthContext (already in memory)
       let accessToken: string;
       
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      
-      if (!currentSession?.access_token) {
-        console.log("❌ No session found");
-        toast.error("Session expired. Please refresh the page and try again.");
+      if (!session?.access_token) {
+        console.log("❌ No session in AuthContext");
+        toast.error("Session not found. Please refresh the page and try again.");
         setLoading(false);
         setSaveProgress("");
         return;
       }
       
-      accessToken = currentSession.access_token;
-      console.log("✅ Using current session token");
+      accessToken = session.access_token;
+      console.log("✅ Using session token from AuthContext");
       
       // Check if token is expired by looking at exp claim
       try {
         const tokenParts = accessToken.split('.');
         if (tokenParts.length === 3) {
           const payload = JSON.parse(atob(tokenParts[1]));
-          const expiresAt = payload.exp * 1000; // Convert to milliseconds
+          const expiresAt = payload.exp * 1000;
           const now = Date.now();
           const timeLeft = expiresAt - now;
           
           console.log(`Token expires in ${Math.floor(timeLeft / 1000)}s`);
           
           if (timeLeft < 0) {
-            console.log("❌ Token is expired");
-            toast.error("Your session has expired. Please refresh the page and try again.");
+            console.log("❌ Token is expired, refreshing page to get new token...");
+            toast.error("Session expired. Refreshing page to continue...");
             setLoading(false);
             setSaveProgress("");
+            setTimeout(() => window.location.reload(), 1500);
             return;
           }
           
-          if (timeLeft < 60000) { // Less than 60 seconds
+          if (timeLeft < 60000) {
             console.log("⚠️ Token expires soon, but continuing anyway");
           }
         }
