@@ -1149,9 +1149,26 @@ const Onboarding = () => {
     finalRoleRef.current = finalRole;
 
     // Final validation gate — runs for all roles before any save
-    if (!validateAvatar()) return;
-    if (!validatePersonalInfo()) return;
-    if (isLearner && !validateLearnerInfo()) return;
+    console.log("Running validations...");
+    
+    if (!validateAvatar()) {
+      console.log("❌ Avatar validation failed");
+      return;
+    }
+    console.log("✅ Avatar validation passed");
+    
+    if (!validatePersonalInfo()) {
+      console.log("❌ Personal info validation failed");
+      return;
+    }
+    console.log("✅ Personal info validation passed");
+    
+    if (isLearner && !validateLearnerInfo()) {
+      console.log("❌ Learner info validation failed");
+      return;
+    }
+    if (isLearner) console.log("✅ Learner info validation passed");
+    
     if ((isCoach || isTherapist || isCreator) && !validateSpecialization()) return;
     if (isCoach && !validateCoachProfileInfo()) return;
     if (isCoach && !validateCoachProfessionalInfo()) return;

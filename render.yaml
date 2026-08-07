@@ -19,3 +19,11 @@ services:
         sync: false
       - key: VITE_CHECKOUT_PUBLIC_KEY
         sync: false
+
+# Cron job to keep backend alive (free tier spins down after 15 min inactivity)
+# Pings every 10 minutes to prevent cold starts
+  - type: cron
+    name: keep-backend-alive
+    schedule: "*/10 * * * *"
+    buildCommand: echo "Cron job configured"
+    startCommand: curl -f https://coursevia-backend.onrender.com/health || exit 0

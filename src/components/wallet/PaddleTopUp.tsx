@@ -113,6 +113,7 @@ export const PaddleTopUp = ({ onSuccess }: PaddleTopUpProps) => {
     setErrorMsg("");
 
     // Retry up to 2 times to handle Render free-tier 503 cold starts
+    // Cold start takes 30-50s, so we wait 20s between attempts
     const createTransaction = async (attempt = 0): Promise<any> => {
       const res = await fetch(buildBackendUrl("/api/paddle/create-transaction"), {
         method:  "POST",
@@ -130,10 +131,11 @@ export const PaddleTopUp = ({ onSuccess }: PaddleTopUpProps) => {
         }),
       });
 
-      // 503 = Render backend is cold-starting — wait and retry
+      // 503 = Render backend is cold-starting — wait longer and retry
       if (res.status === 503 && attempt < 2) {
-        setErrorMsg(`Payment server is waking up… retrying (${attempt + 1}/2)`);
-        await new Promise(r => setTimeout(r, 8000));
+        const waitTime = attempt === 0 ? 20000 : 25000; // 20s then 25s
+        setErrorMsg(`Payment server is waking up (${attempt + 1}/2)… this may take up to 30 seconds`);
+        await new Promise(r => setTimeout(r, waitTime));
         setErrorMsg("");
         return createTransaction(attempt + 1);
       }
