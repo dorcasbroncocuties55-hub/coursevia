@@ -135,19 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from("profiles")
-      .select(`
-        user_id, full_name, display_name, avatar_url, onboarding_completed, 
-        email, role, bio, phone, country, city, kyc_status, is_verified,
-        profession, headline, experience, certification,
-        specialization_type, specialization_slug, languages,
-        services_offered, works_with, expertise_areas, service_areas,
-        service_delivery_mode, calendar_mode, meeting_preference,
-        office_address, enable_phone_release,
-        business_name, business_email, business_phone, business_website,
-        business_address, business_description,
-        learner_goal, learner_looking_forward, learner_interests,
-        profile_slug, account_type, status
-      `)
+      .select("user_id, full_name, display_name, avatar_url, onboarding_completed, email, role, bio, phone, country, city, kyc_status, is_verified, profession, headline, experience, certification, specialization_type, specialization_slug, languages, services_offered, works_with, expertise_areas, service_areas, service_delivery_mode, calendar_mode, meeting_preference, office_address, enable_phone_release, business_name, business_email, business_phone, business_website, business_address, business_description, learner_goal, learner_looking_forward, learner_interests, profile_slug, account_type, status")
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -196,10 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: existingProfile, error: profileLookupError } = await supabase
       .from("profiles")
-      .select(`
-        user_id, full_name, display_name, avatar_url, email, role, 
-        onboarding_completed, bio, phone, country, city, kyc_status, is_verified
-      `)
+      .select("user_id, full_name, display_name, avatar_url, email, role, onboarding_completed, bio, phone, country, city, kyc_status, is_verified")
       .eq("user_id", authUser.id)
       .maybeSingle();
 
