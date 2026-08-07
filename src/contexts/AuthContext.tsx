@@ -92,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // If the counter increments (new call started or timeout fired) before we finish,
   // we know our result is stale and skip any further state updates.
   const syncGenRef = useRef(0);
+  const syncingRef = useRef(false);
   const initialSessionHandledRef = useRef(false);
 
   const clearAuthState = () => {
