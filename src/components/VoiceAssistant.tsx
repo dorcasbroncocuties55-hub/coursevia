@@ -358,14 +358,6 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
       return { reply: "No active subscription. Say open pricing to see plans.", nav: "/pricing" };
     } catch { return { reply: "Opening subscription.", nav: "/dashboard/subscription" }; }
   }
-  if (/\b(kyc|verify|verified|verification|identity|id check|am i verified|my verification|document.*status|check.*verification)\b/.test(q)) {
-    if (!uid) return { reply: "Please sign in to check verification.", nav: "/login" };
-    try {
-      const { data } = await supabase.from("verification_requests").select("status").eq("user_id", uid).order("created_at", { ascending: false }).limit(1).maybeSingle();
-      if (data) { const map: Record<string,string> = { approved: "verified and approved", rejected: "rejected — please resubmit", pending: "under review" }; return { reply: `Your KYC status is ${map[(data as any).status] || (data as any).status}.`, nav: "/dashboard/kyc" }; }
-      return { reply: "No verification request found. Go to your dashboard to start KYC.", nav: "/dashboard/kyc" };
-    } catch { return { reply: "Opening KYC.", nav: "/dashboard/kyc" }; }
-  }
   if (/\b(refund|money back|charged wrongly|wrong charge|overcharged|dispute|get.*money back|want.*refund|request.*refund)\b/.test(q)) {
     if (!uid) return { reply: "Please sign in to request a refund.", nav: "/login" };
     try {
@@ -413,7 +405,6 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
     [["wishlist","saved","my wishlist","favourites"], "/dashboard/wishlist", "Opening wishlist."],
     [["withdrawals","withdraw","payout","my withdrawals","cash out"], rp("/dashboard","/coach/withdrawals","/therapist/withdrawals","/creator/withdrawals"), "Opening withdrawals."],
     [["bank account","bank accounts","add bank","payout method","banking"], rp("/dashboard","/coach/bank-accounts","/therapist/bank-accounts","/creator/bank-accounts"), "Opening bank accounts."],
-    [["kyc","verification","identity verification","verify account"], rp("/dashboard/kyc","/coach/kyc","/therapist/kyc","/dashboard/kyc"), "Opening KYC."],
     [["services","my services","service list"], rp("/dashboard","/coach/services","/therapist/services","/dashboard"), "Opening services."],
     [["calendar","my calendar","availability","schedule"], rp("/dashboard","/coach/calendar","/therapist/calendar","/dashboard"), "Opening calendar."],
     [["clients","my clients","client list"], rp("/dashboard","/coach/clients","/therapist/clients","/dashboard"), "Opening clients."],
@@ -469,6 +460,26 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
 
   // Bare keyword fallback
   for (const [kws, path, reply] of navMap) { if (kws.some(k => q.includes(k))) return { reply, nav: path }; }
+
+  // AI fallback - ask OpenAI for any question we don't understand
+  try {
+    const BACKEND = (import.meta.env.VITE_BACKEND_URL || "https://coursevia-backend.onrender.com").replace(/\/$/, "");
+    const response = await fetch(`${BACKEND}/api/ai-chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: q,
+        context: { uid, name: ctx.name, role: ctx.role, email: ctx.email }
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.reply) return { reply: data.reply };
+    }
+  } catch (err) {
+    console.warn("AI fallback failed:", err);
+  }
 
   return { reply: `I'm not sure I understood that. Could you rephrase? For example: "find me a life coach", "show my bookings", "take me to pricing", or "what's my wallet balance".` };
 };
@@ -647,7 +658,7 @@ const VoiceAssistant = () => {
           transition={{ type: "spring", stiffness: 260, damping: 20, delay: 1.2 }}
           onClick={handleOpen}
           aria-label="Open Coursevia AI Assistant"
-          className="fixed bottom-24 left-4 z-50 flex items-center gap-2 px-4 h-12 rounded-full shadow-2xl"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 h-12 rounded-full shadow-2xl"
           style={{ background: "linear-gradient(135deg,#10b981,#059669)", boxShadow: "0 8px 32px rgba(16,185,129,0.45)" }}
           whileHover={{ scale: 1.06 }}
           whileTap={{ scale: 0.96 }}

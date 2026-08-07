@@ -42,13 +42,16 @@ const Navbar = () => {
   }, []);
 
   const dashboardHref = useMemo(() => {
-    // If user hasn't completed onboarding, always go to onboarding
-    if (user && profile && !profile.onboarding_completed) {
+    // If user hasn't completed onboarding (check both profile and metadata), always go to onboarding
+    const metadataCompleted = user?.user_metadata?.onboarding_completed === true;
+    if (user && profile && !profile.onboarding_completed && !metadataCompleted) {
       return "/onboarding";
     }
     // Always use profile.role first - it's the user's actual chosen role
     const role = profile?.role || primaryRole;
     if (role) return roleToDashboardPath(role);
+    // If onboarding is complete but no role yet, go to dashboard (will figure it out there)
+    if (metadataCompleted) return "/dashboard";
     if (user) return "/onboarding";
     return "/";
   }, [primaryRole, profile?.role, profile?.onboarding_completed, user]);

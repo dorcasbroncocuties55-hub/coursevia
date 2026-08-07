@@ -84,21 +84,20 @@ const TherapistDashboard = () => {
     { label: "View Calendar",      href: "/therapist/calendar",     description: "Set your availability and manage appointments", icon: CalendarDays },
     { label: "View Clients",       href: "/therapist/clients",      description: "Manage your client relationships",              icon: Users },
     { label: "Request Withdrawal", href: "/therapist/withdrawals",  description: "Transfer earnings to your bank account",        icon: Wallet,         badge: stats.balance > 0 ? "Available" : undefined, priority: stats.balance > 0 ? "medium" as const : "low" as const },
-    { label: "Complete KYC",       href: "/therapist/kyc",          description: "Verify your identity to unlock all features",   icon: Shield,         badge: needsKyc ? "Required" : kycPending ? "Pending" : undefined, priority: needsKyc ? "high" as const : "low" as const },
   ];
 
   return (
     <DashboardLayout role="therapist">
       <div className="space-y-8">
         <WelcomeBanner role="therapist" userName={firstName}
-          subtitle={isVerified ? "Your profile is verified and visible in the therapist directory." : "Complete your profile and KYC verification to appear in the therapist directory."}
+          subtitle={isVerified ? "Your profile is verified and visible in the therapist directory." : "Complete your profile to appear in the therapist directory."}
           isVerified={isVerified} gradient="teal"
           primaryAction={{ label: "Edit Profile", href: "/therapist/profile" }}
           secondaryAction={{ label: "View Public Page", href: "/therapists" }}
         />
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <StatusIndicator label="Verification Status" status={isVerified ? "success" : kycPending ? "pending" : "warning"} value={isVerified ? "Verified" : kycPending ? "Under Review" : "Not Started"} description={isVerified ? "Identity verified" : kycPending ? "KYC under review" : "Complete verification to unlock features"} />
+          <StatusIndicator label="Verification Status" status={isVerified ? "success" : "warning"} value={isVerified ? "Verified" : "Active"} description={isVerified ? "Identity verified" : "Profile is active"} />
           <StatusIndicator label="Service Mode"        status="success"                              value={serviceMode}    description="How you deliver your services" />
           <StatusIndicator label="Profile Status"      status={(profile as any)?.onboarding_completed ? "success" : "warning"} value={(profile as any)?.onboarding_completed ? "Active" : "Incomplete"} description="Profile completion status" />
         </div>
@@ -114,31 +113,6 @@ const TherapistDashboard = () => {
           <RecentActivity title="Recent Sessions" items={recentActivity} loading={dataLoading} emptyMessage="No sessions yet" viewAllHref="/therapist/bookings" />
           <QuickActions title="Quick Actions" actions={quickActions} />
         </div>
-
-        {needsKyc && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="rounded-lg bg-amber-100 p-3"><Shield className="h-6 w-6 text-amber-600" /></div>
-                <div>
-                  <h3 className="font-semibold text-amber-900">Complete Identity Verification</h3>
-                  <p className="text-sm text-amber-700">Verified therapists get a badge on their profile and can withdraw earnings</p>
-                </div>
-              </div>
-              <Link to="/therapist/kyc" className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 transition-colors">Start KYC</Link>
-            </div>
-          </div>
-        )}
-        {kycPending && (
-          <div className="rounded-xl border border-blue-200 bg-blue-50 p-6">
-            <div className="flex items-center gap-4">
-              <div className="rounded-lg bg-blue-100 p-3"><Shield className="h-6 w-6 text-blue-600" /></div>
-              <div>
-                <h3 className="font-semibold text-blue-900">KYC Verification Under Review</h3>
-                <p className="text-sm text-blue-700">Your identity verification is being reviewed. This usually takes 1–2 business days.</p>
-              </div>
-            </div>
-          </div>
         )}
       </div>
     </DashboardLayout>

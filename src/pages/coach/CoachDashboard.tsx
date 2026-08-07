@@ -84,21 +84,20 @@ const CoachDashboard = () => {
     { label: "View Calendar",       href: "/coach/calendar",    description: "Set your availability and manage appointments",      icon: CalendarDays },
     { label: "View Clients",        href: "/coach/clients",     description: "Manage your client relationships",                   icon: Users },
     { label: "Request Withdrawal",  href: "/coach/withdrawals", description: "Transfer earnings to your bank account",             icon: Wallet,      badge: stats.balance > 0 ? "Available" : undefined, priority: stats.balance > 0 ? "medium" as const : "low" as const },
-    { label: "Complete KYC",        href: "/coach/kyc",         description: "Verify your identity to unlock all features",        icon: Shield,      badge: needsKyc ? "Required" : kycPending ? "Pending" : undefined, priority: needsKyc ? "high" as const : "low" as const },
   ];
 
   return (
     <DashboardLayout role="coach">
       <div className="space-y-8">
         <WelcomeBanner role="coach" userName={firstName}
-          subtitle={isVerified ? "Your profile is verified and visible in the coach directory." : "Complete your profile and KYC verification to appear in the coach directory."}
+          subtitle={isVerified ? "Your profile is verified and visible in the coach directory." : "Complete your profile to appear in the coach directory."}
           isVerified={isVerified} gradient="blue"
           primaryAction={{ label: "Edit Profile", href: "/coach/profile" }}
           secondaryAction={{ label: "View Public Page", href: "/coaches" }}
         />
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <StatusIndicator label="Verification Status" status={isVerified ? "success" : "warning"} value={isVerified ? "Verified" : "Pending KYC"} description={isVerified ? "Identity verified" : "Complete verification to unlock features"} />
+          <StatusIndicator label="Verification Status" status={isVerified ? "success" : "warning"} value={isVerified ? "Verified" : "Active"} description={isVerified ? "Identity verified" : "Profile is active"} />
           <StatusIndicator label="Service Mode"        status="success"                             value={serviceMode}                              description="How you deliver your services" />
           <StatusIndicator label="Profile Status"      status={(profile as any)?.onboarding_completed ? "success" : "warning"} value={(profile as any)?.onboarding_completed ? "Active" : "Incomplete"} description="Profile completion status" />
         </div>
@@ -114,21 +113,6 @@ const CoachDashboard = () => {
           <RecentActivity title="Recent Bookings" items={recentActivity} loading={dataLoading} emptyMessage="No bookings yet" viewAllHref="/coach/bookings" />
           <QuickActions title="Quick Actions" actions={quickActions} />
         </div>
-
-        {!isVerified && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="rounded-lg bg-amber-100 p-3"><Shield className="h-6 w-6 text-amber-600" /></div>
-                <div>
-                  <h3 className="font-semibold text-amber-900">Complete Identity Verification</h3>
-                  <p className="text-sm text-amber-700">Verified coaches get a badge on their profile and can withdraw earnings</p>
-                </div>
-              </div>
-              <Link to="/coach/kyc" className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 transition-colors">Start KYC</Link>
-            </div>
-          </div>
-        )}
       </div>
     </DashboardLayout>
   );

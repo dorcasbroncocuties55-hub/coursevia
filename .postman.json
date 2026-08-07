@@ -1569,6 +1569,284 @@
             ]
           }
         ]
+      },
+      {
+        "name": "AI Chat",
+        "item": [
+          {
+            "name": "AI Chat - Greeting",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/ai/chat",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"message\": \"Hello\",\n  \"context\": { \"name\": \"Test User\", \"role\": \"user\" }\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns reply string', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.reply).to.be.a('string').and.not.empty;",
+                    "});",
+                    "pm.test('Greeting includes name or hi keyword', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.reply.toLowerCase()).to.satisfy(r =>",
+                    "    r.includes('hi') || r.includes('hello') || r.includes('assistant') || r.includes('help')",
+                    "  );",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "AI Chat - Pricing Question",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/ai/chat",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"message\": \"How much does a subscription cost?\",\n  \"context\": {}\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Reply contains pricing info', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.reply).to.be.a('string').and.not.empty;",
+                    "  pm.expect(body.reply).to.match(/\\$10|monthly|yearly|plan/i);",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "AI Chat - How to Book",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/ai/chat",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"message\": \"How do I book a session?\",\n  \"context\": {}\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Reply describes booking steps', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.reply).to.be.a('string').and.not.empty;",
+                    "  pm.expect(body.reply).to.match(/book|session|coach|slot|payment/i);",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "AI Chat - KYC Question",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/ai/chat",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"message\": \"What is KYC verification?\",\n  \"context\": {}\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Reply explains KYC', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.reply).to.be.a('string').and.not.empty;",
+                    "  pm.expect(body.reply).to.match(/kyc|verif|document|id|identity/i);",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "AI Chat - Withdrawal Question",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/ai/chat",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"message\": \"How do I withdraw my earnings?\",\n  \"context\": {}\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Reply describes withdrawal process', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.reply).to.be.a('string').and.not.empty;",
+                    "  pm.expect(body.reply).to.match(/withdraw|bank|payout|transfer|earning/i);",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "AI Chat - Become a Coach",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/ai/chat",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"message\": \"How do I become a coach on Coursevia?\",\n  \"context\": {}\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Reply explains onboarding steps', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.reply).to.be.a('string').and.not.empty;",
+                    "  pm.expect(body.reply).to.match(/sign.?up|onboard|profile|kyc|earn|coach|role/i);",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "AI Chat - Cancel Subscription",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/ai/chat",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"message\": \"How do I cancel my subscription?\",\n  \"context\": {}\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Reply covers cancellation', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.reply).to.be.a('string').and.not.empty;",
+                    "  pm.expect(body.reply).to.match(/cancel|subscription|dashboard|billing/i);",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "AI Chat - Thank You",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/ai/chat",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"message\": \"Thank you!\",\n  \"context\": {}\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Reply is a friendly acknowledgement', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.reply).to.be.a('string').and.not.empty;",
+                    "  pm.expect(body.reply).to.match(/welcome|happy|help|anything/i);",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "AI Chat - Unrecognised Input (fallback)",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/ai/chat",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"message\": \"xyzzy random gibberish 12345\",\n  \"context\": {}\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200 - graceful fallback', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns a non-empty fallback reply', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.reply).to.be.a('string').and.not.empty;",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "AI Chat - Missing message field",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/ai/chat",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"context\": {}\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when message is missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error field', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.error).to.be.a('string').and.not.empty;",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       }
     ]
   }

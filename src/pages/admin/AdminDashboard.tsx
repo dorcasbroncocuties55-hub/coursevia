@@ -44,7 +44,6 @@ const AdminDashboard = () => {
   const statCards = [
     { label: "Total Users",     value: stats.users,              icon: Users,       color: "bg-blue-50 text-blue-600",    href: "/admin/users" },
     { label: "Total Revenue",   value: `$${stats.revenue.toFixed(2)}`, icon: TrendingUp, color: "bg-emerald-50 text-emerald-600", href: "/admin/wallet" },
-    { label: "Pending KYC",     value: stats.pending,            icon: Shield,      color: "bg-amber-50 text-amber-600",  href: "/admin/kyc" },
     { label: "Total Payments",  value: stats.payments,           icon: CreditCard,  color: "bg-purple-50 text-purple-600", href: "/admin/payments" },
     { label: "Courses",         value: stats.courses,            icon: BookOpen,    color: "bg-rose-50 text-rose-600",    href: "/admin/content" },
     { label: "Videos",          value: stats.videos,             icon: Video,       color: "bg-cyan-50 text-cyan-600",    href: "/admin/content" },
@@ -149,7 +148,6 @@ const AdminDashboard = () => {
           <h2 className="font-semibold text-foreground mb-4">Quick Actions</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: "Review KYC",      href: "/admin/kyc",           icon: Shield,      color: "text-amber-600 bg-amber-50" },
               { label: "Approve Payments", href: "/admin/payments",      icon: CreditCard,  color: "text-purple-600 bg-purple-50" },
               { label: "Manage Users",    href: "/admin/users",          icon: Users,       color: "text-blue-600 bg-blue-50" },
               { label: "View Wallet",     href: "/admin/wallet",         icon: Wallet,      color: "text-emerald-600 bg-emerald-50" },

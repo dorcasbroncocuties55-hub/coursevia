@@ -3442,6 +3442,98 @@ app.get("/api/paddle/config", async (_req, res) => {
   });
 });
 
+// ── AI Assistant Chat ─────────────────────────────────────────────────────────
+
+app.post("/api/ai-chat", async (req, res) => {
+  try {
+    const { message, context } = req.body || {};
+    
+    if (!message?.trim()) {
+      return res.status(400).json({ error: "Message is required" });
+    }
+
+    const q = message.toLowerCase().trim();
+
+    // Pattern-based AI responses (no API key needed)
+    const responses = {
+      // About Coursevia
+      about: /\b(what is|tell me about|explain|describe|about).*coursevia\b/i,
+      aboutReply: "Coursevia is an all-in-one platform where you can learn from courses, book sessions with coaches and therapists, watch creator content, and even earn money as a provider. It's your one-stop shop for personal and professional growth!",
+
+      // Pricing & Plans
+      pricing: /\b(how much|cost|price|fee|afford|expensive|cheap|subscription.*cost|plan.*cost|monthly|yearly)\b/i,
+      pricingReply: "We have a free plan with basic features, a monthly plan at $10/month, and a yearly plan at $120/year (save $24!). Paid plans unlock priority support, member discounts, and more. Want me to show you the pricing page?",
+
+      // Becoming a provider
+      becomeCoach: /\b(how.*become|how.*join as|how.*sign up as|be a coach|be a therapist|be a creator|work as|earn.*coach|make money)\b/i,
+      becomeCoachReply: "To become a coach, therapist, or creator: Sign up, select your role during onboarding, complete your profile with your expertise and services. Once your profile is complete, you'll appear in the directory and start earning!",
+
+      // Booking & Sessions
+      howBook: /\b(how.*book|how.*schedule|how.*reserve|how.*get.*session|booking.*work|schedule.*session)\b/i,
+      howBookReply: "Booking is easy! Browse coaches or therapists, click on a profile you like, select an available time slot, and complete the payment. You'll get a confirmation email with the session link.",
+
+      // Upload & Content
+      howUpload: /\b(how.*upload|upload.*video|upload.*course|add.*content|publish.*course|create.*course)\b/i,
+      howUploadReply: "Go to your dashboard, click 'Upload Video', fill in the title, description, set your price, upload your video file, and hit publish. Your content will be reviewed and go live within 24 hours!",
+
+      // Payments & Withdrawals
+      howWithdraw: /\b(how.*withdraw|how.*get.*money|how.*cash out|how.*payout|withdraw.*earnings|transfer.*money)\b/i,
+      howWithdrawReply: "First, add your bank account details in your dashboard. Then go to Withdrawals, enter the amount you want to transfer, and submit. Payouts are processed within 3-5 business days.",
+
+      // Refunds
+      refund: /\b(how.*refund|get.*money back|request.*refund|refund.*work|return|dispute)\b/i,
+      refundReply: "If you need a refund, go to your wallet/payments page, find the transaction, and click 'Request Refund'. Tell us why, and our team will review it within 24-48 hours. Most legitimate refund requests are approved quickly.",
+
+      // Cancel Subscription
+      cancelSub: /\b(how.*cancel|cancel.*subscription|stop.*subscription|unsubscribe|end.*plan)\b/i,
+      cancelSubReply: "To cancel your subscription, go to Dashboard → Subscription → Cancel Subscription. Your access continues until the end of your current billing period, so you won't lose anything!",
+
+      // Platform Features
+      features: /\b(what can i do|features|capabilities|what.*offer|what.*available|what.*included)\b/i,
+      featuresReply: "You can: Buy courses & watch videos, Book 1-on-1 sessions with coaches and therapists, Subscribe to premium plans, Earn money as a creator/coach/therapist, Manage your wallet and payments, Message providers, Get 24/7 AI support (that's me!), and much more!",
+
+      // Safety & Security
+      safety: /\b(safe|secure|security|privacy|data|protected|trust|legitimate|scam)\b/i,
+      safetyReply: "Your safety is our priority! We verify all coaches and therapists through KYC, use secure payment processing, encrypt your data, and have a report system for any issues. Your payment info is never stored on our servers.",
+
+      // Support
+      support: /\b(help|support|contact|problem|issue|not working|broken|bug|error)\b/i,
+      supportReply: "I'm here to help! Tell me what's wrong and I'll do my best to assist. You can also email support@coursevia.com or use the Help Center in your dashboard for detailed guides.",
+
+      // Gratitude
+      thanks: /\b(thanks|thank you|thx|ty|appreciate|helpful|great|perfect|awesome)\b/i,
+      thanksReply: "You're very welcome! Happy to help. Is there anything else you'd like to know? 😊",
+
+      // Greetings
+      greeting: /\b(hi|hello|hey|good morning|good afternoon|good evening|what's up|sup)\b/i,
+      greetingReply: `Hi${context?.name ? ' ' + context.name.split(' ')[0] : ''}! 👋 I'm your Coursevia AI assistant. I can help you with bookings, payments, finding coaches, explaining features, and more. What would you like to know?`,
+    };
+
+    // Check all patterns and return first match
+    for (const [key, pattern] of Object.entries(responses)) {
+      if (key.endsWith('Reply')) continue; // Skip reply keys
+      if (pattern instanceof RegExp && pattern.test(message)) {
+        const replyKey = key + 'Reply';
+        return res.json({ reply: responses[replyKey] || "I'm here to help! What would you like to know?" });
+      }
+    }
+
+    // Generic helpful response if no pattern matches
+    const genericResponses = [
+      "That's a great question! Could you be more specific? I can help with bookings, payments, finding coaches/therapists, subscriptions, and more.",
+      "I want to help! Try asking about: booking sessions, pricing plans, becoming a coach, wallet balance, or any feature you're curious about.",
+      "Hmm, I'm not sure I caught that. You can ask me things like: 'How do I book a session?', 'What's included in the paid plan?', 'How do I withdraw my earnings?', etc.",
+    ];
+
+    const randomResponse = genericResponses[Math.floor(Math.random() * genericResponses.length)];
+    return res.json({ reply: randomResponse });
+
+  } catch (error) {
+    console.error("AI chat error:", error);
+    return res.status(500).json({ error: "Failed to process message" });
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, "0.0.0.0", () => {
