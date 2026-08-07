@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import BookingModal from "@/components/BookingModal";
 import Navbar from "@/components/landing/Navbar";
@@ -21,10 +21,20 @@ const asList = (v: any): string[] => {
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function ProviderProfilePage() {
-  const { role = "coach", id } = useParams();
+  // Supports three URL shapes:
+  //   /directory/:role/:id          → id is a uuid
+  //   /therapist/:slug?id=uuid      → slug-style URL, uuid in query param
+  //   /coach/:slug?id=uuid
+  const { role = "coach", id, slug } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  // Resolve which role we're dealing with
   const providerRole = (role === "therapists" || role === "therapist" ? "therapist" : "coach") as ProviderRole;
   const roleCopy = getRoleCopy(providerRole);
+
+  // Resolve the actual id: either from :id param or ?id= query string (slug routes)
+  const resolvedId = id || searchParams.get("id") || "";
 
   const [profile, setProfile] = useState<any>(null);
   const [providerRecord, setProviderRecord] = useState<any>(null);
@@ -44,15 +54,15 @@ export default function ProviderProfilePage() {
 
   useEffect(() => {
     const load = async () => {
-      if (!id) return;
+      if (!resolvedId) return;
       setLoading(true);
       setLoadError("");
       const { data: authData } = await supabase.auth.getUser();
       setCurrentUser(authData?.user || null);
 
-      let p = await getProfileRecord(id);
+      let p = await getProfileRecord(resolvedId);
       if (!p) {
-        const r = await supabase.from("profiles").select("*").eq("profile_slug", id).maybeSingle();
+        const r = await supabase.from("profiles").select("*").eq("profile_slug", resolvedId).maybeSingle();
         p = r.data || null;
       }
       if (!p) { setLoadError("Provider not found."); setLoading(false); return; }
@@ -72,14 +82,14 @@ export default function ProviderProfilePage() {
       setLoading(false);
     };
     load();
-  }, [id, providerRole]);
+  }, [resolvedId, providerRole]);
 
   const requireLogin = () =>
-    navigate("/login", { state: { returnTo: `/directory/${providerRole === "therapist" ? "therapists" : "coaches"}/${id}` } });
+    navigate("/login", { state: { returnTo: `/directory/${providerRole === "therapist" ? "therapists" : "coaches"}/${resolvedId}` } });
 
   const handleMessage = () => {
     if (!currentUser?.id) return requireLogin();
-    navigate(`/dashboard/messages?user=${profile?.user_id || providerRecord?.user_id || id}`);
+    navigate(`/dashboard/messages?user=${profile?.user_id || providerRecord?.user_id || resolvedId}`);
   };
   const handleBook = (svc?: any) => {
     if (!currentUser?.id) return requireLogin();
@@ -456,10 +466,10 @@ export default function ProviderProfilePage() {
             <div className="p-5">
               <BookingModal
                 provider={{
-                  id: merged.user_id || profile.user_id || id || "",
+                  id: merged.user_id || profile.user_id || resolvedId || "",
                   provider_type: providerRole,
                   coach_profile_id: providerRole === "coach" ? providerRecord?.id || null : null,
-                  user_id: merged.user_id || profile.user_id || id || "",
+                  user_id: merged.user_id || profile.user_id || resolvedId || "",
                   service_delivery_mode: merged.service_delivery_mode,
                   calendar_mode: merged.calendar_mode,
                   phone: merged.phone || null,

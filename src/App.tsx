@@ -176,6 +176,9 @@ const App = () => {
                 <Route path="/coaches/:country/:city" element={<Coaches />} />
                 <Route path="/coaches/profile/:id" element={<CoachDetails />} />
                 <Route path="/directory/:role/:id" element={<ProviderProfilePage />} />
+                {/* Slug-style profile URLs: /therapist/bara-wiwa-lagos-nigeria?id=uuid */}
+                <Route path="/therapist/:slug" element={<ProviderProfilePage />} />
+                <Route path="/coach/:slug" element={<ProviderProfilePage />} />
                 <Route path="/creators" element={<Creators />} />
                 <Route path="/profile/:slug" element={<ProfilePreview />} />
                 <Route path="/courses" element={<Courses />} />

@@ -10,11 +10,13 @@ import {
   getRoleCopy,
   loadProviders,
   ProviderRole,
+  Provider,
   countryNameFromSlug,
   countryToSlug,
+  providerProfilePath,
 } from "@/lib/providerDirectory";
 import { getServiceModeLabel } from "@/lib/providerModes";
-import { ChevronRight, MapPin, Search, ShieldCheck, ArrowRight } from "lucide-react";
+import { ChevronRight, MapPin, Search, ShieldCheck, ArrowRight, MessageCircle, User, CheckCircle } from "lucide-react";
 
 const normalizeText = (v?: string | null) =>
   (v || "").toLowerCase().trim().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
@@ -84,6 +86,168 @@ const FAQ_ITEMS = (label: string) => [
   { q: `Is there a subscription required to search?`, a: `No. Search and browsing are free. You only need an account to book a session.` },
   { q: `What types of sessions are available?`, a: `Providers offer online video sessions, in-person appointments, or both depending on their settings.` },
 ];
+
+// ── ProviderCard — therapyroute.com-style horizontal card ────────────────────
+const BIO_LIMIT = 180;
+
+const ProviderCard = ({
+  provider,
+  role,
+  singularWord,
+  defaultHeadline,
+  onNavigate,
+}: {
+  provider: Provider;
+  role: ProviderRole;
+  singularWord: string;
+  defaultHeadline: string;
+  onNavigate: (path: string) => void;
+}) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const name    = provider.full_name || provider.display_name || provider.username || singularWord;
+  const verified = String(provider.kyc_status || provider.verification_status || "").toLowerCase() === "approved"
+                || Boolean(provider.is_verified);
+  const co       = getCountryOption(provider.country || provider.country_code || "");
+  const location = [provider.city, co?.name || provider.country].filter(Boolean).join(", ");
+  const tags     = asTagList(provider.skills);
+  const langs    = asTagList(provider.languages);
+  const price    = Number(provider.booking_price ?? provider.session_price ?? provider.hourly_rate ?? 0);
+  const bio      = provider.bio?.trim() || "";
+  const bioShort = bio.length > BIO_LIMIT ? bio.slice(0, BIO_LIMIT).trimEnd() + "…" : bio;
+
+  const mode = (provider.service_delivery_mode || "").toLowerCase();
+  const modeLabel = mode.includes("both") ? "In person & online"
+    : mode.includes("online") ? "Online"
+    : mode.includes("person") ? "In person"
+    : getServiceModeLabel(provider.service_delivery_mode);
+
+  const profilePath = providerProfilePath(role, provider);
+
+  return (
+    <div className="flex flex-col sm:flex-row gap-0 rounded-xl bg-white border border-border shadow-sm hover:shadow-md transition overflow-hidden">
+      {/* Left: Photo */}
+      <div
+        className="sm:w-[140px] w-full sm:min-h-full min-h-[160px] shrink-0 cursor-pointer overflow-hidden bg-slate-100"
+        onClick={() => onNavigate(profilePath)}
+      >
+        {provider.avatar_url ? (
+          <img
+            src={provider.avatar_url}
+            alt={name}
+            className="h-full w-full object-cover object-top sm:min-h-[220px]"
+          />
+        ) : (
+          <div className="flex h-full w-full sm:min-h-[220px] items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5 text-4xl font-bold text-primary">
+            {name.charAt(0).toUpperCase()}
+          </div>
+        )}
+      </div>
+
+      {/* Middle: Info */}
+      <div className="flex flex-1 flex-col p-5 gap-2">
+        {/* Name + verified */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => onNavigate(profilePath)}
+            className="text-lg font-bold text-[#0b7e84] hover:underline leading-tight text-left"
+          >
+            {name}
+          </button>
+          {verified && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+              <CheckCircle size={11} /> Verified
+            </span>
+          )}
+        </div>
+
+        {/* Headline / title */}
+        <p className="text-sm text-muted-foreground -mt-1">
+          {provider.headline || defaultHeadline}
+        </p>
+
+        {/* Skills/specialties */}
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-foreground">
+            {tags.slice(0, 4).map((t, i) => (
+              <span key={t} className="flex items-center gap-1">
+                <span className="text-muted-foreground">–</span>
+                {t}
+                {i === 2 && tags.length > 4 && (
+                  <span className="text-primary text-xs ml-1">+{tags.length - 3}</span>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Delivery + Location row */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground mt-0.5">
+          {modeLabel && (
+            <span className="flex items-center gap-1.5">
+              <User size={12} className="text-primary shrink-0" />
+              {modeLabel}
+            </span>
+          )}
+          {location && (
+            <span className="flex items-center gap-1.5">
+              <MapPin size={12} className="text-primary shrink-0" />
+              {location}
+            </span>
+          )}
+          {langs.length > 0 && (
+            <span className="text-muted-foreground">
+              {langs.slice(0, 2).join(", ")}
+            </span>
+          )}
+        </div>
+
+        {/* Bio */}
+        {bio && (
+          <p className="text-sm text-foreground/80 leading-relaxed mt-1">
+            {expanded ? bio : bioShort}
+            {bio.length > BIO_LIMIT && (
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="ml-1 text-primary font-medium hover:underline text-xs"
+              >
+                {expanded ? "See less" : "See more →"}
+              </button>
+            )}
+          </p>
+        )}
+
+        {/* Price */}
+        {price > 0 && (
+          <p className="text-xs text-muted-foreground mt-auto">
+            From <span className="font-semibold text-foreground">${price.toFixed(0)}</span>
+          </p>
+        )}
+      </div>
+
+      {/* Right: Actions */}
+      <div className="flex sm:flex-col items-center justify-end sm:justify-start gap-2 p-4 sm:pt-5 sm:w-[160px] shrink-0 border-t sm:border-t-0 sm:border-l border-border">
+        <button
+          onClick={() => onNavigate(`/dashboard/messages?user=${provider.user_id || provider.id}`)}
+          className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary/90 transition w-full justify-center"
+        >
+          <MessageCircle size={13} />
+          Message Now
+        </button>
+        <button
+          onClick={() => onNavigate(profilePath)}
+          className="rounded-lg border border-border bg-white px-4 py-2 text-xs font-semibold text-foreground hover:border-primary hover:text-primary transition w-full"
+        >
+          Profile
+        </button>
+        <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 mt-1">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />
+          Available Now
+        </span>
+      </div>
+    </div>
+  );
+};
 
 type Props = { role: ProviderRole };
 
@@ -365,80 +529,17 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                 </button>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredProviders.map((provider) => {
-                  const pId = provider.user_id || provider.id;
-                  const name = provider.full_name || provider.display_name || provider.username || singularWord;
-                  const verified = String(provider.kyc_status || provider.verification_status || "").toLowerCase() === "approved" || Boolean(provider.is_verified);
-                  const co = getCountryOption(provider.country || provider.country_code || "");
-                  const location = [provider.city, co?.name || provider.country].filter(Boolean).join(", ");
-                  const tags = asTagList(provider.skills);
-                  const price = Number(provider.booking_price ?? provider.session_price ?? provider.hourly_rate ?? 0);
-
-                  return (
-                    <div
-                      key={pId}
-                      className="flex flex-col rounded-xl bg-white border border-border p-5 shadow-sm hover:shadow-md transition"
-                    >
-                      {/* Avatar + Info */}
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border">
-                          {provider.avatar_url ? (
-                            <img src={provider.avatar_url} alt={name} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-primary/10 text-base font-bold text-primary">
-                              {name.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <h3 className="text-sm font-semibold text-foreground truncate">{name}</h3>
-                            {verified && <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-primary" />}
-                          </div>
-                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                            {provider.headline || roleCopy.defaultHeadline}
-                          </p>
-                          {location && (
-                            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                              <MapPin className="h-3 w-3 text-primary shrink-0" />
-                              <span>{location}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Tags */}
-                      {tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          {tags.slice(0, 3).map((t) => (
-                            <span key={t} className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs text-foreground">
-                              {t}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Footer */}
-                      <div className="mt-auto pt-3 border-t border-border flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {getServiceModeLabel(provider.service_delivery_mode)}
-                          </span>
-                          {price > 0 && (
-                            <span className="text-sm font-semibold text-foreground">${price.toFixed(0)}</span>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => navigate(`${roleCopy.profileRouteBase}/${pId}`)}
-                          className="rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition"
-                        >
-                          View Profile
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="space-y-4">
+                {filteredProviders.map((provider) => (
+                  <ProviderCard
+                    key={provider.user_id || provider.id}
+                    provider={provider}
+                    role={role}
+                    singularWord={singularWord}
+                    defaultHeadline={roleCopy.defaultHeadline}
+                    onNavigate={navigate}
+                  />
+                ))}
               </div>
             )}
           </div>

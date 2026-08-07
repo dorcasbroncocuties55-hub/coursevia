@@ -290,6 +290,34 @@ export const getCountryOption = (value?: string | null): DirectoryCountry | null
   ) || null;
 };
 
+// ── Profile slug utilities (therapyroute-style) ───────────────────────────────
+// Builds a slug like "bara-wiwa-lagos-nigeria" from name + city + country
+export const nameToSlug = (value?: string | null): string => {
+  if (!value) return "";
+  return value.toLowerCase().trim()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/(^-|-$)/g, "");
+};
+
+export const buildProfileSlug = (
+  fullName?: string | null,
+  city?: string | null,
+  country?: string | null,
+): string => {
+  const parts = [nameToSlug(fullName), nameToSlug(city), nameToSlug(country)].filter(Boolean);
+  return parts.join("-") || "profile";
+};
+
+// Returns the correct URL path for a provider profile card link
+// e.g. /therapist/bara-wiwa-lagos-nigeria?id=<uuid>
+export const providerProfilePath = (role: ProviderRole, provider: Provider): string => {
+  const uid = provider.user_id || provider.id;
+  const slug = buildProfileSlug(provider.full_name, provider.city, provider.country);
+  return `/${role}/${slug}?id=${uid}`;
+};
+
 export const getProviderTitle = (type: ProviderRole): string => (type === "therapist" ? "Therapists" : "Coaches");
 
 export const getRoleCopy = (type: ProviderRole) => {
@@ -328,19 +356,12 @@ export const getRoleCopy = (type: ProviderRole) => {
 
 export const loadProviders = async (type: ProviderRole): Promise<ProviderDirectoryResult> => {
   try {
-    // 30s timeout — Supabase can be slow on free tier cold starts
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Loading is taking longer than usual — please try again')), 30000)
-    );
-
-    const fetchPromise = supabase
+    const { data, error } = await supabase
       .from("profiles")
-      .select("*")
+      .select("user_id,full_name,display_name,username,avatar_url,headline,bio,role,provider_type,onboarding_completed,country,country_code,city,updated_at,booking_price,session_price,hourly_rate,rating,total_reviews,is_verified,verification_status,kyc_status,service_delivery_mode,calendar_mode,skills,languages")
       .eq("onboarding_completed", true)
       .or(`role.eq.${type},provider_type.eq.${type}`)
       .order("updated_at", { ascending: false });
-
-    const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
 
     if (error) {
       console.error(`Provider load error for ${type}:`, error);
