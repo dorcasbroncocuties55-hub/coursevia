@@ -1199,22 +1199,31 @@ const Onboarding = () => {
       // non-expired token. The session in React state may be stale if the
       // user spent a long time on the onboarding form.
       
-      // Add timeout to prevent hanging
-      const refreshPromise = supabase.auth.refreshSession();
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Session refresh timeout")), 10000)
-      );
+      let accessToken: string;
       
-      const { data: refreshed, error: refreshErr } = await Promise.race([
-        refreshPromise,
-        timeoutPromise
-      ]) as any;
-      
-      if (refreshErr || !refreshed?.session?.access_token) {
-        console.log("❌ Session refresh failed:", refreshErr);
-        toast.error("Session refresh failed. Retrying with current token...");
+      try {
+        // Add timeout to prevent hanging
+        const refreshPromise = supabase.auth.refreshSession();
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Session refresh timeout")), 10000)
+        );
         
-        // Fallback: try to get current session instead
+        const { data: refreshed, error: refreshErr } = await Promise.race([
+          refreshPromise,
+          timeoutPromise
+        ]) as any;
+        
+        if (refreshErr || !refreshed?.session?.access_token) {
+          throw new Error("Refresh failed");
+        }
+        
+        accessToken = refreshed.session.access_token;
+        console.log("✅ Session refreshed successfully");
+        
+      } catch (refreshError: any) {
+        console.log("⚠️ Session refresh failed:", refreshError.message, "- using current session");
+        
+        // Fallback: use current session instead
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         if (!currentSession?.access_token) {
           toast.error("Your session has expired. Please log in again.");
@@ -1224,24 +1233,10 @@ const Onboarding = () => {
           window.location.replace("/login");
           return;
         }
-        const accessToken = currentSession.access_token;
-        console.log("✅ Using current session token");
-      } else {
-        const accessToken = refreshed.session.access_token;
-        console.log("✅ Session refreshed successfully");
+        
+        accessToken = currentSession.access_token;
+        console.log("✅ Using current session token as fallback");
       }
-      
-      // Get final access token
-      const { data: { session: finalSession } } = await supabase.auth.getSession();
-      if (!finalSession?.access_token) {
-        toast.error("Your session has expired. Please log in again.");
-        setLoading(false);
-        setSaveProgress("");
-        await supabase.auth.signOut();
-        window.location.replace("/login");
-        return;
-      }
-      const accessToken = finalSession.access_token;
 
       console.log("✅ Session confirmed, user:", user.id);
 
