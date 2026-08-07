@@ -22,8 +22,38 @@ type Profile = {
   bio?: string | null;
   phone?: string | null;
   country?: string | null;
+  city?: string | null;
   kyc_status?: string | null;
   is_verified?: boolean | null;
+  display_name?: string | null;
+  profession?: string | null;
+  headline?: string | null;
+  experience?: string | null;
+  certification?: string | null;
+  specialization_type?: string | null;
+  specialization_slug?: string | null;
+  languages?: string[] | null;
+  services_offered?: string | null;
+  works_with?: string | null;
+  expertise_areas?: string | null;
+  service_areas?: string | null;
+  service_delivery_mode?: string | null;
+  calendar_mode?: string | null;
+  meeting_preference?: string | null;
+  office_address?: string | null;
+  enable_phone_release?: boolean | null;
+  business_name?: string | null;
+  business_email?: string | null;
+  business_phone?: string | null;
+  business_website?: string | null;
+  business_address?: string | null;
+  business_description?: string | null;
+  learner_goal?: string | null;
+  learner_looking_forward?: string | null;
+  learner_interests?: string | null;
+  profile_slug?: string | null;
+  account_type?: string | null;
+  status?: string | null;
 };
 
 type AuthContextType = {
@@ -105,7 +135,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("user_id, full_name, avatar_url, onboarding_completed, email, role, bio, phone, country, kyc_status, is_verified")
+      .select(`
+        user_id, full_name, display_name, avatar_url, onboarding_completed, 
+        email, role, bio, phone, country, city, kyc_status, is_verified,
+        profession, headline, experience, certification,
+        specialization_type, specialization_slug, languages,
+        services_offered, works_with, expertise_areas, service_areas,
+        service_delivery_mode, calendar_mode, meeting_preference,
+        office_address, enable_phone_release,
+        business_name, business_email, business_phone, business_website,
+        business_address, business_description,
+        learner_goal, learner_looking_forward, learner_interests,
+        profile_slug, account_type, status
+      `)
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -154,7 +196,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: existingProfile, error: profileLookupError } = await supabase
       .from("profiles")
-      .select("user_id, full_name, avatar_url, email, role, onboarding_completed, bio, phone, country, kyc_status, is_verified")
+      .select(`
+        user_id, full_name, display_name, avatar_url, email, role, 
+        onboarding_completed, bio, phone, country, city, kyc_status, is_verified
+      `)
       .eq("user_id", authUser.id)
       .maybeSingle();
 
