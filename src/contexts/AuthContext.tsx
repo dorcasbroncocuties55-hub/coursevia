@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -8,9 +9,32 @@ import {
   type ReactNode,
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import type { PostgrestError } from "@supabase/supabase-js";
+import type { AuthError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { buildRoleList, getPrimaryRole, parseRole, type AppRole } from "@/lib/authRoles";
+
+// ---------------------------------------------------------------------------
+// All profile columns fetched from Supabase — single source of truth.
+// Used by both fetchProfile and ensureProfileRecord to stay in sync.
+// ---------------------------------------------------------------------------
+const PROFILE_SELECT_FIELDS = [
+  "user_id", "full_name", "display_name", "avatar_url", "onboarding_completed",
+  "email", "role", "bio", "phone", "country", "city", "kyc_status", "is_verified",
+  "profession", "headline", "experience", "certification",
+  "specialization_type", "specialization_slug", "languages",
+  "services_offered", "works_with", "expertise_areas", "service_areas",
+  "service_delivery_mode", "calendar_mode", "meeting_preference",
+  "office_address", "enable_phone_release",
+  "business_name", "business_email", "business_phone", "business_website",
+  "business_address", "business_description",
+  "learner_goal", "learner_looking_forward", "learner_interests",
+  "profile_slug", "account_type", "status",
+].join(", ");
+
+// Minimal set used internally when we only care about role/onboarding state.
+const PROFILE_ROLE_FIELDS = "user_id, role, onboarding_completed, full_name, display_name, avatar_url, email";
 
 type Profile = {
   user_id: string;
@@ -90,14 +114,15 @@ const getUserDisplayName = (authUser: User): string | null => {
   return fullName || name || null;
 };
 
-const logSupabaseError = (label: string, error: any) => {
+// Accepts both PostgrestError and AuthError; falls back gracefully for unknown shapes.
+const logSupabaseError = (label: string, error: PostgrestError | AuthError | null | undefined) => {
   if (!error) return;
   console.error(label, {
-    message: error.message ?? null,
-    details: error.details ?? null,
-    hint: error.hint ?? null,
-    code: error.code ?? null,
-    status: error.status ?? null,
+    message: "message" in error ? error.message : null,
+    details: "details" in error ? (error as PostgrestError).details : null,
+    hint: "hint" in error ? (error as PostgrestError).hint : null,
+    code: "code" in error ? error.code : null,
+    status: "status" in error ? error.status : null,
     full: error,
   });
 };
@@ -110,6 +135,21 @@ const shouldSync = (
   current: string | null | undefined,
   next: string | null | undefined,
 ): boolean => !!next && current !== next;
+
+// ---------------------------------------------------------------------------
+// Targeted auth-token key removal — consistent helper used everywhere.
+// Never nukes unrelated localStorage keys.
+// ---------------------------------------------------------------------------
+const clearAuthTokens = () => {
+  Object.keys(localStorage).forEach((key) => {
+    if (
+      (key.startsWith("sb-") && key.includes("-auth-token")) ||
+      key.startsWith("supabase.auth.")
+    ) {
+      localStorage.removeItem(key);
+    }
+  });
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -135,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("user_id, full_name, display_name, avatar_url, onboarding_completed, email, role, bio, phone, country, city, kyc_status, is_verified, profession, headline, experience, certification, specialization_type, specialization_slug, languages, services_offered, works_with, expertise_areas, service_areas, service_delivery_mode, calendar_mode, meeting_preference, office_address, enable_phone_release, business_name, business_email, business_phone, business_website, business_address, business_description, learner_goal, learner_looking_forward, learner_interests, profile_slug, account_type, status")
+      .select(PROFILE_SELECT_FIELDS)
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -173,7 +213,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return nextRoles;
   };
 
-  const ensureProfileRecord = async (authUser: User, resolvedRole: AppRole | null) => {
+  // existingProfileData is passed in from ensureUserRecords to avoid a redundant DB fetch.
+  const ensureProfileRecord = async (
+    authUser: User,
+    resolvedRole: AppRole | null,
+    existingProfileData?: {
+      user_id: string;
+      role?: string | null;
+      onboarding_completed?: boolean | null;
+      full_name?: string | null;
+      display_name?: string | null;
+      avatar_url?: string | null;
+      email?: string | null;
+    } | null,
+  ) => {
     const avatarUrl = typeof authUser.user_metadata?.avatar_url === "string"
       ? authUser.user_metadata.avatar_url
       : typeof authUser.user_metadata?.picture === "string"
@@ -182,15 +235,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const fullName = getUserDisplayName(authUser);
 
-    const { data: existingProfile, error: profileLookupError } = await supabase
-      .from("profiles")
-      .select("user_id, full_name, display_name, avatar_url, email, role, onboarding_completed, bio, phone, country, city, kyc_status, is_verified")
-      .eq("user_id", authUser.id)
-      .maybeSingle();
+    // Use the pre-fetched profile if available; only hit the DB when we have to.
+    let existingProfile = existingProfileData;
+    if (existingProfile === undefined) {
+      const { data, error: profileLookupError } = await supabase
+        .from("profiles")
+        .select(PROFILE_ROLE_FIELDS)
+        .eq("user_id", authUser.id)
+        .maybeSingle();
 
-    if (profileLookupError) {
-      logSupabaseError("ensureProfileRecord profile lookup error:", profileLookupError);
-      return parseRole(existingProfile?.role) || resolvedRole || null;
+      if (profileLookupError) {
+        logSupabaseError("ensureProfileRecord profile lookup error:", profileLookupError);
+        return parseRole(data?.role) || resolvedRole || null;
+      }
+      existingProfile = data;
     }
 
     if (existingProfile) {
@@ -199,7 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const needsNameUpdate = !existingProfile.full_name && !!fullName;
       const needsAvatarUpdate = !existingProfile.avatar_url && !!avatarUrl;
       const needsEmailUpdate = !existingProfile.email && !!authUser.email;
-      
+
       // Also sync when existing values differ from auth (user changed them in provider)
       const nameChanged = existingProfile.full_name && fullName && existingProfile.full_name !== fullName;
       const avatarChanged = existingProfile.avatar_url && avatarUrl && existingProfile.avatar_url !== avatarUrl;
@@ -322,9 +380,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const ensureUserRecords = async (authUser: User) => {
+    // Single DB fetch for role/onboarding — result is passed down to
+    // ensureProfileRecord so it doesn't need to fetch the row a second time.
     const { data: existingProfile, error: existingProfileError } = await supabase
       .from("profiles")
-      .select("role, onboarding_completed")
+      .select(PROFILE_ROLE_FIELDS)
       .eq("user_id", authUser.id)
       .maybeSingle();
 
@@ -338,8 +398,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Only resolve/write a role if onboarding is complete.
     // Pre-onboarding users have no role — it gets set by finishOnboarding.
     if (!onboardingDone) {
-      // Just ensure the profile row exists (no role written)
-      await ensureProfileRecord(authUser, null);
+      // Pass the pre-fetched data down — avoids a second SELECT on the same row.
+      await ensureProfileRecord(authUser, null, existingProfile ?? null);
       return null;
     }
 
@@ -353,7 +413,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const resolvedRole = existingRole || requestedRole || "learner";
 
     await Promise.allSettled([
-      ensureProfileRecord(authUser, resolvedRole),
+      // Pass pre-fetched profile data — no extra SELECT inside ensureProfileRecord.
+      ensureProfileRecord(authUser, resolvedRole, existingProfile ?? null),
       ensureRoleRecord(authUser, resolvedRole),
       ensureUserMetadata(authUser, resolvedRole),
     ]);
@@ -410,34 +471,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (!user?.id) return;
     await fetchProfile(user.id);
-  };
+  }, [user?.id]);
 
-  const refreshRoles = async () => {
+  const refreshRoles = useCallback(async () => {
     if (!user?.id) return;
     await fetchRoles(user.id, parseRole(profile?.role), parseRole(user.user_metadata?.requested_role));
-  };
+  }, [user?.id, profile?.role, user?.user_metadata?.requested_role]);
 
-  const refreshAll = async () => {
+  const refreshAll = useCallback(async () => {
     if (!user?.id) return;
     const nextProfile = await fetchProfile(user.id);
     await fetchRoles(user.id, parseRole(nextProfile?.role), parseRole(user.user_metadata?.requested_role));
-  };
+  }, [user?.id, user?.user_metadata?.requested_role]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     clearStoredRequestedRole();
-    // Clear Supabase auth tokens from localStorage immediately.
-    // Use precise patterns to avoid accidentally removing unrelated "sb-" keys.
-    Object.keys(localStorage).forEach(key => {
-      if (
-        (key.startsWith("sb-") && key.includes("-auth-token")) ||
-        key.startsWith("supabase.auth.")
-      ) {
-        localStorage.removeItem(key);
-      }
-    });
+    clearAuthTokens();
     // Clear React state immediately so UI updates
     clearAuthState();
     try {
@@ -446,9 +498,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.auth.signOut({ scope: "global" }),
         new Promise(resolve => setTimeout(resolve, 4000)),
       ]);
-    } catch {}
+    } catch (err) {
+      console.warn("logout signOut error:", err);
+    }
     window.location.replace("/");
-  };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -486,18 +540,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // If we have a session but the user was deleted from Supabase,
-      // the profile fetch will fail - auto logout in that case
+      // the profile fetch will fail — auto logout in that case.
       if (nextSession?.user) {
-        const { data: profile, error: profileError } = await supabase
+        const { data: profileCheck, error: profileError } = await supabase
           .from("profiles")
           .select("user_id")
           .eq("user_id", nextSession.user.id)
           .maybeSingle();
-        
+
         if (profileError?.code === "PGRST301") {
-          // User deleted - clear everything and redirect
+          // User deleted — clear tokens (targeted, not nuclear) and redirect.
           try { await supabase.auth.signOut({ scope: "local" }); } catch {}
-          try { window.localStorage.clear(); window.sessionStorage.clear(); } catch {}
+          clearAuthTokens();
+          sessionStorage.clear();
           if (mounted) {
             clearAuthState();
             setLoading(false);
@@ -569,7 +624,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshAll,
       logout,
     }),
-    [user, session, profile, roles, primaryRole, loading],
+    [user, session, profile, roles, primaryRole, loading, refreshProfile, refreshRoles, refreshAll, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
