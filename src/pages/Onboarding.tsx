@@ -1201,54 +1201,56 @@ const Onboarding = () => {
       
       let accessToken: string;
       
-      try {
-        // Add timeout to prevent hanging
-        const refreshPromise = supabase.auth.refreshSession();
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Session refresh timeout")), 10000)
-        );
+      // Try multiple times with increasing timeouts - sometimes Supabase auth is slow
+      let refreshAttempts = 0;
+      const maxRefreshAttempts = 3;
+      
+      while (refreshAttempts < maxRefreshAttempts) {
+        refreshAttempts++;
+        const attemptTimeout = 10000 + (refreshAttempts - 1) * 5000; // 10s, 15s, 20s
         
-        const { data: refreshed, error: refreshErr } = await Promise.race([
-          refreshPromise,
-          timeoutPromise
-        ]) as any;
-        
-        if (refreshErr || !refreshed?.session?.access_token) {
-          throw new Error("Refresh failed");
-        }
-        
-        accessToken = refreshed.session.access_token;
-        console.log("✅ Session refreshed successfully");
-        
-      } catch (refreshError: any) {
-        console.log("⚠️ Session refresh failed:", refreshError.message, "- using current session");
-        
-        // Fallback: use current session instead with timeout
         try {
-          const getSessionPromise = supabase.auth.getSession();
-          const sessionTimeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error("getSession timeout")), 5000)
+          console.log(`🔄 Session refresh attempt ${refreshAttempts}/${maxRefreshAttempts} (${attemptTimeout}ms timeout)...`);
+          
+          const refreshPromise = supabase.auth.refreshSession();
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Session refresh timeout")), attemptTimeout)
           );
           
-          const { data: { session: currentSession } } = await Promise.race([
-            getSessionPromise,
-            sessionTimeoutPromise
+          const { data: refreshed, error: refreshErr } = await Promise.race([
+            refreshPromise,
+            timeoutPromise
           ]) as any;
           
-          if (!currentSession?.access_token) {
-            throw new Error("No session token available");
+          if (refreshErr) {
+            console.log(`⚠️ Attempt ${refreshAttempts} refresh error:`, refreshErr.message);
+            if (refreshAttempts < maxRefreshAttempts) {
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
+              continue;
+            }
+            throw new Error("Refresh failed: " + refreshErr.message);
           }
           
-          accessToken = currentSession.access_token;
-          console.log("✅ Using current session token as fallback");
+          if (!refreshed?.session?.access_token) {
+            console.log(`⚠️ Attempt ${refreshAttempts} returned no token`);
+            if (refreshAttempts < maxRefreshAttempts) {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              continue;
+            }
+            throw new Error("No session token in refresh response");
+          }
           
-        } catch (sessionError: any) {
-          console.log("⚠️ getSession failed:", sessionError.message, "- using context session");
+          accessToken = refreshed.session.access_token;
+          console.log("✅ Session refreshed successfully on attempt", refreshAttempts);
+          break; // Success - exit loop
           
-          // Last resort: use session from AuthContext
-          if (!session?.access_token) {
-            console.log("❌ No valid session available");
-            toast.error("Your session has expired. Please log in again.");
+        } catch (refreshError: any) {
+          console.log(`⚠️ Attempt ${refreshAttempts} failed:`, refreshError.message);
+          
+          if (refreshAttempts >= maxRefreshAttempts) {
+            // All refresh attempts failed - user needs to log in again
+            console.log("❌ All session refresh attempts failed");
+            toast.error("Your session has expired. Please log in again and complete onboarding.");
             setLoading(false);
             setSaveProgress("");
             await supabase.auth.signOut();
@@ -1256,8 +1258,8 @@ const Onboarding = () => {
             return;
           }
           
-          accessToken = session.access_token;
-          console.log("✅ Using AuthContext session token as last resort");
+          // Wait before next attempt
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
 
