@@ -48,17 +48,37 @@ const LearnerSubscription = () => {
   const [cancelling, setCancelling] = useState(false);
   const [plans, setPlans] = useState<SubscriptionPlanSummary[]>(FALLBACK_PLANS);
   const [subscription, setSubscription] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setPageLoading(false);
+      return;
+    }
     setPageLoading(true);
     try {
-      const [plansRes, subRes] = await Promise.all([
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      );
+
+      const loadPromise = Promise.all([
         getLearnerSubscriptionPlans().catch(() => FALLBACK_PLANS),
         getCurrentLearnerSubscription(user.id).catch(() => null),
       ]);
+
+      const [plansRes, subRes] = await Promise.race([loadPromise, timeoutPromise]) as any;
+      
       if (plansRes?.length) setPlans(plansRes);
       setSubscription(subRes || null);
+      setError(null);
+    } catch (error: any) {
+      console.error('Failed to load subscription data:', error);
+      const errorMsg = error.message || 'Failed to load subscription data';
+      setError(errorMsg);
+      toast.error(errorMsg + '. Using defaults.');
+      setPlans(FALLBACK_PLANS);
+      setSubscription(null);
     } finally {
       setPageLoading(false);
     }
@@ -127,6 +147,16 @@ const LearnerSubscription = () => {
     ? (currentPlanCode === "yearly" ? "Yearly" : "Monthly") + " plan active"
     : "No active plan";
 
+  if (authLoading || !user) {
+    return (
+      <DashboardLayout role="learner">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 size={32} className="animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout role="learner">
       <div className="max-w-2xl space-y-6">
@@ -134,6 +164,28 @@ const LearnerSubscription = () => {
           <h1 className="text-2xl font-bold text-foreground">Subscription</h1>
           {pageLoading && <Loader2 size={18} className="animate-spin text-muted-foreground" />}
         </div>
+
+        {/* Error banner */}
+        {error && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex items-start gap-2">
+              <XCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-900">Connection issue</p>
+                <p className="text-xs text-amber-800 mt-0.5">{error}</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={load} 
+                  disabled={pageLoading}
+                  className="mt-2"
+                >
+                  <RefreshCw size={14} className="mr-1" /> Retry
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Current status */}
         <div className="rounded-2xl border border-border bg-card p-5">

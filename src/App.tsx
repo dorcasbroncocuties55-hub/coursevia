@@ -35,6 +35,7 @@ const AuthGate = lazy(() => import("./pages/AuthGate"));
 // CheckoutPage, PaymentPage, BankAccountsPage removed
 const FAQ = lazy(() => import("./pages/public/FAQ"));
 const SubscriptionCallback = lazy(() => import("./pages/billing/SubscriptionCallback"));
+const CartPage = lazy(() => import("./pages/CartPage"));
 
 // Learner dashboard
 const LearnerDashboard = lazy(() => import("./pages/dashboard/LearnerDashboard"));
