@@ -642,6 +642,270 @@
                 }
               }
             ]
+          },
+          {
+            "name": "Manual Payout - Request (valid)",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/payouts/request",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"account_name\": \"John Doe\",\n  \"account_number\": \"0123456789\",\n  \"bank_name\": \"First Bank\",\n  \"bank_code\": \"001\",\n  \"country_code\": \"NG\",\n  \"note\": \"Monthly withdrawal\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200, 402, or 503', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 402, 503]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Returns reference and pending status', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.success).to.be.true;",
+                    "    pm.expect(body.reference).to.be.a('string').and.not.empty;",
+                    "    pm.expect(body.status).to.equal('pending');",
+                    "    pm.expect(body.amount).to.be.a('number').and.above(0);",
+                    "    pm.expect(body.currency).to.be.a('string');",
+                    "    pm.collectionVariables.set('payout_request_reference', body.reference);",
+                    "  });",
+                    "} else if (pm.response.code === 402) {",
+                    "  pm.test('Returns insufficient balance error', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.error).to.include('Insufficient balance');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Manual Payout - Request (missing user_id)",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/payouts/request",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"amount\": 10,\n  \"account_name\": \"John Doe\",\n  \"account_number\": \"0123456789\",\n  \"bank_name\": \"First Bank\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when user_id missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns user_id error', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.error).to.include('user_id');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Manual Payout - Request (missing bank fields)",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/payouts/request",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"amount\": 10\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when bank fields missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns descriptive error', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.error).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Manual Payout - Request (zero amount)",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/payouts/request",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"amount\": 0,\n  \"account_name\": \"John Doe\",\n  \"account_number\": \"0123456789\",\n  \"bank_name\": \"First Bank\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 for zero amount', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns amount error', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.error).to.include('Amount must be greater than 0');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Manual Payout - History",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/payouts/history?user_id={{user_id}}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns payouts array', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.payouts).to.be.an('array');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Manual Payout - History (missing user_id)",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/payouts/history"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when user_id missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns user_id error', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.error).to.include('user_id');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Admin - List All Payouts",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/admin/payouts"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('Returns payouts array', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.payouts).to.be.an('array');",
+                    "  if (body.payouts.length > 0) {",
+                    "    const p = body.payouts[0];",
+                    "    pm.expect(p).to.have.property('id');",
+                    "    pm.expect(p).to.have.property('status');",
+                    "    pm.expect(p).to.have.property('amount');",
+                    "    pm.collectionVariables.set('payout_request_id', p.id);",
+                    "  }",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Admin - List Payouts Filtered by Status",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/admin/payouts?status=pending"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                    "pm.test('All returned payouts are pending', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.payouts).to.be.an('array');",
+                    "  body.payouts.forEach(p => {",
+                    "    pm.expect(p.status).to.equal('pending');",
+                    "  });",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Admin - Approve Payout (not found)",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/admin/payouts/nonexistent-id/approve",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"admin_note\": \"Payment sent via wire\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 404 for unknown payout id', () => pm.response.to.have.status(404));",
+                    "pm.test('Returns not found error', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.error).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Admin - Reject Payout (not found)",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/admin/payouts/nonexistent-id/reject",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"admin_note\": \"Incorrect bank details provided\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 404 for unknown payout id', () => pm.response.to.have.status(404));",
+                    "pm.test('Returns not found error', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.error).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
           }
         ]
       },

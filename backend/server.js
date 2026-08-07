@@ -2879,7 +2879,278 @@ app.get("/api/wallet/balance/:userId", async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── Paddle Billing Integration ────────────────────────────────────────────────
+// ── Manual Payout System ──────────────────────────────────────────────────────
+//
+// No third-party platform. Flow:
+//   1. Provider submits bank details + amount → POST /api/payouts/request
+//   2. Record saved in payout_requests table with status "pending"
+//   3. Admin reviews → GET /api/admin/payouts
+//   4. Admin pays manually from their bank, then approves → POST /api/admin/payouts/:id/approve
+//   5. Or rejects with a note → POST /api/admin/payouts/:id/reject
+//   6. Provider sees status on their withdrawals page
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── POST /api/payouts/request ─────────────────────────────────────────────────
+// Provider submits a payout request with their bank details.
+// Wallet balance is reserved (deducted) immediately on request.
+// If admin rejects, balance is refunded back.
+app.post("/api/payouts/request", async (req, res) => {
+  try {
+    const {
+      user_id:        userId,
+      amount,
+      currency        = "USD",
+      account_name:   accountName,
+      account_number: accountNumber,
+      bank_name:      bankName,
+      bank_code:      bankCode,
+      swift_code:     swiftCode,
+      iban,
+      routing_number: routingNumber,
+      country_code:   countryCode = "NG",
+      note            = "",
+    } = req.body || {};
+
+    if (!userId)                             return res.status(400).json({ error: "user_id is required." });
+    if (!accountName?.trim())                return res.status(400).json({ error: "account_name is required." });
+    if (!accountNumber?.trim() && !iban?.trim()) return res.status(400).json({ error: "account_number or IBAN is required." });
+    if (!bankName?.trim())                   return res.status(400).json({ error: "bank_name is required." });
+
+    const numericAmount = safeNumber(amount, 0);
+    if (numericAmount <= 0) return res.status(400).json({ error: "Amount must be greater than 0." });
+
+    if (!supabaseAdmin) return res.status(503).json({ error: "Database unavailable." });
+
+    // 1. Check wallet balance
+    const { data: wallet, error: walletErr } = await supabaseAdmin
+      .from("wallets").select("*").eq("user_id", userId).maybeSingle();
+    if (walletErr || !wallet) return res.status(404).json({ error: "Wallet not found." });
+
+    const available = safeNumber(wallet.available_balance ?? wallet.balance, 0);
+    if (numericAmount > available) {
+      return res.status(402).json({
+        error: `Insufficient balance. Available: $${available.toFixed(2)}, Requested: $${numericAmount.toFixed(2)}`,
+      });
+    }
+
+    // 2. Reserve the amount (deduct from available immediately)
+    const newAvailable = Math.max(0, available - numericAmount);
+    await supabaseAdmin.from("wallets").update({
+      available_balance: newAvailable,
+      updated_at:        new Date().toISOString(),
+    }).eq("user_id", userId);
+
+    // 3. Build reference
+    const reference = buildReference("pay");
+
+    // 4. Save payout request
+    const { data: saved, error: saveErr } = await supabaseAdmin
+      .from("payout_requests")
+      .insert({
+        user_id:        userId,
+        amount:         numericAmount,
+        currency:       currency.toUpperCase(),
+        status:         "pending",
+        reference,
+        account_name:   accountName.trim(),
+        account_number: accountNumber?.trim() || null,
+        bank_name:      bankName.trim(),
+        bank_code:      bankCode?.trim()      || null,
+        swift_code:     swiftCode?.trim()     || null,
+        iban:           iban?.trim()           || null,
+        routing_number: routingNumber?.trim() || null,
+        country_code:   countryCode.toUpperCase(),
+        note:           note?.trim()           || null,
+      })
+      .select("*")
+      .single();
+
+    if (saveErr) throw new Error(saveErr.message);
+
+    // 5. Ledger entry
+    await supabaseAdmin.from("wallet_ledger").insert({
+      wallet_id:     wallet.id,
+      type:          "debit",
+      amount:        numericAmount,
+      balance_after: newAvailable,
+      description:   `Payout request ${reference} — pending admin approval`,
+    }).catch(() => {});
+
+    // 6. Notify provider
+    await supabaseAdmin.from("notifications").insert({
+      user_id: userId,
+      type:    "payout_requested",
+      title:   "Payout request submitted",
+      message: `Your request to withdraw ${currency.toUpperCase()} ${numericAmount.toFixed(2)} has been received. Admin will process it within 1–3 business days.`,
+      metadata: { reference, amount: numericAmount, currency },
+    }).catch(() => {});
+
+    console.log(`[Payout] Request ${reference} — $${numericAmount} ${currency} from user ${userId}`);
+
+    return res.json({
+      success:   true,
+      reference,
+      status:    "pending",
+      amount:    numericAmount,
+      currency:  currency.toUpperCase(),
+      message:   "Payout request submitted. Admin will process it within 1–3 business days.",
+    });
+  } catch (error) {
+    console.error("[Payout] request error:", error);
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Could not submit payout request." });
+  }
+});
+
+// ── GET /api/payouts/history ──────────────────────────────────────────────────
+// Provider's own payout request history.
+app.get("/api/payouts/history", async (req, res) => {
+  try {
+    const userId = String(req.query.user_id || "").trim();
+    if (!userId) return res.status(400).json({ error: "user_id is required." });
+
+    if (!supabaseAdmin) return res.json({ payouts: [] });
+
+    const { data, error } = await supabaseAdmin
+      .from("payout_requests")
+      .select("id, amount, currency, status, reference, account_name, bank_name, country_code, note, admin_note, created_at, processed_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) throw new Error(error.message);
+    return res.json({ payouts: data || [] });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Could not load payout history." });
+  }
+});
+
+// ── GET /api/admin/payouts ────────────────────────────────────────────────────
+// Admin: all payout requests with provider profile info.
+app.get("/api/admin/payouts", async (req, res) => {
+  try {
+    const status = String(req.query.status || "").trim();
+    if (!supabaseAdmin) return res.json({ payouts: [] });
+
+    let query = supabaseAdmin
+      .from("payout_requests")
+      .select(`
+        id, user_id, amount, currency, status, reference,
+        account_name, account_number, bank_name, bank_code,
+        swift_code, iban, routing_number, country_code, note,
+        admin_note, created_at, processed_at,
+        profiles ( full_name, email, role, avatar_url )
+      `)
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    if (status) query = query.eq("status", status);
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return res.json({ payouts: data || [] });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Could not load payout requests." });
+  }
+});
+
+// ── POST /api/admin/payouts/:id/approve ──────────────────────────────────────
+// Admin marks a payout as paid. Balance stays deducted (already done on request).
+app.post("/api/admin/payouts/:id/approve", async (req, res) => {
+  try {
+    const payoutId = String(req.params.id || "").trim();
+    const { admin_note: adminNote = "" } = req.body || {};
+    if (!payoutId) return res.status(400).json({ error: "payout id is required." });
+    if (!supabaseAdmin) return res.status(503).json({ error: "Database unavailable." });
+
+    const { data: payout, error: fetchErr } = await supabaseAdmin
+      .from("payout_requests").select("*").eq("id", payoutId).maybeSingle();
+    if (fetchErr || !payout) return res.status(404).json({ error: "Payout request not found." });
+    if (payout.status !== "pending") return res.status(400).json({ error: `Cannot approve a request with status "${payout.status}".` });
+
+    const { error: updateErr } = await supabaseAdmin
+      .from("payout_requests")
+      .update({
+        status:       "completed",
+        admin_note:   adminNote?.trim() || null,
+        processed_at: new Date().toISOString(),
+      })
+      .eq("id", payoutId);
+
+    if (updateErr) throw new Error(updateErr.message);
+
+    // Notify provider
+    await supabaseAdmin.from("notifications").insert({
+      user_id: payout.user_id,
+      type:    "payout_approved",
+      title:   "Payout approved ✓",
+      message: `Your payout of ${payout.currency} ${Number(payout.amount).toFixed(2)} has been processed. Check your bank account within 1–3 business days. Ref: ${payout.reference}`,
+      metadata: { reference: payout.reference, amount: payout.amount, currency: payout.currency },
+    }).catch(() => {});
+
+    console.log(`[Payout] Approved ${payoutId} — $${payout.amount} to ${payout.bank_name}`);
+    return res.json({ success: true, status: "completed" });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Could not approve payout." });
+  }
+});
+
+// ── POST /api/admin/payouts/:id/reject ───────────────────────────────────────
+// Admin rejects and refunds the reserved balance back to provider wallet.
+app.post("/api/admin/payouts/:id/reject", async (req, res) => {
+  try {
+    const payoutId = String(req.params.id || "").trim();
+    const { admin_note: adminNote = "" } = req.body || {};
+    if (!payoutId) return res.status(400).json({ error: "payout id is required." });
+    if (!supabaseAdmin) return res.status(503).json({ error: "Database unavailable." });
+
+    const { data: payout, error: fetchErr } = await supabaseAdmin
+      .from("payout_requests").select("*").eq("id", payoutId).maybeSingle();
+    if (fetchErr || !payout) return res.status(404).json({ error: "Payout request not found." });
+    if (payout.status !== "pending") return res.status(400).json({ error: `Cannot reject a request with status "${payout.status}".` });
+
+    // Refund the reserved amount back to wallet
+    const { data: wallet } = await supabaseAdmin
+      .from("wallets").select("*").eq("user_id", payout.user_id).maybeSingle();
+
+    if (wallet) {
+      const refundedBalance = safeNumber(wallet.available_balance) + safeNumber(payout.amount);
+      await supabaseAdmin.from("wallets").update({
+        available_balance: refundedBalance,
+        updated_at:        new Date().toISOString(),
+      }).eq("user_id", payout.user_id);
+
+      await supabaseAdmin.from("wallet_ledger").insert({
+        wallet_id:     wallet.id,
+        type:          "credit",
+        amount:        payout.amount,
+        balance_after: refundedBalance,
+        description:   `Payout request ${payout.reference} rejected — amount refunded`,
+      }).catch(() => {});
+    }
+
+    await supabaseAdmin.from("payout_requests").update({
+      status:       "rejected",
+      admin_note:   adminNote?.trim() || null,
+      processed_at: new Date().toISOString(),
+    }).eq("id", payoutId);
+
+    // Notify provider
+    await supabaseAdmin.from("notifications").insert({
+      user_id: payout.user_id,
+      type:    "payout_rejected",
+      title:   "Payout request rejected",
+      message: `Your payout request of ${payout.currency} ${Number(payout.amount).toFixed(2)} (ref: ${payout.reference}) was not processed.${adminNote ? ` Reason: ${adminNote}` : " Contact support for details."}`,
+      metadata: { reference: payout.reference, amount: payout.amount, admin_note: adminNote },
+    }).catch(() => {});
+
+    console.log(`[Payout] Rejected ${payoutId} — refunded $${payout.amount} to user ${payout.user_id}`);
+    return res.json({ success: true, status: "rejected", refunded: true });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Could not reject payout." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 //
 // Paddle is our Merchant of Record — handles global card payments, VAT, fraud.
 // Two surfaces:

@@ -15,17 +15,37 @@ const Creators = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
-    supabase
-      .from("profiles")
-      .select("*")
-      .eq("role", "creator")
-      .eq("onboarding_completed", true)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
+    const loadCreators = async () => {
+      setLoading(true);
+      try {
+        // Add 10-second timeout to prevent infinite loading
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Request timeout')), 10000)
+        );
+
+        const fetchPromise = supabase
+          .from("profiles")
+          .select("*")
+          .eq("role", "creator")
+          .eq("onboarding_completed", true)
+          .order("created_at", { ascending: false });
+
+        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
+
+        if (error) {
+          console.error('Failed to load creators:', error);
+        }
+
         setCreators(data || []);
+      } catch (err) {
+        console.error('Creator loading exception:', err);
+        setCreators([]);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    loadCreators();
   }, []);
 
   const filtered = useMemo(() => {

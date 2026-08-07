@@ -31,6 +31,10 @@ const ProtectedRoute = ({
       user?.user_metadata?.account_type
   );
 
+  // Extract onboarding completion status from metadata as fallback
+  // This prevents redirect loops when profile hasn't loaded yet but user has completed onboarding
+  const metadataOnboardingCompleted = user?.user_metadata?.onboarding_completed === true;
+
   const resolvedRoles = Array.from(
     new Set<AppRole>([
       ...(roles || []),
@@ -78,6 +82,12 @@ const ProtectedRoute = ({
       return <>{children}</>;
     }
 
+    // FIX: If user has completed onboarding per metadata, don't redirect or block access
+    // This prevents the redirect loop when profile is still loading
+    if (metadataOnboardingCompleted) {
+      return <>{children}</>;
+    }
+
     // If we have enough role info from metadata/roles to confirm access, allow through
     if (requiredRole && resolvedRoles.includes(requiredRole)) {
       return <>{children}</>;
@@ -95,21 +105,26 @@ const ProtectedRoute = ({
   }
 
   // Profile loaded — send incomplete users to onboarding
+  // Check both profile and metadata for completion status
   if (
     requireOnboarding &&
     profile &&
     !profile.onboarding_completed &&
+    !metadataOnboardingCompleted &&
     !isOnboardingPath &&
     !resolvedRoles.includes("admin" as AppRole)
   ) {
     return <Navigate to="/onboarding" replace />;
   }
 
+  // Determine if onboarding is complete from either profile or metadata
+  const isOnboardingComplete = profile.onboarding_completed || metadataOnboardingCompleted;
+
   // User finished onboarding but is trying to visit onboarding again — redirect to dashboard
   if (
     requireOnboarding === false &&
     isOnboardingPath &&
-    profile.onboarding_completed &&
+    isOnboardingComplete &&
     resolvedPrimaryRole &&
     resolvedPrimaryRole !== "admin"
   ) {

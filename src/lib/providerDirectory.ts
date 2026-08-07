@@ -328,19 +328,28 @@ export const getRoleCopy = (type: ProviderRole) => {
 
 export const loadProviders = async (type: ProviderRole): Promise<ProviderDirectoryResult> => {
   try {
-    const { data, error } = await supabase
+    // Add 10-second timeout to prevent infinite loading
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Request timeout - please try again')), 10000)
+    );
+
+    const fetchPromise = supabase
       .from("profiles")
       .select("*")
       .eq("onboarding_completed", true)
       .or(`role.eq.${type},provider_type.eq.${type}`)
       .order("updated_at", { ascending: false });
 
+    const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
+
     if (error) {
+      console.error(`Provider load error for ${type}:`, error);
       return { data: [], error: error.message || `Failed to load ${getProviderTitle(type).toLowerCase()}.` };
     }
 
     return { data: (data as Provider[]) || [], error: null };
   } catch (err: any) {
+    console.error(`Provider load exception for ${type}:`, err);
     return { data: [], error: err?.message || `Failed to load ${getProviderTitle(type).toLowerCase()}.` };
   }
 };

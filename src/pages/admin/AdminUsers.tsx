@@ -4,9 +4,38 @@ import { supabase } from "@/integrations/supabase/client";
 
 const AdminUsers = () => {
   const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("profiles").select("*, user_roles(role)").order("created_at", { ascending: false }).then(({ data }) => setUsers(data || []));
+    const loadUsers = async () => {
+      setLoading(true);
+      try {
+        // Add 10-second timeout
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Request timeout')), 10000)
+        );
+
+        const fetchPromise = supabase
+          .from("profiles")
+          .select("*, user_roles(role)")
+          .order("created_at", { ascending: false });
+
+        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
+
+        if (error) {
+          console.error('Failed to load users:', error);
+        }
+
+        setUsers(data || []);
+      } catch (err) {
+        console.error('User loading exception:', err);
+        setUsers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUsers();
   }, []);
 
   return (

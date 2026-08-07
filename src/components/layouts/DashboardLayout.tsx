@@ -199,22 +199,35 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
             </Button>
           </div>
         </div>
-        <div className="flex overflow-x-auto px-2 pb-2 gap-1" style={{ scrollbarWidth: "none" }}>
-          {nav.map((item) => {
-            const isActive = location.pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors ${
-                  isActive ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <item.icon size={14} />
-                {item.label}
-              </Link>
-            );
-          })}
+        {/* Mobile Navigation with improved scrolling */}
+        <div className="relative">
+          <div 
+            className="flex overflow-x-auto px-2 pb-2 gap-2 scroll-smooth"
+            style={{ 
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'rgba(0,0,0,0.2) transparent'
+            }}
+          >
+            {nav.map((item) => {
+              const isActive = location.pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors shrink-0 ${
+                    isActive ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <item.icon size={14} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+          {/* Scroll indicators - gradient shadows */}
+          <div className="absolute left-0 top-0 bottom-2 w-4 bg-gradient-to-r from-card to-transparent pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-2 w-4 bg-gradient-to-l from-card to-transparent pointer-events-none" />
         </div>
       </div>
 

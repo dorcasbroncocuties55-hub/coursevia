@@ -31,6 +31,7 @@ const LearnerPayments = () => {
   const { user, loading: authLoading } = useAuth();
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"payments" | "refunds">("payments");
   const [refundModal, setRefundModal] = useState<any | null>(null);
   const [existingRefunds, setExistingRefunds] = useState<Set<string>>(new Set());
@@ -41,18 +42,43 @@ const LearnerPayments = () => {
       setLoading(false);
       return;
     }
-    const [{ data: pays }, { data: refs }] = await Promise.all([
-      supabase.from("payments").select("*").eq("payer_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("refunds" as any).select("payment_id").eq("user_id", user.id).in("status", ["pending", "processed"]),
-    ]);
-    setPayments(pays || []);
-    setExistingRefunds(new Set((refs || []).map((r: any) => r.payment_id).filter(Boolean)));
-    setLoading(false);
+
+    setError(null);
+    setLoading(true);
+
+    try {
+      // Add 5-second timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout - please try again')), 5000)
+      );
+
+      const fetchPromise = Promise.all([
+        supabase.from("payments").select("*").eq("payer_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("refunds" as any).select("payment_id").eq("user_id", user.id).in("status", ["pending", "processed"]),
+      ]);
+
+      const [{ data: pays, error: payError }, { data: refs, error: refError }] = await Promise.race([
+        fetchPromise,
+        timeoutPromise
+      ]) as any;
+
+      if (payError || refError) {
+        throw new Error(payError?.message || refError?.message || 'Failed to load payment data');
+      }
+
+      setPayments(pays || []);
+      setExistingRefunds(new Set((refs || []).map((r: any) => r.payment_id).filter(Boolean)));
+    } catch (err) {
+      console.error('Payment loading error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load payments');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { 
     if (!authLoading) load(); 
-  }, [user, authLoading]);
+  }, [user?.id, authLoading]);
 
   const total = payments.filter(p => ["completed", "approved", "success"].includes(p.status))
     .reduce((s, p) => s + Number(p.amount || 0), 0);
@@ -64,6 +90,25 @@ const LearnerPayments = () => {
 
   if (loading) {
     return <PageLoading />;
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout role="learner">
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Payments</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Manage your payments and refund requests</p>
+          </div>
+          <div className="rounded-2xl border border-destructive/50 bg-destructive/10 p-12 text-center">
+            <CreditCard size={32} className="mx-auto text-destructive mb-3" />
+            <p className="text-destructive font-medium mb-2">Failed to load payment data</p>
+            <p className="text-sm text-muted-foreground mb-4">{error}</p>
+            <Button onClick={load} variant="outline">Retry</Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
   }
 
   if (!user) {
