@@ -866,7 +866,7 @@ const Onboarding = () => {
       return false;
     }
     if (!isValidShortText(worksWith, 2)) {
-      toast.error("Tell clients who you coach.");
+      toast.error("Tell clients who do you coach.");
       return false;
     }
     if (!isValidShortText(expertiseAreas, 2)) {
@@ -1951,7 +1951,7 @@ const Onboarding = () => {
 
             <div className="grid gap-5 md:grid-cols-2">
               <div>
-                <Label>{isCoach ? "Who you coach" : "Who you work with"}</Label>
+                <Label>{isCoach ? "Who do you coach" : "Who you work with"}</Label>
                 <Textarea
                   value={worksWith}
                   onChange={(e) => setWorksWith(e.target.value)}
