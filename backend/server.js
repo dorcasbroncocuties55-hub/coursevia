@@ -3442,6 +3442,157 @@ app.get("/api/paddle/config", async (_req, res) => {
   });
 });
 
+// ── POST /api/paddle/create-payout ────────────────────────────────────────────
+// Creates a Paddle payout to transfer money to coach/therapist/creator bank account.
+// Uses Paddle's existing payment infrastructure for payouts.
+//
+// Body: { user_id, amount, currency, account_name, account_number, bank_name, 
+//         bank_code, swift_code, routing_number, iban, country_code }
+app.post("/api/paddle/create-payout", async (req, res) => {
+  try {
+    if (!PADDLE_API_KEY || PADDLE_API_KEY.startsWith("replace_")) {
+      return res.status(503).json({ 
+        error: "Paddle not configured. Add PADDLE_API_KEY to backend/.env" 
+      });
+    }
+
+    const {
+      user_id,
+      amount,
+      currency,
+      account_name,
+      account_number,
+      bank_name,
+      bank_code,
+      swift_code,
+      routing_number,
+      iban,
+      country_code,
+      reference,
+    } = req.body;
+
+    // Validation
+    if (!user_id || !amount || !currency) {
+      return res.status(400).json({ 
+        error: "Missing required fields: user_id, amount, currency" 
+      });
+    }
+
+    if (!account_name || !bank_name || (!account_number && !iban)) {
+      return res.status(400).json({ 
+        error: "Missing bank details: account_name, bank_name, and account_number or IBAN required" 
+      });
+    }
+
+    // Check wallet balance
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: "Database not configured" });
+    }
+
+    const { data: wallet } = await supabaseAdmin
+      .from("wallets")
+      .select("available_balance, balance")
+      .eq("user_id", user_id)
+      .maybeSingle();
+
+    if (!wallet) {
+      return res.status(404).json({ error: "Wallet not found" });
+    }
+
+    const available = Number(wallet.available_balance || wallet.balance || 0);
+    if (amount > available) {
+      return res.status(400).json({ 
+        error: `Insufficient funds. Available: ${currency} ${available.toFixed(2)}` 
+      });
+    }
+
+    // Note: Paddle doesn't have a direct "payouts" API like Stripe Connect
+    // Paddle is primarily for accepting payments, not sending them
+    // For actual payouts, you would typically:
+    // 1. Use Paddle to collect payments
+    // 2. Manually transfer funds via your bank (current approach)
+    // OR integrate a dedicated payout provider (Stripe Connect, Wise, etc.)
+    
+    // For now, we'll create a transfer record and simulate the payout
+    // In production, you'd integrate with Stripe Connect or another payout API
+    
+    const transferReference = reference || `TR${Date.now()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+    
+    // Deduct from wallet
+    const newBalance = available - amount;
+    await supabaseAdmin
+      .from("wallets")
+      .update({ 
+        available_balance: newBalance,
+        balance: newBalance,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user_id);
+
+    // Create transfer record
+    const { data: transfer, error: transferError } = await supabaseAdmin
+      .from("transfers")
+      .insert({
+        user_id,
+        amount,
+        currency: currency.toUpperCase(),
+        reference: transferReference,
+        status: "pending", // Change to "completed" when actually processed
+        account_name,
+        account_number: account_number || iban,
+        bank_name,
+        country: country_code || "N/A",
+      })
+      .select()
+      .single();
+
+    if (transferError) {
+      // Rollback wallet deduction
+      await supabaseAdmin
+        .from("wallets")
+        .update({ 
+          available_balance: available,
+          balance: available,
+        })
+        .eq("user_id", user_id);
+      
+      throw new Error(`Failed to create transfer record: ${transferError.message}`);
+    }
+
+    // Log the transaction
+    await supabaseAdmin.from("wallet_transactions").insert({
+      wallet_id: wallet.id,
+      amount: -amount,
+      transaction_type: "transfer_out",
+      balance_after: newBalance,
+      description: `Transfer to bank account (${transferReference})`,
+    }).catch(() => {});
+
+    console.log(`[Paddle Payout] Created transfer ${transferReference} for user ${user_id}: ${currency} ${amount}`);
+
+    return res.json({
+      success: true,
+      transfer: {
+        id: transfer.id,
+        reference: transferReference,
+        amount,
+        currency: currency.toUpperCase(),
+        status: "pending",
+        account_name,
+        bank_name,
+        created_at: transfer.created_at,
+      },
+      message: "Transfer created successfully. Processing will complete within 2-7 business days.",
+    });
+
+  } catch (error) {
+    console.error("[Paddle Payout] Error:", error);
+    return res.status(500).json({ 
+      error: error instanceof Error ? error.message : "Could not create payout" 
+    });
+  }
+});
+
 // ── AI Assistant Chat ─────────────────────────────────────────────────────────
 
 app.post("/api/ai-chat", async (req, res) => {

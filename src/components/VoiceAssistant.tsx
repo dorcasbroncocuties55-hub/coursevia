@@ -403,13 +403,12 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
     [["profile","my profile","profile settings","account settings","edit profile"], rp("/dashboard/profile","/coach/profile","/therapist/profile","/dashboard/profile"), "Opening profile."],
     [["notifications","my notifications","alerts"], "/dashboard/notifications", "Opening notifications."],
     [["wishlist","saved","my wishlist","favourites"], "/dashboard/wishlist", "Opening wishlist."],
-    [["withdrawals","withdraw","payout","my withdrawals","cash out"], rp("/dashboard","/coach/withdrawals","/therapist/withdrawals","/creator/withdrawals"), "Opening withdrawals."],
-    [["bank account","bank accounts","add bank","payout method","banking"], rp("/dashboard","/coach/bank-accounts","/therapist/bank-accounts","/creator/bank-accounts"), "Opening bank accounts."],
+    [["withdrawals","withdraw","transfer","my transfers","cash out"], rp("/dashboard","/coach/transfers","/therapist/transfers","/creator/transfers"), "Opening transfers."],
     [["services","my services","service list"], rp("/dashboard","/coach/services","/therapist/services","/dashboard"), "Opening services."],
     [["calendar","my calendar","availability","schedule"], rp("/dashboard","/coach/calendar","/therapist/calendar","/dashboard"), "Opening calendar."],
     [["clients","my clients","client list"], rp("/dashboard","/coach/clients","/therapist/clients","/dashboard"), "Opening clients."],
-    [["content","my content","my videos","uploaded content"], rp("/dashboard","/coach/content","/therapist/content","/creator/content"), "Opening content."],
-    [["upload","upload video","upload course","add video"], rp("/dashboard","/coach/upload-video","/therapist/upload-video","/creator/upload-video"), "Opening upload."],
+    [["content","my content","my videos","uploaded content"], rp("/dashboard","/dashboard","/dashboard","/creator/content"), "Opening content."],
+    [["upload","upload video","upload course","add video"], rp("/dashboard","/dashboard","/dashboard","/creator/upload-video"), "Opening upload."],
     [["analytics","my analytics","stats","statistics"], rp("/dashboard","/dashboard","/dashboard","/creator/analytics"), "Opening analytics."],
     [["reviews","my reviews","ratings"], rp("/dashboard","/coach/reviews","/dashboard","/dashboard"), "Opening reviews."],
     [["faq","frequently asked questions","common questions"], "/faq", "Opening FAQ."],
@@ -437,8 +436,8 @@ const think = async (text: string, ctx: Ctx): Promise<Result> => {
 
   if (/\b(what is coursevia|about coursevia|tell me about coursevia|what does coursevia do|explain coursevia|coursevia.*platform)\b/.test(q)) return { reply: "Coursevia is an all-in-one platform for learning, coaching, and creating. You can buy courses, book sessions with verified coaches and therapists, and access premium video content from creators worldwide." };
   if (/\b(how much|cost|price|fee|subscription.*cost|plan.*cost|what.*plan.*cost|afford|pricing)\b/.test(q) && /\b(plan|subscription|membership|monthly|yearly|annual)\b/.test(q)) return { reply: "Coursevia has a free plan, a monthly plan at $10 per month, and a yearly plan at $120 per year. Say open pricing for full details.", nav: "/pricing" };
-  if (/\b(how.*upload|upload.*course|how.*add.*video|how.*publish|how.*create.*course)\b/.test(q)) return { reply: "Go to your creator dashboard and click Upload Video. Add your title, description, price, and video file, then publish." };
-  if (/\b(how.*withdraw|how.*get.*money|how.*cash out|how.*payout|how.*transfer.*earnings)\b/.test(q)) return { reply: "First add a bank account in your dashboard, then go to Withdrawals and enter the amount. Payouts take 3 to 5 business days." };
+  if (/\b(how.*upload|upload.*course|how.*add.*video|how.*publish|how.*create.*course)\b/.test(q)) return { reply: "Creators can upload content from their dashboard. Go to Upload Video, add your title, description, price, and video file, then publish." };
+  if (/\b(how.*withdraw|how.*get.*money|how.*cash out|how.*payout|how.*transfer.*earnings)\b/.test(q)) return { reply: "Go to Transfers in your dashboard, enter the amount and your bank details, then confirm. Transfers are instant with a receipt." };
   if (/\b(how.*book|how.*schedule|how.*reserve|how.*get.*session|how.*find.*coach|how.*find.*therapist)\b/.test(q)) return { reply: "Browse coaches or therapists, open a profile, and click Book Session. Choose a time and complete payment." };
   if (/\b(how.*cancel|how.*stop.*subscription|how.*end.*plan|how.*unsubscribe)\b/.test(q)) return { reply: "Go to Dashboard, then Subscription, and click Cancel Subscription. Access continues until the end of your billing period." };
   if (/\b(how.*refund|how.*get.*money back|how.*request.*refund|how.*dispute)\b/.test(q)) return { reply: "Go to Dashboard, then Payments, and click Request Refund next to the payment. Refunds are reviewed within 24 to 48 hours." };

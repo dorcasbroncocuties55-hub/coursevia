@@ -85,9 +85,9 @@ const LearnerWallet = lazy(() => import("./pages/dashboard/WalletPage").then(m =
 const CoachWallet = lazy(() => import("./pages/dashboard/WalletPage").then(m => ({ default: m.CoachWallet })));
 const CreatorWallet = lazy(() => import("./pages/dashboard/WalletPage").then(m => ({ default: m.CreatorWallet })));
 const TherapistWallet = lazy(() => import("./pages/dashboard/WalletPage").then(m => ({ default: m.TherapistWallet })));
-const CoachWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage").then(m => ({ default: m.CoachWithdrawals })));
-const CreatorWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage").then(m => ({ default: m.CreatorWithdrawals })));
-const TherapistWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage").then(m => ({ default: m.TherapistWithdrawals })));
+const CoachTransfers = lazy(() => import("./pages/dashboard/TransfersPage").then(m => ({ default: m.CoachTransfers })));
+const CreatorTransfers = lazy(() => import("./pages/dashboard/TransfersPage").then(m => ({ default: m.CreatorTransfers })));
+const TherapistTransfers = lazy(() => import("./pages/dashboard/TransfersPage").then(m => ({ default: m.TherapistTransfers })));
 const BookingMeetingRoom = lazy(() => import("./pages/dashboard/BookingMeetingRoom"));
 const ProfessionalProfileSettings = lazy(() => import("./pages/dashboard/ProfessionalProfileSettings"));
 
@@ -439,10 +439,10 @@ const App = () => {
                   }
                 />
                 <Route
-                  path="/coach/withdrawals"
+                  path="/coach/transfers"
                   element={
                     <ProtectedRoute requiredRole="coach">
-                      <CoachWithdrawals />
+                      <CoachTransfers />
                     </ProtectedRoute>
                   }
                 />
@@ -588,10 +588,10 @@ const App = () => {
                   }
                 />
                 <Route
-                  path="/therapist/withdrawals"
+                  path="/therapist/transfers"
                   element={
                     <ProtectedRoute requiredRole="therapist">
-                      <TherapistWithdrawals />
+                      <TherapistTransfers />
                     </ProtectedRoute>
                   }
                 />
@@ -673,10 +673,10 @@ const App = () => {
                   }
                 />
                 <Route
-                  path="/creator/withdrawals"
+                  path="/creator/transfers"
                   element={
                     <ProtectedRoute requiredRole="creator">
-                      <CreatorWithdrawals />
+                      <CreatorTransfers />
                     </ProtectedRoute>
                   }
                 />

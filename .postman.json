@@ -906,6 +906,185 @@
                 }
               }
             ]
+          },
+          {
+            "name": "Paddle Create Payout - Valid",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/paddle/create-payout",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"account_name\": \"John Doe\",\n  \"account_number\": \"0123456789\",\n  \"bank_name\": \"First Bank\",\n  \"bank_code\": \"001\",\n  \"country_code\": \"US\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200, 400, 404, or 503', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 400, 404, 503]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Returns success with transfer object', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.success).to.be.true;",
+                    "    pm.expect(body.transfer).to.have.property('id');",
+                    "    pm.expect(body.transfer).to.have.property('reference');",
+                    "    pm.expect(body.transfer.reference).to.be.a('string').and.not.empty;",
+                    "    pm.expect(body.transfer.status).to.equal('pending');",
+                    "    pm.expect(body.transfer.amount).to.equal(10);",
+                    "    pm.expect(body.transfer.currency).to.equal('USD');",
+                    "    pm.expect(body.transfer.account_name).to.equal('John Doe');",
+                    "    pm.expect(body.transfer.bank_name).to.equal('First Bank');",
+                    "    pm.expect(body.message).to.be.a('string').and.not.empty;",
+                    "    pm.collectionVariables.set('paddle_payout_reference', body.transfer.reference);",
+                    "  });",
+                    "} else if (pm.response.code === 503) {",
+                    "  pm.test('Returns Paddle not configured error', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.error).to.include('Paddle not configured');",
+                    "  });",
+                    "} else if (pm.response.code === 400) {",
+                    "  pm.test('Returns insufficient funds or validation error', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.error).to.be.a('string');",
+                    "  });",
+                    "} else if (pm.response.code === 404) {",
+                    "  pm.test('Returns wallet not found error', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.error).to.include('Wallet not found');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Paddle Create Payout - Missing Required Fields",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/paddle/create-payout",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"account_name\": \"John Doe\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 or 503 when required fields missing', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([400, 503]);",
+                    "});",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.error).to.be.a('string');",
+                    "  if (pm.response.code === 400) {",
+                    "    pm.expect(body.error).to.include('user_id');",
+                    "  }",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Paddle Create Payout - Missing Bank Details",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/paddle/create-payout",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"amount\": 10,\n  \"currency\": \"USD\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 or 503 when bank details missing', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([400, 503]);",
+                    "});",
+                    "pm.test('Returns error mentioning bank details', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.error).to.be.a('string');",
+                    "  if (pm.response.code === 400) {",
+                    "    pm.expect(body.error).to.match(/bank|account/i);",
+                    "  }",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Paddle Create Payout - IBAN Path",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/paddle/create-payout",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"amount\": 5,\n  \"currency\": \"EUR\",\n  \"account_name\": \"Jane Smith\",\n  \"iban\": \"DE89370400440532013000\",\n  \"bank_name\": \"Deutsche Bank\",\n  \"swift_code\": \"DEUTDEDB\",\n  \"country_code\": \"DE\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200, 400, 404, or 503', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 400, 404, 503]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Transfer uses IBAN as account_number', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.success).to.be.true;",
+                    "    pm.expect(body.transfer.currency).to.equal('EUR');",
+                    "    pm.expect(body.transfer.account_name).to.equal('Jane Smith');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Paddle Create Payout - Custom Reference",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/api/paddle/create-payout",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"account_name\": \"John Doe\",\n  \"account_number\": \"0123456789\",\n  \"bank_name\": \"First Bank\",\n  \"reference\": \"MY-CUSTOM-REF-001\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200, 400, 404, or 503', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 400, 404, 503]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Respects custom reference', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.transfer.reference).to.equal('MY-CUSTOM-REF-001');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
           }
         ]
       },
