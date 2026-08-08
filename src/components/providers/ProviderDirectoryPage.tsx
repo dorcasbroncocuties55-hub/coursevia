@@ -487,6 +487,111 @@ const ProviderDirectoryPage = ({ role }: Props) => {
             )}
           </div>
         </div>
+
+        {/* ── AFTER RESULTS: Country Grid ── */}
+        <section className="mt-16">
+          <div className="rounded-3xl overflow-hidden" style={{ background: "linear-gradient(135deg,#0d1b2a 0%,#1a3a5c 100%)" }}>
+            <div className="px-8 py-12 md:px-12">
+              <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+                <div>
+                  <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Global Directory</p>
+                  <h2 className="text-2xl font-bold text-white">
+                    Find {role === "therapist" ? "Psychologists &amp; Therapists" : "Coaches &amp; Mentors"}
+                  </h2>
+                  <p className="text-slate-400 text-sm mt-1">Browse verified {pluralWord.toLowerCase()} by country</p>
+                </div>
+                <p className="text-slate-400 text-sm">{DIRECTORY_COUNTRIES.length} countries · {providers.length}+ providers</p>
+              </div>
+              <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                {DIRECTORY_COUNTRIES.slice(0, 24).map(c => (
+                  <button key={c.code} onClick={() => goToCountry(c.name)}
+                    className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition ${
+                      selectedCountry === c.name
+                        ? "border-primary bg-primary/20 text-white"
+                        : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:border-primary/50"
+                    }`}>
+                    <span className="text-lg shrink-0">{c.flag}</span>
+                    <span className="truncate text-xs font-medium">{c.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── How it Works ── */}
+        <section className="mt-12">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-slate-900">How It Works</h2>
+            <p className="text-slate-500 text-sm mt-1">Find and book your {singularWord.toLowerCase()} in 3 simple steps</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { step: "01", title: "Search & Filter", desc: `Browse ${pluralWord.toLowerCase()} by location, specialty, language, and price. Use filters to narrow down exactly what you need.`, icon: "🔍" },
+              { step: "02", title: "View Profiles", desc: `Read full bios, check specialties, see reviews, and compare ${pluralWord.toLowerCase()} side by side before making a decision.`, icon: "👤" },
+              { step: "03", title: "Book a Session", desc: `Message directly or book a session instantly. Pay securely through your wallet and get started right away.`, icon: "📅" },
+            ].map(s => (
+              <div key={s.step} className="bg-white rounded-2xl border border-slate-200 p-6 hover:shadow-md transition">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-xl">{s.icon}</div>
+                  <span className="text-xs font-bold text-primary/50 tracking-widest">STEP {s.step}</span>
+                </div>
+                <h3 className="font-bold text-slate-900 mb-2">{s.title}</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── FAQ ── */}
+        <section className="mt-12 mb-4">
+          <div className="grid md:grid-cols-2 gap-8">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">Common Questions</h2>
+              <p className="text-slate-500 text-sm mb-6">Everything you need to know before booking your first session.</p>
+              <div className="space-y-3">
+                {[
+                  [`How do I choose the right ${singularWord.toLowerCase()}?`, `Look at their specialties, bio, and delivery mode. Read their profile carefully and message them before booking if you have questions.`],
+                  ["Can I book online sessions?", "Yes. Many providers offer online video sessions. Filter by 'Online Services' to see only remote providers."],
+                  ["Is it free to search?", "Completely free. You only need an account when you're ready to book or send a message."],
+                  ["How do I know if a provider is verified?", "Verified providers have completed identity verification and display a green Verified badge on their profile card."],
+                  ["What if I need to cancel?", "Check the provider's cancellation policy on their profile. Most offer flexible rescheduling."],
+                ].map(([q, a], i) => (
+                  <details key={i} className="rounded-xl border border-slate-200 bg-white overflow-hidden group">
+                    <summary className="flex items-center justify-between px-5 py-4 cursor-pointer text-sm font-semibold text-slate-800 list-none select-none hover:bg-slate-50">
+                      {q}
+                      <span className="text-slate-400 group-open:rotate-45 transition-transform text-lg shrink-0 ml-2">+</span>
+                    </summary>
+                    <p className="px-5 pb-4 pt-0 text-sm text-slate-500 leading-relaxed border-t border-slate-100">{a}</p>
+                  </details>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-5">
+              <div className="bg-gradient-to-br from-primary to-primary/80 rounded-2xl p-6 text-white">
+                <h3 className="text-lg font-bold mb-2">Are you a {singularWord}?</h3>
+                <p className="text-sm text-white/80 mb-4 leading-relaxed">
+                  Join thousands of {pluralWord.toLowerCase()} on Coursevia. Create your profile, set your availability and start getting bookings today.
+                </p>
+                <button onClick={() => navigate("/signup")}
+                  className="rounded-xl bg-white text-primary font-bold text-sm px-5 py-2.5 hover:bg-white/90 transition">
+                  Join as a {singularWord}
+                </button>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-6">
+                <h3 className="font-bold text-slate-900 mb-3 text-sm">Browse by Country</h3>
+                <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+                  {DIRECTORY_COUNTRIES.slice(0, 32).map(c => (
+                    <button key={c.code} onClick={() => goToCountry(c.name)}
+                      className={`text-xs hover:underline transition ${selectedCountry === c.name ? "text-primary font-bold" : "text-slate-500 hover:text-primary"}`}>
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
 
       <Footer />
