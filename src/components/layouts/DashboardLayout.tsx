@@ -74,7 +74,6 @@ const therapistNav: NavItem[] = [
   { label: "Reviews",          href: "/therapist/reviews",           icon: FileText },
   { label: "Profile Settings", href: "/therapist/profile-settings",  icon: Settings },
 ];
-];
 
 const creatorNav: NavItem[] = [
   { label: "Dashboard", href: "/creator/dashboard", icon: LayoutDashboard },
