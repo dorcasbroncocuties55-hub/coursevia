@@ -14,48 +14,25 @@ import { PageLoading } from "@/components/LoadingSpinner";
 
 const TherapistServices = () => {
   const { user, loading: authLoading } = useAuth();
-  const [loading, setLoading]     = useState(true);
-  const [services, setServices]   = useState<any[]>([]);
-  const [profile, setProfile]     = useState<any>(null);
+  const [loading,       setLoading]      = useState(true);
+  const [services,      setServices]     = useState<any[]>([]);
+  const [therapistId,   setTherapistId]  = useState<string | null>(null);
+  const [profile,       setProfile]      = useState<any>(null);
+  const [showForm,      setShowForm]     = useState(false);
+  const [title,         setTitle]        = useState("");
+  const [description,   setDescription]  = useState("");
+  const [price,         setPrice]        = useState("");
+  const [duration,      setDuration]     = useState("60");
+  const [editingId,     setEditingId]    = useState<string | null>(null);
+  const [editingPrice,  setEditingPrice] = useState("");
 
-  // form
-  const [showForm,     setShowForm]     = useState(false);
-  const [title,        setTitle]        = useState("");
-  const [description,  setDescription]  = useState("");
-  const [price,        setPrice]        = useState("");
-  const [duration,     setDuration]     = useState("60");
-
-  // inline edit
-  const [editingId,    setEditingId]    = useState<string | null>(null);
-  const [editingPrice, setEditingPrice] = useState("");
-
-  // ── Fetch services directly by user_id ────────────────────────────────────
-  const fetchServices = async (userId: string) => {
-    // Try therapist_services by user_id directly
-    const { data, error } = await (supabase as any)
+  const loadServices = async (tId: string) => {
+    const { data } = await (supabase as any)
       .from("therapist_services")
       .select("*")
-      .or(`therapist_id.eq.${userId},user_id.eq.${userId}`)
+      .eq("therapist_id", tId)
       .order("created_at", { ascending: false });
-
-    if (!error && data?.length) return data;
-
-    // fallback: via therapist_profiles id
-    const { data: tp } = await (supabase as any)
-      .from("therapist_profiles")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (tp?.id) {
-      const { data: svcs } = await (supabase as any)
-        .from("therapist_services")
-        .select("*")
-        .eq("therapist_id", tp.id)
-        .order("created_at", { ascending: false });
-      return svcs || [];
-    }
-    return [];
+    setServices(data || []);
   };
 
   useEffect(() => {
@@ -64,18 +41,39 @@ const TherapistServices = () => {
 
     const init = async () => {
       setLoading(true);
+      try {
+        // 1. Read profile info
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("full_name,headline,booking_price,service_delivery_mode,city,country")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        setProfile(prof || null);
 
-      // Load profile info (no upsert — just read)
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("full_name, headline, booking_price, service_delivery_mode, city, country")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      setProfile(prof || null);
+        // 2. Get or create therapist_profiles row
+        let { data: tp } = await (supabase as any)
+          .from("therapist_profiles")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-      const svcs = await fetchServices(user.id);
-      setServices(svcs);
-      setLoading(false);
+        if (!tp?.id) {
+          const { data: newTp, error: tpErr } = await (supabase as any)
+            .from("therapist_profiles")
+            .insert({ user_id: user.id, is_active: true })
+            .select("id")
+            .single();
+          if (tpErr) throw new Error(tpErr.message);
+          tp = newTp;
+        }
+
+        setTherapistId(tp.id);
+        await loadServices(tp.id);
+      } catch (err: any) {
+        toast.error(err?.message || "Could not load services");
+      } finally {
+        setLoading(false);
+      }
     };
 
     init();
@@ -86,54 +84,25 @@ const TherapistServices = () => {
     setShowForm(false);
   };
 
-  // ── Get or create therapist_profiles id for inserting services ────────────
-  const getOrCreateTherapistProfileId = async (): Promise<string> => {
-    const { data: existing } = await (supabase as any)
-      .from("therapist_profiles")
-      .select("id")
-      .eq("user_id", user!.id)
-      .maybeSingle();
-
-    if (existing?.id) return existing.id;
-
-    const { data: created, error } = await (supabase as any)
-      .from("therapist_profiles")
-      .insert({ user_id: user!.id, is_active: true })
-      .select("id")
-      .single();
-
-    if (error) throw new Error(error.message);
-    return created.id;
-  };
-
   const addService = async () => {
-    if (!title.trim()) { toast.error("Service title is required"); return; }
+    if (!therapistId || !title.trim()) { toast.error("Service title is required"); return; }
     const numPrice = parseFloat(price);
     if (isNaN(numPrice) || numPrice < 0) { toast.error("Enter a valid price"); return; }
-
-    try {
-      const therapistId = await getOrCreateTherapistProfileId();
-      const { error } = await (supabase as any).from("therapist_services").insert({
-        therapist_id:     therapistId,
-        title:            title.trim(),
-        description:      description.trim() || null,
-        price:            numPrice,
-        duration_minutes: parseInt(duration, 10) || 60,
-      });
-      if (error) throw new Error(error.message);
-      toast.success("Service added");
-      resetForm();
-      setServices(await fetchServices(user!.id));
-    } catch (err: any) {
-      toast.error(err?.message || "Could not add service");
-    }
+    const { error } = await (supabase as any).from("therapist_services").insert({
+      therapist_id: therapistId, title: title.trim(),
+      description: description.trim() || null,
+      price: numPrice, duration_minutes: parseInt(duration, 10) || 60,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Service added");
+    resetForm();
+    await loadServices(therapistId);
   };
 
   const savePrice = async (serviceId: string) => {
     const numPrice = parseFloat(editingPrice);
     if (isNaN(numPrice) || numPrice < 0) { toast.error("Enter a valid price"); return; }
-    const { error } = await (supabase as any)
-      .from("therapist_services").update({ price: numPrice }).eq("id", serviceId);
+    const { error } = await (supabase as any).from("therapist_services").update({ price: numPrice }).eq("id", serviceId);
     if (error) { toast.error(error.message); return; }
     setServices(prev => prev.map(s => s.id === serviceId ? { ...s, price: numPrice } : s));
     setEditingId(null); setEditingPrice("");
@@ -153,15 +122,13 @@ const TherapistServices = () => {
   return (
     <DashboardLayout role="therapist">
       <ScrollableContent maxHeight="h-full" className="space-y-6">
-
-        {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Therapy Services</h1>
             {profile && (
               <p className="text-sm text-muted-foreground mt-0.5">
-                {profile.headline || "Therapist"} · {[profile.city, profile.country].filter(Boolean).join(", ")}
-                {profile.booking_price > 0 && ` · From $${Number(profile.booking_price).toFixed(0)}/session`}
+                {profile.headline || "Therapist"}{[profile.city, profile.country].filter(Boolean).length > 0 && ` · ${[profile.city, profile.country].filter(Boolean).join(", ")}`}
+                {Number(profile.booking_price) > 0 && ` · From $${Number(profile.booking_price).toFixed(0)}/session`}
               </p>
             )}
           </div>
@@ -170,7 +137,6 @@ const TherapistServices = () => {
           </Button>
         </div>
 
-        {/* Add Service Form */}
         {showForm && (
           <div className="bg-card border border-border rounded-lg p-6 max-w-lg space-y-4">
             <div><Label>Title</Label>
@@ -194,7 +160,6 @@ const TherapistServices = () => {
           </div>
         )}
 
-        {/* Services List */}
         {services.length === 0 ? (
           <div className="bg-card border border-dashed border-border rounded-lg p-10 text-center">
             <p className="text-muted-foreground text-sm">No services yet. Click "Add Service" to create your first one.</p>
@@ -227,7 +192,6 @@ const TherapistServices = () => {
             ))}
           </div>
         )}
-
       </ScrollableContent>
     </DashboardLayout>
   );

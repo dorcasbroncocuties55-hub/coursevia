@@ -14,48 +14,25 @@ import { PageLoading } from "@/components/LoadingSpinner";
 
 const CoachServices = () => {
   const { user, loading: authLoading } = useAuth();
-  const [loading, setLoading]     = useState(true);
-  const [services, setServices]   = useState<any[]>([]);
-  const [profile, setProfile]     = useState<any>(null);
-
-  // form
+  const [loading,      setLoading]      = useState(true);
+  const [services,     setServices]     = useState<any[]>([]);
+  const [coachId,      setCoachId]      = useState<string | null>(null);
+  const [profile,      setProfile]      = useState<any>(null);
   const [showForm,     setShowForm]     = useState(false);
   const [title,        setTitle]        = useState("");
   const [description,  setDescription]  = useState("");
   const [price,        setPrice]        = useState("");
   const [duration,     setDuration]     = useState("60");
-
-  // inline edit
   const [editingId,    setEditingId]    = useState<string | null>(null);
   const [editingPrice, setEditingPrice] = useState("");
 
-  // ── Load profile + services directly from profiles table ─────────────────
-  const fetchServices = async (userId: string) => {
-    // Try coach_services by user_id directly first, then fall back to coach_id
-    const { data, error } = await (supabase as any)
+  const loadServices = async (cId: string) => {
+    const { data } = await (supabase as any)
       .from("coach_services")
       .select("*")
-      .or(`coach_id.eq.${userId},user_id.eq.${userId}`)
+      .eq("coach_id", cId)
       .order("created_at", { ascending: false });
-
-    if (!error && data?.length) return data;
-
-    // fallback: try via coach_profiles id
-    const { data: cp } = await (supabase as any)
-      .from("coach_profiles")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (cp?.id) {
-      const { data: svcs } = await (supabase as any)
-        .from("coach_services")
-        .select("*")
-        .eq("coach_id", cp.id)
-        .order("created_at", { ascending: false });
-      return svcs || [];
-    }
-    return [];
+    setServices(data || []);
   };
 
   useEffect(() => {
@@ -64,18 +41,39 @@ const CoachServices = () => {
 
     const init = async () => {
       setLoading(true);
+      try {
+        // 1. Read profile info
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("full_name,headline,booking_price,service_delivery_mode,city,country")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        setProfile(prof || null);
 
-      // Load profile from profiles table (no upsert — just read)
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("full_name, headline, booking_price, service_delivery_mode, city, country")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      setProfile(prof || null);
+        // 2. Get or create coach_profiles row — this gives us the coach_id
+        let { data: cp } = await (supabase as any)
+          .from("coach_profiles")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-      const svcs = await fetchServices(user.id);
-      setServices(svcs);
-      setLoading(false);
+        if (!cp?.id) {
+          const { data: newCp, error: cpErr } = await (supabase as any)
+            .from("coach_profiles")
+            .insert({ user_id: user.id, is_active: true })
+            .select("id")
+            .single();
+          if (cpErr) throw new Error(cpErr.message);
+          cp = newCp;
+        }
+
+        setCoachId(cp.id);
+        await loadServices(cp.id);
+      } catch (err: any) {
+        toast.error(err?.message || "Could not load services");
+      } finally {
+        setLoading(false);
+      }
     };
 
     init();
@@ -86,56 +84,25 @@ const CoachServices = () => {
     setShowForm(false);
   };
 
-  // ── Get coach_profiles id (create if needed) for inserting services ───────
-  const getOrCreateCoachProfileId = async (): Promise<string> => {
-    const { data: existing } = await (supabase as any)
-      .from("coach_profiles")
-      .select("id")
-      .eq("user_id", user!.id)
-      .maybeSingle();
-
-    if (existing?.id) return existing.id;
-
-    // Create minimal record
-    const { data: created, error } = await (supabase as any)
-      .from("coach_profiles")
-      .insert({ user_id: user!.id, is_active: true })
-      .select("id")
-      .single();
-
-    if (error) throw new Error(error.message);
-    return created.id;
-  };
-
   const addService = async () => {
-    if (!title.trim()) { toast.error("Service title is required"); return; }
+    if (!coachId || !title.trim()) { toast.error("Service title is required"); return; }
     const numPrice = parseFloat(price);
     if (isNaN(numPrice) || numPrice < 0) { toast.error("Enter a valid price"); return; }
-
-    try {
-      const coachId = await getOrCreateCoachProfileId();
-      const { error } = await (supabase as any).from("coach_services").insert({
-        coach_id:         coachId,
-        title:            title.trim(),
-        description:      description.trim() || null,
-        price:            numPrice,
-        duration_minutes: parseInt(duration, 10) || 60,
-        is_active:        true,
-      });
-      if (error) throw new Error(error.message);
-      toast.success("Service added");
-      resetForm();
-      setServices(await fetchServices(user!.id));
-    } catch (err: any) {
-      toast.error(err?.message || "Could not add service");
-    }
+    const { error } = await (supabase as any).from("coach_services").insert({
+      coach_id: coachId, title: title.trim(),
+      description: description.trim() || null,
+      price: numPrice, duration_minutes: parseInt(duration, 10) || 60, is_active: true,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Service added");
+    resetForm();
+    await loadServices(coachId);
   };
 
   const savePrice = async (serviceId: string) => {
     const numPrice = parseFloat(editingPrice);
     if (isNaN(numPrice) || numPrice < 0) { toast.error("Enter a valid price"); return; }
-    const { error } = await (supabase as any)
-      .from("coach_services").update({ price: numPrice }).eq("id", serviceId);
+    const { error } = await (supabase as any).from("coach_services").update({ price: numPrice }).eq("id", serviceId);
     if (error) { toast.error(error.message); return; }
     setServices(prev => prev.map(s => s.id === serviceId ? { ...s, price: numPrice } : s));
     setEditingId(null); setEditingPrice("");
@@ -155,15 +122,13 @@ const CoachServices = () => {
   return (
     <DashboardLayout role="coach">
       <ScrollableContent maxHeight="h-full" className="space-y-6">
-
-        {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Services</h1>
             {profile && (
               <p className="text-sm text-muted-foreground mt-0.5">
-                {profile.headline || "Coach"} · {[profile.city, profile.country].filter(Boolean).join(", ")}
-                {profile.booking_price > 0 && ` · From $${Number(profile.booking_price).toFixed(0)}/session`}
+                {profile.headline || "Coach"}{[profile.city, profile.country].filter(Boolean).length > 0 && ` · ${[profile.city, profile.country].filter(Boolean).join(", ")}`}
+                {Number(profile.booking_price) > 0 && ` · From $${Number(profile.booking_price).toFixed(0)}/session`}
               </p>
             )}
           </div>
@@ -172,7 +137,6 @@ const CoachServices = () => {
           </Button>
         </div>
 
-        {/* Add Service Form */}
         {showForm && (
           <div className="bg-card border border-border rounded-lg p-6 max-w-lg space-y-4">
             <div><Label>Title</Label>
@@ -196,7 +160,6 @@ const CoachServices = () => {
           </div>
         )}
 
-        {/* Services List */}
         {services.length === 0 ? (
           <div className="bg-card border border-dashed border-border rounded-lg p-10 text-center">
             <p className="text-muted-foreground text-sm">No services yet. Click "Add Service" to create your first one.</p>
@@ -229,7 +192,6 @@ const CoachServices = () => {
             ))}
           </div>
         )}
-
       </ScrollableContent>
     </DashboardLayout>
   );

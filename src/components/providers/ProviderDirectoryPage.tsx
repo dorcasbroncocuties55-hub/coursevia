@@ -174,14 +174,23 @@ const ProviderDirectoryPage = ({ role }: Props) => {
 
   const { suggestions, clear: clearSuggestions } = useLocationAutocomplete(searchInput, selectedCountry);
 
-  // load
+  // load providers
   useEffect(() => {
     loadProviders(role).then(r => { setProviders(r.data || []); setError(r.error || ""); setLoading(false); });
   }, [role]);
 
+  // auto-detect location on first load (IP-based, no permission needed)
   useEffect(() => {
-    setSelectedCountry(pageCountry);
-    setSearchInput(pageCity || querySearch || "");
+    if (pageCountry) return; // already have country from URL
+    detectLocation().then(r => {
+      if (r.inferredCountry) setSelectedCountry(r.inferredCountry);
+    });
+  }, []);
+
+  // sync URL-driven state
+  useEffect(() => {
+    if (pageCountry) setSelectedCountry(pageCountry);
+    if (pageCity || querySearch) setSearchInput(pageCity || querySearch || "");
   }, [pageCountry, pageCity, querySearch]);
 
   // ── Filtering ───────────────────────────────────────────────────────────────
