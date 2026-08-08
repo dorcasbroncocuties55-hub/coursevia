@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
@@ -282,69 +282,52 @@ const ProviderDirectoryPage = ({ role }: Props) => {
 
   const locationLabel = selectedCountry ? `In ${selectedCountry}` : "Near You";
 
+  const verifiedCount = providers.filter(p =>
+    String(p.kyc_status || p.verification_status || "").toLowerCase() === "approved" || Boolean(p.is_verified)
+  ).length;
+
   return (
-    <div className="min-h-screen bg-[#f5f7fb]">
+    <div className="min-h-screen bg-white">
       <Navbar />
 
-      {/* â”€â”€ HERO HEADER â”€â”€ */}
-      <section className="bg-white border-b border-slate-200">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
-            {/* Left: title + search */}
-            <div className="flex-1 space-y-5">
-              {/* Breadcrumb */}
-              <p className="text-xs text-muted-foreground">
-                <span className="text-primary font-semibold">{pluralWord}</span>
-                {selectedCountry && <> / {selectedCountry}</>}
-                {pageCity && <> / {pageCity}</>}
+      {/* HERO */}
+      <section className="relative overflow-hidden" style={{ background: "linear-gradient(135deg,#f0f4ff 0%,#ffffff 50%,#fdf0f7 100%)" }}>
+        <div className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-pink-200/30 blur-3xl" />
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-14 lg:py-20">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-10">
+            {/* Left */}
+            <div className="flex-1 max-w-xl space-y-6">
+              <h1 className="text-4xl font-bold leading-tight text-slate-900 sm:text-5xl">
+                Find a <span className="text-primary">{singularWord}</span>
+                <br /><span className="text-slate-800">{locationLabel}</span>
+              </h1>
+              <p className="text-base text-slate-500 leading-relaxed">
+                {role === "therapist"
+                  ? "Find an independent therapist who can listen, understand, and make real progress."
+                  : "Find an independent coach who can guide, challenge, and help you achieve your goals."}
               </p>
 
-              {/* Big title */}
-              <div>
-                <h1 className="text-3xl font-extrabold text-foreground sm:text-4xl">
-                  {pluralWord}{" "}
-                  <span className="text-primary">{locationLabel}</span>
-                </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {loading
-                    ? "Loading..."
-                    : <><span className="font-semibold text-primary">{filteredProviders.length}</span> {singularWord.toLowerCase()}{filteredProviders.length !== 1 ? "s" : ""} found</>}
-                </p>
-              </div>
-
-              {/* Delivery mode tabs */}
-              <div className="flex flex-wrap gap-2">
-                {(["all","in_person","online"] as const).map(m => (
-                  <button key={m} onClick={() => setServiceModeFilter(m)}
-                    className={`rounded-full px-5 py-1.5 text-sm font-medium border transition ${
-                      serviceModeFilter === m
-                        ? "bg-primary text-white border-primary shadow-sm"
-                        : "bg-white text-slate-700 border-slate-300 hover:border-primary hover:text-primary"
-                    }`}>
-                    {m === "all" ? "All" : m === "in_person" ? "In person" : "Online Services"}
-                  </button>
-                ))}
-              </div>
-
-              {/* Search bar */}
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <select value={selectedCountry} onChange={e => setSelectedCountry(e.target.value)}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary sm:w-[180px]">
-                  <option value="">All countries</option>
-                  {DIRECTORY_COUNTRIES.map(c => <option key={c.code} value={c.name}>{c.flag} {c.name}</option>)}
-                </select>
-
+              {/* Search box */}
+              <div className="relative flex rounded-2xl border border-slate-200 bg-white shadow-md overflow-visible max-w-lg">
+                <div className="relative shrink-0">
+                  <select value={selectedCountry} onChange={e => setSelectedCountry(e.target.value)}
+                    className="h-full appearance-none bg-slate-900 text-white pl-4 pr-8 py-4 text-sm font-semibold outline-none cursor-pointer rounded-l-2xl">
+                    <option value="">Location</option>
+                    {DIRECTORY_COUNTRIES.map(c => <option key={c.code} value={c.name}>{c.flag} {c.name}</option>)}
+                  </select>
+                  <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-white/70" />
+                </div>
                 <div className="relative flex-1">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input type="text" value={searchInput}
                     onChange={e => { setSearchInput(e.target.value); setShowSuggestions(true); }}
                     onKeyDown={e => { if (e.key === "Enter") { clearSuggestions(); setShowSuggestions(false); handleSearch(); } }}
                     onFocus={() => setShowSuggestions(true)}
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                    placeholder={`Name, city or specialty...`}
-                    className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-9 pr-4 text-sm outline-none focus:border-primary transition" />
+                    placeholder="Country, City, Suburb"
+                    className="w-full h-full px-4 py-4 text-sm text-slate-700 outline-none placeholder:text-slate-400 bg-transparent" />
                   {showSuggestions && suggestions.length > 0 && (
-                    <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg overflow-hidden">
+                    <div className="absolute left-0 top-full z-50 mt-1 w-80 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
                       {suggestions.map((s, i) => (
                         <button key={i} type="button" onMouseDown={e => e.preventDefault()}
                           onClick={() => {
@@ -357,53 +340,42 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                           }}
                           className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-100 last:border-0">
                           <MapPin size={13} className="text-primary shrink-0" />
-                          <span className="text-sm">{s.label}</span>
+                          <span className="text-sm text-slate-700">{s.label}</span>
                         </button>
                       ))}
                     </div>
                   )}
                 </div>
-
-                <button onClick={handleSearch}
-                  className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition">
-                  Search
-                </button>
-
-                <button onClick={() => setShowAdvanced(v => !v)}
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-medium transition whitespace-nowrap ${
-                    showAdvanced ? "bg-primary/10 border-primary text-primary" : "bg-white border-slate-300 text-slate-700 hover:border-primary"
-                  }`}>
-                  <SlidersHorizontal size={15} />
-                  Advanced Search
-                  {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </button>
               </div>
 
-              {/* Find nearby / clear filters */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <button onClick={handleNearby} disabled={geoLoading}
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-primary disabled:opacity-50 transition">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  {geoLoading ? "Detecting..." : "Use my location"}
-                </button>
-                <span className="text-slate-300 text-xs">Â·</span>
-                <span className="text-xs text-slate-500">Free to search Â· No signup required</span>
-                {hasActiveFilters && (
-                  <button onClick={clearAdvanced}
-                    className="ml-auto inline-flex items-center gap-1 text-xs text-primary border border-primary/30 rounded-full px-3 py-1 hover:bg-primary/5">
-                    <X size={11} /> Clear filters
-                  </button>
-                )}
+              <p className="text-sm font-medium text-slate-600">
+                Find real help from independent qualified {pluralWord.toLowerCase()}.
+              </p>
+
+              {/* Stats */}
+              <div className="flex items-center gap-8 pt-2">
+                <div>
+                  <p className="text-3xl font-extrabold text-slate-900">
+                    {providers.length > 0 ? providers.length : "100"}<span className="text-primary">+</span>
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">Happy clients</p>
+                </div>
+                <div className="w-px h-10 bg-slate-200" />
+                <div>
+                  <p className="text-3xl font-extrabold text-slate-900">
+                    {providers.length > 0 ? providers.length : "12"}<span className="text-primary">+</span>
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">Qualified {pluralWord}</p>
+                </div>
               </div>
-              {geoError && <p className="text-sm text-red-500">{geoError}</p>}
             </div>
 
             {/* Right: illustration */}
-            <div className="hidden md:flex items-center justify-center w-48 shrink-0">
+            <div className="hidden lg:flex items-center justify-center shrink-0 w-80">
               <img
                 src={role === "therapist" ? "/therapist-directory-hero.png" : "/coach-directory-hero.png"}
                 alt={pluralWord}
-                className="w-full max-w-[160px] object-contain"
+                className="w-full max-w-xs object-contain drop-shadow-xl"
                 onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
               />
             </div>
@@ -411,6 +383,45 @@ const ProviderDirectoryPage = ({ role }: Props) => {
         </div>
       </section>
 
+      {/* FILTER BAR */}
+      <section className="bg-white border-y border-slate-200 sticky top-16 z-20 shadow-sm">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {(["all", "in_person", "online"] as const).map(m => (
+              <button key={m} onClick={() => setServiceModeFilter(m)}
+                className={`rounded-full px-4 py-1.5 text-sm font-medium border transition ${
+                  serviceModeFilter === m
+                    ? "bg-primary text-white border-primary"
+                    : "bg-white text-slate-700 border-slate-300 hover:border-primary hover:text-primary"
+                }`}>
+                {m === "all" ? "All" : m === "in_person" ? "In person" : "Online Services"}
+              </button>
+            ))}
+            <div className="ml-auto flex items-center gap-2">
+              <button onClick={handleNearby} disabled={geoLoading}
+                className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-primary disabled:opacity-50 transition">
+                <MapPin size={14} className="text-primary" />
+                {geoLoading ? "Detecting..." : "Near me"}
+              </button>
+              <button onClick={() => setShowAdvanced(v => !v)}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+                  showAdvanced ? "bg-primary/10 border-primary text-primary" : "bg-white border-slate-300 text-slate-700 hover:border-primary"
+                }`}>
+                <SlidersHorizontal size={14} />
+                Advanced Search
+                {showAdvanced ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              </button>
+              {hasActiveFilters && (
+                <button onClick={clearAdvanced}
+                  className="inline-flex items-center gap-1 text-xs text-primary border border-primary/30 rounded-full px-3 py-1.5 hover:bg-primary/5">
+                  <X size={11} /> Clear
+                </button>
+              )}
+            </div>
+          </div>
+          {geoError && <p className="text-xs text-red-500 mt-2">{geoError}</p>}
+        </div>
+      </section>
       {/* â”€â”€ ADVANCED SEARCH PANEL â”€â”€ */}
       {showAdvanced && (
         <section className="bg-slate-50 border-b border-slate-200">
