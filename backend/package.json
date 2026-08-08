@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "algolia:sync": "node algolia-sync.js",
-    "algolia:clear": "node algolia-sync.js clear"
+    "algolia:clear": "node algolia-sync.js clear",
+    "test:api": "node run-postman-tests.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",
@@ -16,5 +17,8 @@
     "express": "^4.22.1",
     "node-fetch": "^3.3.2",
     "stripe": "^22.0.1"
+  },
+  "devDependencies": {
+    "newman": "^6.2.1"
   }
 }

@@ -18,27 +18,17 @@ const Creators = () => {
     const loadCreators = async () => {
       setLoading(true);
       try {
-        // 30s timeout — Supabase can be slow on cold starts
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Loading is taking longer than usual — please try again')), 30000)
-        );
-
-        const fetchPromise = supabase
+        const { data, error } = await supabase
           .from("profiles")
-          .select("*")
+          .select("user_id,full_name,avatar_url,headline,bio,profession,country,is_verified,rating,review_count,profile_slug,specialization_type,onboarding_completed")
           .eq("role", "creator")
           .eq("onboarding_completed", true)
           .order("created_at", { ascending: false });
 
-        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
-
-        if (error) {
-          console.error('Failed to load creators:', error);
-        }
-
+        if (error) console.error("Failed to load creators:", error);
         setCreators(data || []);
       } catch (err) {
-        console.error('Creator loading exception:', err);
+        console.error("Creator loading exception:", err);
         setCreators([]);
       } finally {
         setLoading(false);
@@ -247,9 +237,9 @@ const Creators = () => {
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
                     {creator.country || "Global"}
                   </span>
-                  {creator.specialization && (
+                  {creator.specialization_type && (
                     <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                      {creator.specialization}
+                      {creator.specialization_type}
                     </span>
                   )}
                 </div>

@@ -8,226 +8,226 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { MIN_PROVIDER_PRICE, isValidProviderPrice } from "@/lib/pricingRules";
-import { Pencil, Plus, Save, Trash2, X } from "lucide-react";
-import { getProviderRecord, loadProviderServices } from "@/lib/dashboardQueries";
+import { Plus, Trash2, Pencil, Save, X } from "lucide-react";
 import { ScrollableContent } from "@/components/ui/scrollable-content";
 import { PageLoading } from "@/components/LoadingSpinner";
 
 const TherapistServices = () => {
   const { user, loading: authLoading } = useAuth();
-  const [profileId, setProfileId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [services, setServices] = useState<any[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
-  const [duration, setDuration] = useState("60");
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [services, setServices]   = useState<any[]>([]);
+  const [profile, setProfile]     = useState<any>(null);
+
+  // form
+  const [showForm,     setShowForm]     = useState(false);
+  const [title,        setTitle]        = useState("");
+  const [description,  setDescription]  = useState("");
+  const [price,        setPrice]        = useState("");
+  const [duration,     setDuration]     = useState("60");
+
+  // inline edit
+  const [editingId,    setEditingId]    = useState<string | null>(null);
   const [editingPrice, setEditingPrice] = useState("");
 
-  const loadServices = async (currentProfileId: string, userId?: string) => {
-    const data = await loadProviderServices("therapist", currentProfileId, userId || currentProfileId);
-    setServices(data || []);
+  // ── Fetch services directly by user_id ────────────────────────────────────
+  const fetchServices = async (userId: string) => {
+    // Try therapist_services by user_id directly
+    const { data, error } = await (supabase as any)
+      .from("therapist_services")
+      .select("*")
+      .or(`therapist_id.eq.${userId},user_id.eq.${userId}`)
+      .order("created_at", { ascending: false });
+
+    if (!error && data?.length) return data;
+
+    // fallback: via therapist_profiles id
+    const { data: tp } = await (supabase as any)
+      .from("therapist_profiles")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (tp?.id) {
+      const { data: svcs } = await (supabase as any)
+        .from("therapist_services")
+        .select("*")
+        .eq("therapist_id", tp.id)
+        .order("created_at", { ascending: false });
+      return svcs || [];
+    }
+    return [];
   };
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    if (authLoading) return;
+    if (!user) { setLoading(false); return; }
 
-    const loadProfileAndServices = async () => {
+    const init = async () => {
       setLoading(true);
-      const { error } = await (supabase as any).from("therapist_profiles").upsert({ user_id: user.id, is_active: true, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
-      if (error) {
-        toast.error(error.message);
-        setLoading(false);
-        return;
-      }
 
-      const profileRow = await getProviderRecord("therapist", user.id);
-      const resolvedId = profileRow?.id || user.id;
-      setProfileId(resolvedId as string);
-      await loadServices(resolvedId as string, user.id);
+      // Load profile info (no upsert — just read)
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name, headline, booking_price, service_delivery_mode, city, country")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      setProfile(prof || null);
+
+      const svcs = await fetchServices(user.id);
+      setServices(svcs);
       setLoading(false);
     };
 
-    loadProfileAndServices();
-  }, [user]);
+    init();
+  }, [user, authLoading]);
 
   const resetForm = () => {
-    setTitle("");
-    setDescription("");
-    setPrice("");
-    setDuration("60");
+    setTitle(""); setDescription(""); setPrice(""); setDuration("60");
     setShowForm(false);
   };
 
+  // ── Get or create therapist_profiles id for inserting services ────────────
+  const getOrCreateTherapistProfileId = async (): Promise<string> => {
+    const { data: existing } = await (supabase as any)
+      .from("therapist_profiles")
+      .select("id")
+      .eq("user_id", user!.id)
+      .maybeSingle();
+
+    if (existing?.id) return existing.id;
+
+    const { data: created, error } = await (supabase as any)
+      .from("therapist_profiles")
+      .insert({ user_id: user!.id, is_active: true })
+      .select("id")
+      .single();
+
+    if (error) throw new Error(error.message);
+    return created.id;
+  };
+
   const addService = async () => {
-    if (!profileId || !title.trim()) {
-      toast.error("Service title is required.");
-      return;
+    if (!title.trim()) { toast.error("Service title is required"); return; }
+    const numPrice = parseFloat(price);
+    if (isNaN(numPrice) || numPrice < 0) { toast.error("Enter a valid price"); return; }
+
+    try {
+      const therapistId = await getOrCreateTherapistProfileId();
+      const { error } = await (supabase as any).from("therapist_services").insert({
+        therapist_id:     therapistId,
+        title:            title.trim(),
+        description:      description.trim() || null,
+        price:            numPrice,
+        duration_minutes: parseInt(duration, 10) || 60,
+      });
+      if (error) throw new Error(error.message);
+      toast.success("Service added");
+      resetForm();
+      setServices(await fetchServices(user!.id));
+    } catch (err: any) {
+      toast.error(err?.message || "Could not add service");
     }
-
-    const numericPrice = parseFloat(price);
-    if (Number.isNaN(numericPrice) || numericPrice < 0) {
-      toast.error("Enter a valid service price.");
-      return;
-    }
-
-    const { error } = await supabase.from("therapist_services").insert({
-      therapist_id: profileId,
-      title: title.trim(),
-      description: description.trim(),
-      price: numericPrice,
-      duration_minutes: parseInt(duration, 10) || 60,
-    });
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    toast.success("Therapy service added");
-    resetForm();
-    await loadServices(profileId, user?.id || undefined);
   };
 
   const savePrice = async (serviceId: string) => {
-    const numericPrice = parseFloat(editingPrice);
-    if (Number.isNaN(numericPrice) || numericPrice < 0) {
-      toast.error("Enter a valid service price.");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("therapist_services")
-      .update({ price: numericPrice })
-      .eq("id", serviceId);
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    setServices((prev) =>
-      prev.map((service) =>
-        service.id === serviceId ? { ...service, price: numericPrice } : service,
-      ),
-    );
-    setEditingId(null);
-    setEditingPrice("");
-    toast.success("Therapist service price updated");
+    const numPrice = parseFloat(editingPrice);
+    if (isNaN(numPrice) || numPrice < 0) { toast.error("Enter a valid price"); return; }
+    const { error } = await (supabase as any)
+      .from("therapist_services").update({ price: numPrice }).eq("id", serviceId);
+    if (error) { toast.error(error.message); return; }
+    setServices(prev => prev.map(s => s.id === serviceId ? { ...s, price: numPrice } : s));
+    setEditingId(null); setEditingPrice("");
+    toast.success("Price updated");
   };
 
-  const deleteService = async (serviceId: string) => {
-    const { error } = await supabase.from("therapist_services").delete().eq("id", serviceId);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    setServices((prev) => prev.filter((service) => service.id !== serviceId));
-    toast.success("Therapy service removed");
+  const deleteService = async (id: string) => {
+    const { error } = await (supabase as any).from("therapist_services").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setServices(prev => prev.filter(s => s.id !== id));
+    toast.success("Service removed");
   };
 
-  if (loading) {
-    return <PageLoading />;
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
+  if (authLoading || loading) return <PageLoading />;
+  if (!user) return <Navigate to="/login" replace />;
 
   return (
     <DashboardLayout role="therapist">
       <ScrollableContent maxHeight="h-full" className="space-y-6">
+
+        {/* Header */}
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-foreground">Therapy Services</h1>
-        <Button size="sm" onClick={() => setShowForm((prev) => !prev)}>
-          <Plus size={16} className="mr-1" /> Add Service
-        </Button>
-      </div>
-
-      {showForm && (
-        <div className="bg-card border border-border rounded-lg p-6 mb-6 max-w-lg space-y-4">
           <div>
-            <Label>Service Title</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+            <h1 className="text-2xl font-bold text-foreground">Therapy Services</h1>
+            {profile && (
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {profile.headline || "Therapist"} · {[profile.city, profile.country].filter(Boolean).join(", ")}
+                {profile.booking_price > 0 && ` · From $${Number(profile.booking_price).toFixed(0)}/session`}
+              </p>
+            )}
           </div>
-          <div>
-            <Label>Description</Label>
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Price ($)</Label>
-              <Input type="number" step="0.01" min={String(MIN_PROVIDER_PRICE)} value={price} onChange={(e) => setPrice(e.target.value)} />
-            </div>
-            <div>
-              <Label>Duration (min)</Label>
-              <Input type="number" min="15" value={duration} onChange={(e) => setDuration(e.target.value)} />
-            </div>
-          </div>
-          <Button onClick={addService}>Save Therapy Service</Button>
+          <Button size="sm" onClick={() => setShowForm(v => !v)}>
+            <Plus size={16} className="mr-1" /> Add Service
+          </Button>
         </div>
-      )}
 
-      {loading ? (
-        <div className="bg-card border border-border rounded-lg p-8 text-center">
-          <p className="text-muted-foreground">Loading therapy services...</p>
-        </div>
-      ) : services.length === 0 ? (
-        <div className="bg-card border border-border rounded-lg p-8 text-center">
-          <p className="text-muted-foreground">No therapy services yet.</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {services.map((service) => (
-            <div key={service.id} className="bg-card border border-border rounded-lg p-4 flex justify-between items-center gap-4">
-              <div>
-                <p className="font-medium text-foreground">{service.title}</p>
-                <p className="text-sm text-muted-foreground">{service.duration_minutes} min</p>
-                {service.description ? (
-                  <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
-                ) : null}
+        {/* Add Service Form */}
+        {showForm && (
+          <div className="bg-card border border-border rounded-lg p-6 max-w-lg space-y-4">
+            <div><Label>Title</Label>
+              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Individual CBT Session" />
+            </div>
+            <div><Label>Description <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><Label>Price (USD)</Label>
+                <Input type="number" min="0" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" />
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {editingId === service.id ? (
-                  <>
-                    <Input
-                      className="w-28"
-                      type="number"
-                      step="0.01"
-                      min={String(MIN_PROVIDER_PRICE)}
-                      value={editingPrice}
-                      onChange={(e) => setEditingPrice(e.target.value)}
-                    />
-                    <Button size="icon" variant="outline" onClick={() => savePrice(service.id)}>
-                      <Save size={16} />
-                    </Button>
-                    <Button size="icon" variant="ghost" onClick={() => { setEditingId(null); setEditingPrice(""); }}>
-                      <X size={16} />
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <span className="font-mono font-bold text-foreground">${Number(service.price).toFixed(2)}</span>
-                    <Button size="icon" variant="outline" onClick={() => { setEditingId(service.id); setEditingPrice(String(service.price ?? 0)); }}>
-                      <Pencil size={16} />
-                    </Button>
-                    <Button size="icon" variant="ghost" onClick={() => deleteService(service.id)}>
-                      <Trash2 size={16} />
-                    </Button>
-                  </>
-                )}
+              <div><Label>Duration (min)</Label>
+                <Input type="number" min="15" value={duration} onChange={e => setDuration(e.target.value)} />
               </div>
             </div>
-          ))}
-        </div>
-      )}
+            <div className="flex gap-2">
+              <Button onClick={addService}>Save Service</Button>
+              <Button variant="outline" onClick={resetForm}>Cancel</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Services List */}
+        {services.length === 0 ? (
+          <div className="bg-card border border-dashed border-border rounded-lg p-10 text-center">
+            <p className="text-muted-foreground text-sm">No services yet. Click "Add Service" to create your first one.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {services.map(s => (
+              <div key={s.id} className="bg-card border border-border rounded-lg p-4 flex justify-between items-center gap-4">
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground">{s.title}</p>
+                  <p className="text-sm text-muted-foreground">{s.duration_minutes} min</p>
+                  {s.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{s.description}</p>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {editingId === s.id ? (
+                    <>
+                      <Input className="w-24" type="number" min="0" value={editingPrice} onChange={e => setEditingPrice(e.target.value)} />
+                      <Button size="icon" variant="outline" onClick={() => savePrice(s.id)}><Save size={15} /></Button>
+                      <Button size="icon" variant="ghost" onClick={() => { setEditingId(null); setEditingPrice(""); }}><X size={15} /></Button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-mono font-bold text-foreground">${Number(s.price).toFixed(2)}</span>
+                      <Button size="icon" variant="outline" onClick={() => { setEditingId(s.id); setEditingPrice(String(s.price ?? 0)); }}><Pencil size={15} /></Button>
+                      <Button size="icon" variant="ghost" onClick={() => deleteService(s.id)}><Trash2 size={15} /></Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
       </ScrollableContent>
     </DashboardLayout>
   );

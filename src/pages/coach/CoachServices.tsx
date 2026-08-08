@@ -8,126 +8,231 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
-import { getProviderRecord, loadProviderServices } from "@/lib/dashboardQueries";
+import { Plus, Trash2, Pencil, Save, X } from "lucide-react";
+import { ScrollableContent } from "@/components/ui/scrollable-content";
 import { PageLoading } from "@/components/LoadingSpinner";
 
 const CoachServices = () => {
   const { user, loading: authLoading } = useAuth();
-  const [coachId, setCoachId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [services, setServices] = useState<any[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
-  const [duration, setDuration] = useState("60");
+  const [loading, setLoading]     = useState(true);
+  const [services, setServices]   = useState<any[]>([]);
+  const [profile, setProfile]     = useState<any>(null);
 
-  const loadServices = async (providerProfileId: string, userId?: string) => {
-    const data = await loadProviderServices("coach", providerProfileId, userId || providerProfileId);
-    setServices(data || []);
+  // form
+  const [showForm,     setShowForm]     = useState(false);
+  const [title,        setTitle]        = useState("");
+  const [description,  setDescription]  = useState("");
+  const [price,        setPrice]        = useState("");
+  const [duration,     setDuration]     = useState("60");
+
+  // inline edit
+  const [editingId,    setEditingId]    = useState<string | null>(null);
+  const [editingPrice, setEditingPrice] = useState("");
+
+  // ── Load profile + services directly from profiles table ─────────────────
+  const fetchServices = async (userId: string) => {
+    // Try coach_services by user_id directly first, then fall back to coach_id
+    const { data, error } = await (supabase as any)
+      .from("coach_services")
+      .select("*")
+      .or(`coach_id.eq.${userId},user_id.eq.${userId}`)
+      .order("created_at", { ascending: false });
+
+    if (!error && data?.length) return data;
+
+    // fallback: try via coach_profiles id
+    const { data: cp } = await (supabase as any)
+      .from("coach_profiles")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (cp?.id) {
+      const { data: svcs } = await (supabase as any)
+        .from("coach_services")
+        .select("*")
+        .eq("coach_id", cp.id)
+        .order("created_at", { ascending: false });
+      return svcs || [];
+    }
+    return [];
   };
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    if (authLoading) return;
+    if (!user) { setLoading(false); return; }
 
-    const bootstrap = async () => {
+    const init = async () => {
       setLoading(true);
-      const { error: upsertError } = await (supabase as any)
-        .from("coach_profiles")
-        .upsert({ user_id: user.id, is_active: true, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
 
-      if (upsertError) {
-        toast.error(upsertError.message || "Could not prepare coach profile.");
-        setLoading(false);
-        return;
-      }
+      // Load profile from profiles table (no upsert — just read)
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name, headline, booking_price, service_delivery_mode, city, country")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      setProfile(prof || null);
 
-      const providerRow = await getProviderRecord("coach", user.id);
-      const resolvedId = providerRow?.id || user.id;
-      setCoachId(resolvedId as string);
-      await loadServices(resolvedId as string, user.id);
+      const svcs = await fetchServices(user.id);
+      setServices(svcs);
       setLoading(false);
     };
 
-    bootstrap();
-  }, [user?.id]);
+    init();
+  }, [user, authLoading]);
+
+  const resetForm = () => {
+    setTitle(""); setDescription(""); setPrice(""); setDuration("60");
+    setShowForm(false);
+  };
+
+  // ── Get coach_profiles id (create if needed) for inserting services ───────
+  const getOrCreateCoachProfileId = async (): Promise<string> => {
+    const { data: existing } = await (supabase as any)
+      .from("coach_profiles")
+      .select("id")
+      .eq("user_id", user!.id)
+      .maybeSingle();
+
+    if (existing?.id) return existing.id;
+
+    // Create minimal record
+    const { data: created, error } = await (supabase as any)
+      .from("coach_profiles")
+      .insert({ user_id: user!.id, is_active: true })
+      .select("id")
+      .single();
+
+    if (error) throw new Error(error.message);
+    return created.id;
+  };
 
   const addService = async () => {
-    if (!coachId || !title.trim() || !price) return;
-    const { error } = await (supabase as any).from("coach_services").insert({
-      coach_id: coachId,
-      title: title.trim(),
-      description: description.trim() || null,
-      price: parseFloat(price),
-      duration_minutes: parseInt(duration, 10) || 60,
-      is_active: true,
-    });
-    if (error) toast.error(error.message);
-    else {
+    if (!title.trim()) { toast.error("Service title is required"); return; }
+    const numPrice = parseFloat(price);
+    if (isNaN(numPrice) || numPrice < 0) { toast.error("Enter a valid price"); return; }
+
+    try {
+      const coachId = await getOrCreateCoachProfileId();
+      const { error } = await (supabase as any).from("coach_services").insert({
+        coach_id:         coachId,
+        title:            title.trim(),
+        description:      description.trim() || null,
+        price:            numPrice,
+        duration_minutes: parseInt(duration, 10) || 60,
+        is_active:        true,
+      });
+      if (error) throw new Error(error.message);
       toast.success("Service added");
-      setShowForm(false);
-      setTitle(""); setDescription(""); setPrice(""); setDuration("60");
-      await loadServices(coachId, user?.id || undefined);
+      resetForm();
+      setServices(await fetchServices(user!.id));
+    } catch (err: any) {
+      toast.error(err?.message || "Could not add service");
     }
+  };
+
+  const savePrice = async (serviceId: string) => {
+    const numPrice = parseFloat(editingPrice);
+    if (isNaN(numPrice) || numPrice < 0) { toast.error("Enter a valid price"); return; }
+    const { error } = await (supabase as any)
+      .from("coach_services").update({ price: numPrice }).eq("id", serviceId);
+    if (error) { toast.error(error.message); return; }
+    setServices(prev => prev.map(s => s.id === serviceId ? { ...s, price: numPrice } : s));
+    setEditingId(null); setEditingPrice("");
+    toast.success("Price updated");
   };
 
   const deleteService = async (id: string) => {
     const { error } = await (supabase as any).from("coach_services").delete().eq("id", id);
-    if (error) {
-      toast.error(error.message || "Could not remove service.");
-      return;
-    }
+    if (error) { toast.error(error.message); return; }
     setServices(prev => prev.filter(s => s.id !== id));
     toast.success("Service removed");
   };
 
-  if (loading) {
-    return <PageLoading />;
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
+  if (authLoading || loading) return <PageLoading />;
+  if (!user) return <Navigate to="/login" replace />;
 
   return (
     <DashboardLayout role="coach">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Services</h1>
-        <Button size="sm" onClick={() => setShowForm(!showForm)}><Plus size={16} className="mr-1" /> Add Service</Button>
-      </div>
-      {showForm && (
-        <div className="bg-card border border-border rounded-lg p-6 mb-6 max-w-lg space-y-4">
-          <div><Label>Title</Label><Input value={title} onChange={e => setTitle(e.target.value)} /></div>
-          <div><Label>Description</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} /></div>
-          <div className="grid grid-cols-2 gap-4">
-            <div><Label>Price ($)</Label><Input type="number" value={price} onChange={e => setPrice(e.target.value)} /></div>
-            <div><Label>Duration (min)</Label><Input type="number" value={duration} onChange={e => setDuration(e.target.value)} /></div>
+      <ScrollableContent maxHeight="h-full" className="space-y-6">
+
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Services</h1>
+            {profile && (
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {profile.headline || "Coach"} · {[profile.city, profile.country].filter(Boolean).join(", ")}
+                {profile.booking_price > 0 && ` · From $${Number(profile.booking_price).toFixed(0)}/session`}
+              </p>
+            )}
           </div>
-          <Button onClick={addService}>Save Service</Button>
+          <Button size="sm" onClick={() => setShowForm(v => !v)}>
+            <Plus size={16} className="mr-1" /> Add Service
+          </Button>
         </div>
-      )}
-      {loading ? (
-        <div className="bg-card border border-border rounded-lg p-8 text-center"><p className="text-muted-foreground">Loading services...</p></div>
-      ) : services.length === 0 ? (
-        <div className="bg-card border border-border rounded-lg p-8 text-center"><p className="text-muted-foreground">No services yet.</p></div>
-      ) : (
-        <div className="space-y-3">
-          {services.map(s => (
-            <div key={s.id} className="bg-card border border-border rounded-lg p-4 flex justify-between items-center">
-              <div>
-                <p className="font-medium text-foreground">{s.title}</p>
-                <p className="text-sm text-muted-foreground">{s.duration_minutes} min · <span className="font-mono">${Number(s.price).toFixed(2)}</span></p>
-              </div>
-              <button onClick={() => deleteService(s.id)} className="text-muted-foreground hover:text-destructive"><Trash2 size={16} /></button>
+
+        {/* Add Service Form */}
+        {showForm && (
+          <div className="bg-card border border-border rounded-lg p-6 max-w-lg space-y-4">
+            <div><Label>Title</Label>
+              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. 1-on-1 Coaching Session" />
             </div>
-          ))}
-        </div>
-      )}
+            <div><Label>Description <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><Label>Price (USD)</Label>
+                <Input type="number" min="0" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" />
+              </div>
+              <div><Label>Duration (min)</Label>
+                <Input type="number" min="15" value={duration} onChange={e => setDuration(e.target.value)} />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={addService}>Save Service</Button>
+              <Button variant="outline" onClick={resetForm}>Cancel</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Services List */}
+        {services.length === 0 ? (
+          <div className="bg-card border border-dashed border-border rounded-lg p-10 text-center">
+            <p className="text-muted-foreground text-sm">No services yet. Click "Add Service" to create your first one.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {services.map(s => (
+              <div key={s.id} className="bg-card border border-border rounded-lg p-4 flex justify-between items-center gap-4">
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground">{s.title}</p>
+                  <p className="text-sm text-muted-foreground">{s.duration_minutes} min</p>
+                  {s.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{s.description}</p>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {editingId === s.id ? (
+                    <>
+                      <Input className="w-24" type="number" min="0" value={editingPrice} onChange={e => setEditingPrice(e.target.value)} />
+                      <Button size="icon" variant="outline" onClick={() => savePrice(s.id)}><Save size={15} /></Button>
+                      <Button size="icon" variant="ghost" onClick={() => { setEditingId(null); setEditingPrice(""); }}><X size={15} /></Button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-mono font-bold text-foreground">${Number(s.price).toFixed(2)}</span>
+                      <Button size="icon" variant="outline" onClick={() => { setEditingId(s.id); setEditingPrice(String(s.price ?? 0)); }}><Pencil size={15} /></Button>
+                      <Button size="icon" variant="ghost" onClick={() => deleteService(s.id)}><Trash2 size={15} /></Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+      </ScrollableContent>
     </DashboardLayout>
   );
 };
+
 export default CoachServices;
