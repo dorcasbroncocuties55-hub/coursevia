@@ -385,10 +385,6 @@ export const loadProviders = async (type: ProviderRole): Promise<ProviderDirecto
     return { data: [], error: err?.message || `Failed to load ${getProviderTitle(type).toLowerCase()}.` };
   }
 };
-    console.error(`Provider load exception for ${type}:`, err);
-    return { data: [], error: err?.message || `Failed to load ${getProviderTitle(type).toLowerCase()}.` };
-  }
-};
 
 export const filterProviders = (
   providers: Provider[],
