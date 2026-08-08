@@ -10,13 +10,13 @@ import {
 } from "@/lib/providerDirectory";
 import { getServiceModeLabel } from "@/lib/providerModes";
 import {
-  ChevronDown, ChevronUp, MapPin, Search, ArrowRight,
-  MessageCircle, User, CheckCircle, SlidersHorizontal, X,
+  ChevronDown, ChevronUp, MapPin, Search, MessageCircle,
+  CheckCircle, SlidersHorizontal, X, Star, Globe, Languages,
 } from "lucide-react";
 
 const normalizeText = (v?: string | null) =>
   (v || "").toLowerCase().trim().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
-const cityToSlug    = (v?: string | null) => normalizeText(v).replace(/\s+/g, "-");
+const cityToSlug = (v?: string | null) => normalizeText(v).replace(/\s+/g, "-");
 const cityNameFromSlug = (v?: string) =>
   (v || "").split("-").filter(Boolean).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
 const asTagList = (v: unknown): string[] => {
@@ -25,7 +25,7 @@ const asTagList = (v: unknown): string[] => {
   return [];
 };
 
-// â”€â”€ Nominatim autocomplete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Nominatim city autocomplete
 type NominatimResult = { address: { city?: string; town?: string; village?: string; county?: string; country?: string } };
 const useLocationAutocomplete = (query: string, country: string) => {
   const [suggestions, setSuggestions] = useState<{ label: string; city: string; country: string }[]>([]);
@@ -36,14 +36,14 @@ const useLocationAutocomplete = (query: string, country: string) => {
     ref.current = setTimeout(async () => {
       try {
         const cc = country ? DIRECTORY_COUNTRIES.find(c => c.name === country)?.code?.toLowerCase() : "";
-        const p = new URLSearchParams({ q: query, format: "json", addressdetails: "1", limit: "6", featuretype: "city", ...(cc ? { countrycodes: cc } : {}) });
+        const p = new URLSearchParams({ q: query, format: "json", addressdetails: "1", limit: "5", featuretype: "city", ...(cc ? { countrycodes: cc } : {}) });
         const res = await fetch(`https://nominatim.openstreetmap.org/search?${p}`, { headers: { "Accept-Language": "en", "User-Agent": "Coursevia/1.0" } });
         const data: NominatimResult[] = await res.json();
         const seen = new Set<string>();
         setSuggestions(data.map(r => {
           const city = r.address.city || r.address.town || r.address.village || r.address.county || "";
-          const countryName = r.address.country || "";
-          return { label: [city, countryName].filter(Boolean).join(", "), city, country: countryName };
+          const cn = r.address.country || "";
+          return { label: [city, cn].filter(Boolean).join(", "), city, country: cn };
         }).filter(r => { if (!r.city || seen.has(r.label)) return false; seen.add(r.label); return true; }));
       } catch { setSuggestions([]); }
     }, 300);
@@ -52,9 +52,8 @@ const useLocationAutocomplete = (query: string, country: string) => {
   return { suggestions, clear: () => setSuggestions([]) };
 };
 
-// â”€â”€ ProviderCard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Provider card component
 const BIO_LIMIT = 200;
-
 const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigate }: {
   provider: Provider; role: ProviderRole; singularWord: string;
   defaultHeadline: string; onNavigate: (p: string) => void;
@@ -64,188 +63,171 @@ const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigat
   const verified = String(provider.kyc_status || provider.verification_status || "").toLowerCase() === "approved" || Boolean(provider.is_verified);
   const co       = getCountryOption(provider.country || provider.country_code || "");
   const location = [provider.city, co?.name || provider.country].filter(Boolean).join(", ");
-  const tags     = asTagList(provider.skills || (provider as any).expertise_areas);
+  const tags     = asTagList((provider as any).skills || (provider as any).expertise_areas);
   const langs    = asTagList(provider.languages);
   const price    = Number(provider.booking_price ?? provider.session_price ?? provider.hourly_rate ?? 0);
   const bio      = provider.bio?.trim() || "";
-  const bioShort = bio.length > BIO_LIMIT ? bio.slice(0, BIO_LIMIT).trimEnd() + "â€¦" : bio;
+  const bioShort = bio.length > BIO_LIMIT ? bio.slice(0, BIO_LIMIT).trimEnd() + "..." : bio;
   const mode     = (provider.service_delivery_mode || "").toLowerCase();
   const modeLabel = mode.includes("both") ? "In person & online" : mode.includes("online") ? "Online" : mode.includes("person") ? "In person" : getServiceModeLabel(provider.service_delivery_mode);
   const profilePath = providerProfilePath(role, provider);
 
   return (
-    <div className="flex flex-col sm:flex-row rounded-xl bg-white border border-border shadow-sm hover:shadow-md transition overflow-hidden">
+    <div className="group flex flex-col sm:flex-row bg-white rounded-2xl border border-slate-200 hover:border-primary/40 hover:shadow-lg transition-all duration-200 overflow-hidden">
       {/* Photo */}
-      <div className="sm:w-[140px] w-full min-h-[160px] sm:min-h-[220px] shrink-0 cursor-pointer overflow-hidden bg-slate-100" onClick={() => onNavigate(profilePath)}>
+      <div className="sm:w-[150px] w-full h-[180px] sm:h-auto shrink-0 cursor-pointer overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 relative"
+        onClick={() => onNavigate(profilePath)}>
         {provider.avatar_url
-          ? <img src={provider.avatar_url} alt={name} className="h-full w-full object-cover object-top" />
-          : <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5 text-4xl font-bold text-primary">{name.charAt(0).toUpperCase()}</div>}
+          ? <img src={provider.avatar_url} alt={name} className="h-full w-full object-cover object-top group-hover:scale-105 transition-transform duration-300" />
+          : <div className="flex h-full w-full items-center justify-center text-5xl font-bold text-primary/30">{name.charAt(0).toUpperCase()}</div>}
+        {verified && (
+          <div className="absolute top-2 left-2 bg-emerald-500 rounded-full p-1 shadow">
+            <CheckCircle size={12} className="text-white" />
+          </div>
+        )}
       </div>
 
       {/* Info */}
-      <div className="flex flex-1 flex-col p-5 gap-2 min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => onNavigate(profilePath)} className="text-lg font-bold text-[#0b7e84] hover:underline leading-tight text-left">{name}</button>
-          {verified && <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary"><CheckCircle size={11} /> Verified</span>}
+      <div className="flex flex-1 flex-col p-5 gap-2.5 min-w-0">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <button onClick={() => onNavigate(profilePath)} className="text-xl font-bold text-slate-900 hover:text-primary transition text-left leading-tight">
+              {name}
+            </button>
+            {verified && <span className="ml-2 text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">Verified</span>}
+            <p className="text-sm text-slate-500 mt-0.5">{provider.headline || defaultHeadline}</p>
+          </div>
+          {price > 0 && (
+            <div className="shrink-0 text-right">
+              <p className="text-lg font-bold text-slate-900">${price.toFixed(0)}</p>
+              <p className="text-xs text-slate-400">per session</p>
+            </div>
+          )}
         </div>
-        <p className="text-sm text-muted-foreground -mt-1">{provider.headline || defaultHeadline}</p>
+
+        {/* Tags */}
         {tags.length > 0 && (
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-foreground">
-            {tags.slice(0, 5).map((t, i) => (
-              <span key={t} className="flex items-center gap-1">
-                <span className="text-muted-foreground">â€“</span>{t}
-                {i === 3 && tags.length > 5 && <span className="text-primary text-xs ml-1">+{tags.length - 4}</span>}
-              </span>
+          <div className="flex flex-wrap gap-1.5">
+            {tags.slice(0, 5).map(t => (
+              <span key={t} className="bg-primary/8 text-primary text-xs font-medium px-2.5 py-1 rounded-full border border-primary/15">{t}</span>
             ))}
+            {tags.length > 5 && <span className="text-xs text-slate-400 self-center">+{tags.length - 5} more</span>}
           </div>
         )}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground">
-          {modeLabel && <span className="flex items-center gap-1.5"><User size={12} className="text-primary shrink-0" />{modeLabel}</span>}
-          {location && <span className="flex items-center gap-1.5"><MapPin size={12} className="text-primary shrink-0" />{location}</span>}
-          {langs.length > 0 && <span>{langs.slice(0, 2).join(", ")}</span>}
+
+        {/* Meta row */}
+        <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+          {location && <span className="flex items-center gap-1"><MapPin size={11} className="text-primary" />{location}</span>}
+          {modeLabel && <span className="flex items-center gap-1"><Globe size={11} className="text-primary" />{modeLabel}</span>}
+          {langs.length > 0 && <span className="flex items-center gap-1"><Languages size={11} className="text-primary" />{langs.slice(0, 2).join(", ")}</span>}
+          <span className="flex items-center gap-1"><Star size={11} className="text-amber-400 fill-amber-400" />5.0</span>
         </div>
+
+        {/* Bio */}
         {bio && (
-          <p className="text-sm text-foreground/80 leading-relaxed">
+          <p className="text-sm text-slate-600 leading-relaxed">
             {expanded ? bio : bioShort}
             {bio.length > BIO_LIMIT && (
-              <button onClick={() => setExpanded(v => !v)} className="ml-1 text-primary font-medium hover:underline text-xs">
-                {expanded ? "See less" : "See more â†’"}
+              <button onClick={() => setExpanded(v => !v)} className="ml-1.5 text-primary font-semibold text-xs hover:underline">
+                {expanded ? "Less" : "See more"}
               </button>
             )}
           </p>
         )}
-        {price > 0 && <p className="text-xs text-muted-foreground mt-auto">From <span className="font-semibold text-foreground">${price.toFixed(0)}</span></p>}
       </div>
 
-      {/* Actions */}
-      <div className="flex sm:flex-col items-center justify-end sm:justify-start gap-2 p-4 sm:pt-5 sm:w-[160px] shrink-0 border-t sm:border-t-0 sm:border-l border-border">
+      {/* CTA panel */}
+      <div className="flex sm:flex-col items-center justify-end sm:justify-start gap-2.5 px-4 py-4 sm:pt-5 sm:w-[155px] shrink-0 border-t sm:border-t-0 sm:border-l border-slate-100 bg-slate-50/50">
         <button onClick={() => onNavigate(`/dashboard/messages?user=${provider.user_id || provider.id}`)}
-          className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary/90 transition w-full justify-center">
-          <MessageCircle size={13} /> Message Now
+          className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white hover:bg-primary/90 transition shadow-sm shadow-primary/20">
+          <MessageCircle size={13} /> Message
         </button>
         <button onClick={() => onNavigate(profilePath)}
-          className="rounded-lg border border-border bg-white px-4 py-2 text-xs font-semibold text-foreground hover:border-primary hover:text-primary transition w-full">
-          Profile
+          className="w-full rounded-xl border-2 border-primary/20 bg-white px-4 py-2.5 text-xs font-bold text-primary hover:bg-primary hover:text-white transition">
+          View Profile
         </button>
-        <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 mt-1">
-          <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" /> Available Now
-        </span>
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 mt-0.5">
+          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+          Available
+        </div>
       </div>
     </div>
   );
 };
 
-// â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Main page
 type Props = { role: ProviderRole };
-
 const ProviderDirectoryPage = ({ role }: Props) => {
-  const navigate = useNavigate();
+  const navigate   = useNavigate();
   const [searchParams] = useSearchParams();
   const { country, city } = useParams();
   const roleCopy    = useMemo(() => getRoleCopy(role), [role]);
   const singularWord = role === "therapist" ? "Therapist" : "Coach";
   const pluralWord   = role === "therapist" ? "Therapists" : "Coaches";
+  const accentColor  = role === "therapist" ? "#0b7e84" : "#1a6aff";
 
-  const routeCountry = countryNameFromSlug(country);
-  const routeCity    = cityNameFromSlug(city);
-  const querySearch  = searchParams.get("q") || "";
+  const routeCountry  = countryNameFromSlug(country);
+  const routeCity     = cityNameFromSlug(city);
+  const querySearch   = searchParams.get("q") || "";
   const nearbyCountry = searchParams.get("country") || "";
-  const pageCountry  = routeCountry || nearbyCountry;
-  const pageCity     = routeCity;
+  const pageCountry   = routeCountry || nearbyCountry;
+  const pageCity      = routeCity;
 
-  // state
   const [providers,         setProviders]         = useState<any[]>([]);
   const [loading,           setLoading]           = useState(true);
   const [error,             setError]             = useState("");
   const [geoLoading,        setGeoLoading]        = useState(false);
-  const [geoError,          setGeoError]          = useState("");
   const [searchInput,       setSearchInput]       = useState(pageCity || querySearch || "");
   const [selectedCountry,   setSelectedCountry]   = useState(pageCountry);
   const [serviceModeFilter, setServiceModeFilter] = useState<"all"|"online"|"in_person">("all");
   const [showSuggestions,   setShowSuggestions]   = useState(false);
   const [showAdvanced,      setShowAdvanced]      = useState(false);
-
-  // advanced search state
-  const [advSpecialty,  setAdvSpecialty]  = useState("");
-  const [advLanguage,   setAdvLanguage]   = useState("");
-  const [advMinPrice,   setAdvMinPrice]   = useState("");
-  const [advMaxPrice,   setAdvMaxPrice]   = useState("");
-  const [advVerified,   setAdvVerified]   = useState(false);
+  const [advSpecialty,      setAdvSpecialty]      = useState("");
+  const [advLanguage,       setAdvLanguage]       = useState("");
+  const [advMinPrice,       setAdvMinPrice]       = useState("");
+  const [advMaxPrice,       setAdvMaxPrice]       = useState("");
+  const [advVerified,       setAdvVerified]       = useState(false);
 
   const { suggestions, clear: clearSuggestions } = useLocationAutocomplete(searchInput, selectedCountry);
 
-  // load providers
+  // Load
   useEffect(() => {
     loadProviders(role).then(r => { setProviders(r.data || []); setError(r.error || ""); setLoading(false); });
   }, [role]);
 
-  // auto-detect location on first load (IP-based, no permission needed)
+  // Auto-detect country on first load
   useEffect(() => {
-    if (pageCountry) return; // already have country from URL
-    detectLocation().then(r => {
-      if (r.inferredCountry) setSelectedCountry(r.inferredCountry);
-    });
+    if (pageCountry) return;
+    detectLocation().then(r => { if (r.inferredCountry) setSelectedCountry(r.inferredCountry); });
   }, []);
 
-  // sync URL-driven state
+  // Sync URL state
   useEffect(() => {
     if (pageCountry) setSelectedCountry(pageCountry);
     if (pageCity || querySearch) setSearchInput(pageCity || querySearch || "");
   }, [pageCountry, pageCity, querySearch]);
 
-  // â”€â”€ Filtering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Filter
   const filteredProviders = useMemo(() => {
     let r = [...providers];
-
-    // country filter
     if (selectedCountry) r = filterProviders(r, { selectedCountry });
-
-    // city filter
     if (pageCity) r = r.filter(p => normalizeText(p.city) === normalizeText(pageCity) || cityToSlug(p.city) === cityToSlug(pageCity));
-
-    // text search
     if (searchInput.trim() && !pageCity) r = filterProviders(r, { search: searchInput.trim() });
     if (querySearch) r = filterProviders(r, { search: querySearch });
-
-    // delivery mode
     if (serviceModeFilter !== "all") r = r.filter(p => {
       const m = normalizeText(p.service_delivery_mode);
       return serviceModeFilter === "online" ? m.includes("online") || m.includes("both") : m.includes("person") || m.includes("both");
     });
-
-    // advanced: specialty
-    if (advSpecialty.trim()) {
-      const s = advSpecialty.toLowerCase();
-      r = r.filter(p => {
-        const hay = [p.skills, p.expertise_areas, p.headline, p.bio, p.specialization_type].map(v => Array.isArray(v) ? v.join(" ") : (v || "")).join(" ").toLowerCase();
-        return hay.includes(s);
-      });
-    }
-
-    // advanced: language
-    if (advLanguage.trim()) {
-      const l = advLanguage.toLowerCase();
-      r = r.filter(p => {
-        const langs = Array.isArray(p.languages) ? p.languages.join(" ") : (p.languages || "");
-        return langs.toLowerCase().includes(l);
-      });
-    }
-
-    // advanced: price range
+    if (advSpecialty.trim()) { const s = advSpecialty.toLowerCase(); r = r.filter(p => { const hay = [(p as any).skills, (p as any).expertise_areas, p.headline, p.bio].map(v => Array.isArray(v) ? v.join(" ") : (v||"")).join(" ").toLowerCase(); return hay.includes(s); }); }
+    if (advLanguage.trim()) { const l = advLanguage.toLowerCase(); r = r.filter(p => (Array.isArray(p.languages) ? p.languages.join(" ") : (p.languages||"")).toLowerCase().includes(l)); }
     if (advMinPrice) r = r.filter(p => Number(p.booking_price ?? p.session_price ?? p.hourly_rate ?? 0) >= Number(advMinPrice));
     if (advMaxPrice) r = r.filter(p => Number(p.booking_price ?? p.session_price ?? p.hourly_rate ?? 0) <= Number(advMaxPrice));
-
-    // advanced: verified only
     if (advVerified) r = r.filter(p => String(p.kyc_status || p.verification_status || "").toLowerCase() === "approved" || Boolean(p.is_verified));
-
     return r;
   }, [providers, selectedCountry, pageCity, searchInput, querySearch, serviceModeFilter, advSpecialty, advLanguage, advMinPrice, advMaxPrice, advVerified]);
 
-  const hasActiveFilters = advSpecialty || advLanguage || advMinPrice || advMaxPrice || advVerified || serviceModeFilter !== "all";
-
-  const clearAdvanced = () => {
-    setAdvSpecialty(""); setAdvLanguage(""); setAdvMinPrice(""); setAdvMaxPrice(""); setAdvVerified(false); setServiceModeFilter("all");
-  };
+  const hasFilters = !!(advSpecialty || advLanguage || advMinPrice || advMaxPrice || advVerified || serviceModeFilter !== "all");
+  const clearFilters = () => { setAdvSpecialty(""); setAdvLanguage(""); setAdvMinPrice(""); setAdvMaxPrice(""); setAdvVerified(false); setServiceModeFilter("all"); };
 
   const cityOptions = useMemo(() => {
     const base = selectedCountry ? filterProviders(providers, { selectedCountry }) : providers;
@@ -254,7 +236,7 @@ const ProviderDirectoryPage = ({ role }: Props) => {
     return Array.from(map.entries()).map(([slug, name]) => ({ slug, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [providers, selectedCountry]);
 
-  const goToCountry = (name: string) => navigate(`${roleCopy.routeBase}/${countryToSlug(name)}`);
+  const goToCountry = (name: string) => { setSelectedCountry(name); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const goToCity    = (cName: string, cityName: string) => navigate(`${roleCopy.routeBase}/${countryToSlug(cName)}/${cityToSlug(cityName)}`);
 
   const handleSearch = () => {
@@ -264,83 +246,61 @@ const ProviderDirectoryPage = ({ role }: Props) => {
       if (m) { navigate(`${roleCopy.routeBase}/${countryToSlug(selectedCountry)}/${m.slug}`); return; }
       navigate(`${roleCopy.routeBase}/${countryToSlug(selectedCountry)}?q=${encodeURIComponent(q)}`); return;
     }
-    if (selectedCountry) { goToCountry(selectedCountry); return; }
-    if (q) { navigate(`${roleCopy.routeBase}/results?q=${encodeURIComponent(q)}`); return; }
+    if (selectedCountry) { navigate(`${roleCopy.routeBase}/${countryToSlug(selectedCountry)}`); return; }
+    if (q) { navigate(`${roleCopy.routeBase}/results?q=${encodeURIComponent(q)}`); }
   };
 
   const handleNearby = async () => {
-    setGeoLoading(true); setGeoError("");
+    setGeoLoading(true);
     const r = await detectLocation();
-    if (r.inferredCountry) { setSelectedCountry(r.inferredCountry); setGeoLoading(false); return; }
-    setGeoError(r.error || "Could not detect location."); setGeoLoading(false);
+    if (r.inferredCountry) setSelectedCountry(r.inferredCountry);
+    setGeoLoading(false);
   };
 
-  const headingTitle = pageCity ? `${pluralWord} in ${pageCity}, ${pageCountry}`
-    : pageCountry ? `${pluralWord} in ${pageCountry}`
-    : querySearch  ? `${pluralWord}: "${querySearch}"`
-    : `Find a ${singularWord}`;
-
-  const locationLabel = selectedCountry ? `In ${selectedCountry}` : "Near You";
-
-  const verifiedCount = providers.filter(p =>
-    String(p.kyc_status || p.verification_status || "").toLowerCase() === "approved" || Boolean(p.is_verified)
-  ).length;
+  const locationLabel = selectedCountry ? selectedCountry : "Worldwide";
+  const heroGradient  = role === "therapist"
+    ? "from-teal-600 to-cyan-700"
+    : "from-blue-600 to-indigo-700";
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
 
       {/* HERO */}
-      <section className="relative overflow-hidden bg-white">
-        {/* Decorative soft blobs matching reference */}
-        <div className="pointer-events-none absolute top-0 right-0 w-[600px] h-[500px]" style={{background:"radial-gradient(ellipse at 80% 30%,#fce4ec 0%,transparent 60%),radial-gradient(ellipse at 90% 70%,#e8f5e9 0%,transparent 50%)"}} />
-        <div className="pointer-events-none absolute inset-0 opacity-20" style={{backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='500'%3E%3Cpath d='M700 0 Q600 150 700 300 Q800 450 650 500' stroke='%23c8d8f0' strokeWidth='80' fill='none'/%3E%3Cpath d='M750 100 Q700 250 750 400' stroke='%23f8c8d8' strokeWidth='60' fill='none'/%3E%3C/svg%3E\")"}} />
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-14 lg:py-20">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-10">
-            {/* Left */}
-            <div className="flex-1 max-w-xl space-y-6">
-              <h1 className="leading-tight text-slate-900">
-                <span className="text-3xl font-semibold sm:text-4xl">Find a </span>
-                <span className="text-4xl font-extrabold text-primary sm:text-6xl">{singularWord}</span>
-                <br /><span className="text-3xl font-bold text-slate-800 sm:text-4xl">{locationLabel}</span>
+      <div className={`bg-gradient-to-br ${heroGradient} text-white`}>
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 lg:py-20">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-10">
+            <div className="flex-1 space-y-6">
+              <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-1.5 text-sm font-medium">
+                <span className="h-2 w-2 bg-emerald-400 rounded-full animate-pulse" />
+                {loading ? "Loading..." : `${providers.length} verified ${pluralWord.toLowerCase()} available`}
+              </div>
+              <h1 className="text-4xl font-extrabold leading-tight sm:text-5xl lg:text-6xl">
+                Find a {singularWord}<br />
+                <span className="text-white/80 text-3xl sm:text-4xl font-semibold">{locationLabel}</span>
               </h1>
-              <p className="text-base text-slate-500 leading-relaxed">
+              <p className="text-lg text-white/75 max-w-lg leading-relaxed">
                 {role === "therapist"
-                  ? "Find an independent therapist who can listen, understand, and make real progress."
-                  : "Find an independent coach who can guide, challenge, and help you achieve your goals."}
+                  ? "Connect with qualified therapists for anxiety, depression, relationships and more — online or in person."
+                  : "Work with expert coaches who help you grow your career, business, mindset and performance."}
               </p>
 
-              {/* Search box — Location pill + text input */}
-              <div className="flex items-stretch gap-2 max-w-lg">
-                <div className="relative shrink-0">
-                  <select value={selectedCountry} onChange={e => setSelectedCountry(e.target.value)}
-                    className="appearance-none bg-slate-900 text-white pl-5 pr-8 py-3.5 text-sm font-semibold outline-none cursor-pointer rounded-2xl h-full">
-                    <option value="">Location</option>
-                    {DIRECTORY_COUNTRIES.map(c => <option key={c.code} value={c.name}>{c.flag} {c.name}</option>)}
-                  </select>
-                  <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/70" />
-                </div>
-                <div className="relative flex-1 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              {/* Search bar */}
+              <div className="flex flex-col sm:flex-row gap-2 max-w-2xl">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                   <input type="text" value={searchInput}
                     onChange={e => { setSearchInput(e.target.value); setShowSuggestions(true); }}
                     onKeyDown={e => { if (e.key === "Enter") { clearSuggestions(); setShowSuggestions(false); handleSearch(); } }}
                     onFocus={() => setShowSuggestions(true)}
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                    placeholder="Name, city or specialty..."
-                    className="w-full h-full px-4 py-3.5 pl-9 text-sm text-slate-700 outline-none placeholder:text-slate-400 bg-transparent" />
+                    placeholder={`Search by name, specialty, or city...`}
+                    className="w-full rounded-2xl bg-white/95 backdrop-blur-sm text-slate-900 py-4 pl-12 pr-4 text-sm font-medium outline-none placeholder:text-slate-400 shadow-lg" />
                   {showSuggestions && suggestions.length > 0 && (
-                    <div className="absolute left-0 top-full z-50 mt-1 w-80 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+                    <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
                       {suggestions.map((s, i) => (
                         <button key={i} type="button" onMouseDown={e => e.preventDefault()}
-                          onClick={() => {
-                            setSearchInput(s.city);
-                            if (s.country && !selectedCountry) {
-                              const m = DIRECTORY_COUNTRIES.find(c => c.name.toLowerCase() === s.country.toLowerCase());
-                              if (m) setSelectedCountry(m.name);
-                            }
-                            clearSuggestions(); setShowSuggestions(false);
-                          }}
+                          onClick={() => { setSearchInput(s.city); if (s.country && !selectedCountry) { const m = DIRECTORY_COUNTRIES.find(c => c.name.toLowerCase() === s.country.toLowerCase()); if (m) setSelectedCountry(m.name); } clearSuggestions(); setShowSuggestions(false); }}
                           className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-100 last:border-0">
                           <MapPin size={13} className="text-primary shrink-0" />
                           <span className="text-sm text-slate-700">{s.label}</span>
@@ -349,259 +309,187 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                     </div>
                   )}
                 </div>
+                <select value={selectedCountry} onChange={e => setSelectedCountry(e.target.value)}
+                  className="rounded-2xl bg-white/95 text-slate-700 px-4 py-4 text-sm font-medium outline-none shadow-lg sm:w-[180px]">
+                  <option value="">All Countries</option>
+                  {DIRECTORY_COUNTRIES.map(c => <option key={c.code} value={c.name}>{c.flag} {c.name}</option>)}
+                </select>
                 <button onClick={handleSearch}
-                  className="rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary/90 transition shrink-0">
+                  className="rounded-2xl bg-white text-primary font-bold px-8 py-4 text-sm hover:bg-slate-50 transition shadow-lg shrink-0">
                   Search
                 </button>
               </div>
 
-              <p className="text-sm font-medium text-slate-600">
-                Find real help from independent qualified {pluralWord.toLowerCase()}.
-              </p>
-
-              {/* Stats */}
-              <div className="flex items-center gap-8 pt-2">
-                <div>
-                  <p className="font-extrabold text-slate-900 leading-none">
-                    <span className="text-4xl">{providers.length > 0 ? providers.length : "100"}</span>
-                    <span className="text-xl text-slate-500">000+</span>
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">Happy clients</p>
-                </div>
-                <div className="w-px h-10 bg-slate-200" />
-                <div>
-                  <p className="font-extrabold text-slate-900 leading-none">
-                    <span className="text-4xl">{providers.length > 0 ? providers.length : "12"}</span>
-                    <span className="text-xl text-slate-500">000+</span>
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">Qualified {pluralWord}</p>
-                </div>
+              {/* Quick actions */}
+              <div className="flex flex-wrap items-center gap-4 text-sm text-white/70">
+                <button onClick={handleNearby} disabled={geoLoading}
+                  className="flex items-center gap-1.5 hover:text-white transition disabled:opacity-50">
+                  <MapPin size={14} /> {geoLoading ? "Detecting..." : "Use my location"}
+                </button>
+                <span>·</span>
+                <span>Free to search · No account needed</span>
               </div>
             </div>
 
-            {/* Right: illustration */}
-            <div className="hidden lg:flex items-center justify-center shrink-0 w-80">
-              <img
-                src={role === "therapist" ? "/therapist-directory-hero.png" : "/coach-directory-hero.png"}
-                alt={pluralWord}
-                className="w-full max-w-xs object-contain drop-shadow-xl"
-                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-              />
+            {/* Illustration */}
+            <div className="hidden lg:block shrink-0 w-72">
+              <img src={role === "therapist" ? "/therapist-hero-right.png" : "/coach-hero-right.png"} alt=""
+                className="w-full object-contain drop-shadow-2xl"
+                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
       {/* FILTER BAR */}
-      <section className="bg-white border-y border-slate-200 sticky top-16 z-20 shadow-sm">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-3">
-          <div className="flex flex-wrap items-center gap-3">
-            {(["all", "in_person", "online"] as const).map(m => (
-              <button key={m} onClick={() => setServiceModeFilter(m)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium border transition ${
-                  serviceModeFilter === m
-                    ? "bg-primary text-white border-primary"
-                    : "bg-white text-slate-700 border-slate-300 hover:border-primary hover:text-primary"
-                }`}>
-                {m === "all" ? "All" : m === "in_person" ? "In person" : "Online Services"}
-              </button>
-            ))}
-            <div className="ml-auto flex items-center gap-2">
-              <button onClick={handleNearby} disabled={geoLoading}
-                className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-primary disabled:opacity-50 transition">
-                <MapPin size={14} className="text-primary" />
-                {geoLoading ? "Detecting..." : "Near me"}
-              </button>
-              <button onClick={() => setShowAdvanced(v => !v)}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
-                  showAdvanced ? "bg-primary/10 border-primary text-primary" : "bg-white border-slate-300 text-slate-700 hover:border-primary"
-                }`}>
-                <SlidersHorizontal size={14} />
-                Advanced Search
-                {showAdvanced ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-              </button>
-              {hasActiveFilters && (
-                <button onClick={clearAdvanced}
-                  className="inline-flex items-center gap-1 text-xs text-primary border border-primary/30 rounded-full px-3 py-1.5 hover:bg-primary/5">
-                  <X size={11} /> Clear
-                </button>
-              )}
-            </div>
-          </div>
-          {geoError && <p className="text-xs text-red-500 mt-2">{geoError}</p>}
-        </div>
-      </section>
-      {/* â”€â”€ ADVANCED SEARCH PANEL â”€â”€ */}
-      {showAdvanced && (
-        <section className="bg-slate-50 border-b border-slate-200">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 py-5">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                  {role === "therapist" ? "Therapy Type / Focus" : "Coaching Specialty"}
-                </label>
-                <input value={advSpecialty} onChange={e => setAdvSpecialty(e.target.value)}
-                  placeholder={role === "therapist" ? "e.g. Anxiety, CBT, Trauma" : "e.g. Career, Leadership"}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-700 mb-1 block">Language</label>
-                <input value={advLanguage} onChange={e => setAdvLanguage(e.target.value)}
-                  placeholder="e.g. English, French"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-700 mb-1 block">Min Price ($)</label>
-                <input type="number" min="0" value={advMinPrice} onChange={e => setAdvMinPrice(e.target.value)}
-                  placeholder="0"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-700 mb-1 block">Max Price ($)</label>
-                <input type="number" min="0" value={advMaxPrice} onChange={e => setAdvMaxPrice(e.target.value)}
-                  placeholder="Any"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
-              </div>
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={advVerified} onChange={e => setAdvVerified(e.target.checked)}
-                  className="h-4 w-4 accent-primary rounded" />
-                <span className="text-sm font-medium text-slate-700">Verified only</span>
-              </label>
-              <button onClick={clearAdvanced} className="text-xs text-slate-500 hover:text-primary underline">Reset all filters</button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* â”€â”€ MAIN CONTENT â”€â”€ */}
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
-        {error && <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-
-        {/* City pills */}
-        {selectedCountry && cityOptions.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-6">
-            <button onClick={() => navigate(`${roleCopy.routeBase}/${countryToSlug(selectedCountry)}`)}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition ${!pageCity ? "bg-primary text-white border-primary" : "bg-white text-slate-700 border-slate-300 hover:border-primary"}`}>
-              All
+      <div className="sticky top-16 z-20 bg-white border-b border-slate-200 shadow-sm">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-3 flex flex-wrap items-center gap-3">
+          {/* Mode tabs */}
+          {(["all","in_person","online"] as const).map(m => (
+            <button key={m} onClick={() => setServiceModeFilter(m)}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold border-2 transition ${serviceModeFilter === m ? "border-primary bg-primary text-white" : "border-slate-200 text-slate-600 hover:border-primary hover:text-primary"}`}>
+              {m === "all" ? "All" : m === "in_person" ? "In person" : "Online"}
             </button>
-            {cityOptions.map(c => (
-              <button key={c.slug} onClick={() => goToCity(selectedCountry, c.name)}
-                className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition ${cityToSlug(pageCity) === c.slug ? "bg-primary text-white border-primary" : "bg-white text-slate-700 border-slate-300 hover:border-primary"}`}>
-                {c.name}
-              </button>
-            ))}
-          </div>
-        )}
+          ))}
 
-        {/* Results */}
-        {loading ? (
-          <div className="space-y-4">
-            {[1,2,3].map(i => (
-              <div key={i} className="rounded-xl bg-white border border-slate-200 p-5 flex gap-4 animate-pulse">
-                <div className="w-[130px] h-[180px] bg-slate-200 rounded-lg shrink-0" />
-                <div className="flex-1 space-y-3 py-2">
-                  <div className="h-5 bg-slate-200 rounded w-1/3" />
-                  <div className="h-3 bg-slate-200 rounded w-1/4" />
-                  <div className="h-3 bg-slate-200 rounded w-2/3" />
-                  <div className="h-12 bg-slate-200 rounded w-full" />
-                </div>
-                <div className="w-[140px] shrink-0 space-y-2">
-                  <div className="h-9 bg-slate-200 rounded-lg" />
-                  <div className="h-9 bg-slate-200 rounded-lg" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : filteredProviders.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white py-20 text-center">
-            <p className="text-lg font-semibold text-slate-900 mb-1">No {pluralWord.toLowerCase()} found</p>
-            <p className="text-sm text-slate-500 max-w-sm mx-auto mb-5">
-              {hasActiveFilters ? "Try adjusting your filters." : selectedCountry ? `No ${pluralWord.toLowerCase()} in ${selectedCountry} yet. Try browsing all countries.` : "Select a country to browse providers."}
-            </p>
-            {(hasActiveFilters || selectedCountry) && (
-              <button onClick={() => { clearAdvanced(); setSelectedCountry(""); setSearchInput(""); }}
-                className="rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition">
-                Show All {pluralWord}
+          {/* Result count */}
+          <span className="text-sm text-slate-500 ml-1">
+            {loading ? "Loading..." : <><strong className="text-slate-900">{filteredProviders.length}</strong> {filteredProviders.length === 1 ? singularWord.toLowerCase() : pluralWord.toLowerCase()} found</>}
+          </span>
+
+          {/* Right side */}
+          <div className="ml-auto flex items-center gap-2">
+            <button onClick={() => setShowAdvanced(v => !v)}
+              className={`flex items-center gap-1.5 rounded-xl border-2 px-3 py-1.5 text-sm font-semibold transition ${showAdvanced ? "border-primary bg-primary/10 text-primary" : "border-slate-200 text-slate-600 hover:border-primary"}`}>
+              <SlidersHorizontal size={14} /> Filters {showAdvanced ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            </button>
+            {hasFilters && (
+              <button onClick={clearFilters} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 border border-red-200 rounded-full px-3 py-1.5">
+                <X size={11} /> Clear
               </button>
             )}
           </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredProviders.map(provider => (
-              <ProviderCard
-                key={provider.user_id || provider.id}
-                provider={provider}
-                role={role}
-                singularWord={singularWord}
-                defaultHeadline={roleCopy.defaultHeadline}
-                onNavigate={navigate}
-              />
-            ))}
+        </div>
+
+        {/* Advanced filters */}
+        {showAdvanced && (
+          <div className="border-t border-slate-100 bg-slate-50">
+            <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 grid grid-cols-2 md:grid-cols-5 gap-3">
+              <input value={advSpecialty} onChange={e => setAdvSpecialty(e.target.value)}
+                placeholder={role === "therapist" ? "Specialty (e.g. CBT)" : "Focus (e.g. Career)"}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
+              <input value={advLanguage} onChange={e => setAdvLanguage(e.target.value)}
+                placeholder="Language"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
+              <input type="number" min="0" value={advMinPrice} onChange={e => setAdvMinPrice(e.target.value)}
+                placeholder="Min price $"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
+              <input type="number" min="0" value={advMaxPrice} onChange={e => setAdvMaxPrice(e.target.value)}
+                placeholder="Max price $"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
+              <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-xl border border-slate-200 bg-white">
+                <input type="checkbox" checked={advVerified} onChange={e => setAdvVerified(e.target.checked)} className="accent-primary" />
+                <span className="text-sm font-medium text-slate-700">Verified only</span>
+              </label>
+            </div>
           </div>
         )}
+      </div>
 
-        {/* Country grid â€” dark */}
-        <section className="mt-16 rounded-2xl overflow-hidden" style={{ background: "linear-gradient(135deg,#0d1b2a 0%,#1a2f4a 100%)" }}>
-          <div className="px-6 py-10 md:px-10">
-            <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Global Directory</p>
-            <h2 className="text-xl font-bold text-white mb-1">
-              Find {singularWord === "Therapist" ? "Psychologists" : "Coaches"} &amp; {pluralWord}
-            </h2>
-            <p className="text-sm text-slate-400 mb-6">Browse by country to find {pluralWord.toLowerCase()} near you</p>
-            <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-              {DIRECTORY_COUNTRIES.slice(0, 24).map(c => (
-                <button key={c.code} onClick={() => { setSelectedCountry(c.name); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                  className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 hover:bg-white/10 hover:border-primary/50 transition text-left">
-                  <span className="text-lg shrink-0">{c.flag}</span>
-                  <span className="truncate text-xs font-medium text-white">{c.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
+      {/* MAIN CONTENT */}
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
+        {error && <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-        {/* FAQ */}
-        <section className="mt-12">
-          <h2 className="text-xl font-bold text-slate-900 mb-1">
-            Find {pluralWord} {selectedCountry ? `in ${selectedCountry}` : "Anywhere"}
-          </h2>
-          <p className="text-sm text-slate-500 mb-6">
-            All profiles are structured consistently so you can compare before booking. Search by location, specialty, or language.
-          </p>
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="space-y-3">
-              {[
-                [`How do I choose the right ${singularWord.toLowerCase()}?`, `Review the profile summary, service focus, languages, and delivery options. Open the full profile to compare approach and expertise.`],
-                [`Can I book online and in person?`, `Yes. Providers who offer both will show the delivery options on their profile during booking.`],
-                [`Is there a subscription required to search?`, `No. Search and browsing are completely free. You only need an account to book a session.`],
-                [`How do I know a provider is verified?`, `Verified providers have completed identity verification and show a verified badge on their profile card.`],
-              ].map(([q, a], i) => (
-                <details key={i} className="rounded-xl border border-slate-200 bg-white overflow-hidden group">
-                  <summary className="flex items-center justify-between px-5 py-4 cursor-pointer text-sm font-semibold text-slate-900 list-none hover:bg-slate-50">
-                    {q}
-                    <ChevronDown size={16} className="text-slate-400 group-open:rotate-180 transition-transform shrink-0 ml-2" />
-                  </summary>
-                  <p className="px-5 pb-4 text-sm text-slate-600 leading-relaxed">{a}</p>
-                </details>
-              ))}
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Left sidebar */}
+          <aside className="lg:w-56 shrink-0 space-y-6">
+            {/* Country filter */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-4">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Country</h3>
+              <select value={selectedCountry} onChange={e => setSelectedCountry(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-primary">
+                <option value="">All Countries</option>
+                {DIRECTORY_COUNTRIES.map(c => <option key={c.code} value={c.name}>{c.flag} {c.name}</option>)}
+              </select>
             </div>
-            <div>
-              <div className="rounded-xl border border-slate-200 bg-white p-6">
-                <h3 className="font-semibold text-slate-900 mb-3 text-sm">Browse {pluralWord} by Country</h3>
-                <div className="flex flex-wrap gap-x-3 gap-y-1">
-                  {DIRECTORY_COUNTRIES.slice(0, 30).map(c => (
-                    <button key={c.code} onClick={() => { setSelectedCountry(c.name); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                      className="text-xs text-primary hover:underline">
+
+            {/* City pills */}
+            {selectedCountry && cityOptions.length > 0 && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-4">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">City</h3>
+                <div className="flex flex-col gap-1">
+                  <button onClick={() => navigate(`${roleCopy.routeBase}/${countryToSlug(selectedCountry)}`)}
+                    className={`text-left text-sm px-3 py-1.5 rounded-lg transition ${!pageCity ? "bg-primary/10 text-primary font-semibold" : "text-slate-600 hover:bg-slate-50"}`}>
+                    All cities
+                  </button>
+                  {cityOptions.map(c => (
+                    <button key={c.slug} onClick={() => goToCity(selectedCountry, c.name)}
+                      className={`text-left text-sm px-3 py-1.5 rounded-lg transition ${cityToSlug(pageCity) === c.slug ? "bg-primary/10 text-primary font-semibold" : "text-slate-600 hover:bg-slate-50"}`}>
                       {c.name}
                     </button>
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* Browse countries */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-4">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Browse</h3>
+              <div className="flex flex-col gap-1">
+                {DIRECTORY_COUNTRIES.slice(0, 12).map(c => (
+                  <button key={c.code} onClick={() => goToCountry(c.name)}
+                    className={`text-left text-sm px-3 py-1.5 rounded-lg transition flex items-center gap-2 ${selectedCountry === c.name ? "bg-primary/10 text-primary font-semibold" : "text-slate-600 hover:bg-slate-50"}`}>
+                    <span>{c.flag}</span><span className="truncate">{c.name}</span>
+                  </button>
+                ))}
+              </div>
             </div>
+          </aside>
+
+          {/* Results */}
+          <div className="flex-1 min-w-0">
+            {loading ? (
+              <div className="space-y-4">
+                {[1,2,3,4].map(i => (
+                  <div key={i} className="bg-white rounded-2xl border border-slate-200 p-5 flex gap-4 animate-pulse">
+                    <div className="w-[150px] h-[180px] bg-slate-200 rounded-xl shrink-0" />
+                    <div className="flex-1 space-y-3 py-2">
+                      <div className="h-6 bg-slate-200 rounded w-1/3" />
+                      <div className="h-3 bg-slate-200 rounded w-1/4" />
+                      <div className="flex gap-2">
+                        {[1,2,3].map(j => <div key={j} className="h-5 w-20 bg-slate-200 rounded-full" />)}
+                      </div>
+                      <div className="h-14 bg-slate-200 rounded w-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredProviders.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-dashed border-slate-300 py-20 text-center">
+                <p className="text-lg font-bold text-slate-800 mb-2">No {pluralWord.toLowerCase()} found</p>
+                <p className="text-sm text-slate-500 mb-5 max-w-xs mx-auto">
+                  {hasFilters ? "Try adjusting your filters." : selectedCountry ? `No ${pluralWord.toLowerCase()} in ${selectedCountry} yet.` : `Select a country to browse ${pluralWord.toLowerCase()}.`}
+                </p>
+                <button onClick={() => { clearFilters(); setSelectedCountry(""); }}
+                  className="rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-white hover:opacity-90 transition">
+                  Browse All
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredProviders.map(provider => (
+                  <ProviderCard
+                    key={provider.user_id || provider.id}
+                    provider={provider} role={role}
+                    singularWord={singularWord}
+                    defaultHeadline={roleCopy.defaultHeadline}
+                    onNavigate={navigate}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        </section>
+        </div>
       </div>
 
       <Footer />
@@ -610,4 +498,3 @@ const ProviderDirectoryPage = ({ role }: Props) => {
 };
 
 export default ProviderDirectoryPage;
-
