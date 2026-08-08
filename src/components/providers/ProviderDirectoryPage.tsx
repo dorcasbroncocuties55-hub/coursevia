@@ -291,7 +291,7 @@ const ProviderDirectoryPage = ({ role }: Props) => {
       <Navbar />
 
       {/* HERO */}
-      <section className="relative overflow-hidden" style={{ background: "linear-gradient(135deg,#f0f4ff 0%,#ffffff 50%,#fdf0f7 100%)" }}>
+      <section className="relative overflow-hidden bg-white">
         <div className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
         <div className="pointer-events-none absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-pink-200/30 blur-3xl" />
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-14 lg:py-20">
