@@ -356,19 +356,37 @@ export const getRoleCopy = (type: ProviderRole) => {
 
 export const loadProviders = async (type: ProviderRole): Promise<ProviderDirectoryResult> => {
   try {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("onboarding_completed", true)
-      .or(`role.eq.${type},provider_type.eq.${type}`)
-      .order("updated_at", { ascending: false });
+    // Use two separate queries and merge — avoids .or() failing when
+    // provider_type column is null/missing on some rows under RLS
+    const [byRole, byProviderType] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("*")
+        .eq("onboarding_completed", true)
+        .eq("role", type)
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("profiles")
+        .select("*")
+        .eq("onboarding_completed", true)
+        .eq("provider_type", type)
+        .order("updated_at", { ascending: false }),
+    ]);
 
-    if (error) {
-      console.error(`Provider load error for ${type}:`, error);
-      return { data: [], error: error.message || `Failed to load ${getProviderTitle(type).toLowerCase()}.` };
+    if (byRole.error && byProviderType.error) {
+      console.error(`Provider load error for ${type}:`, byRole.error);
+      return { data: [], error: byRole.error.message || `Failed to load ${getProviderTitle(type).toLowerCase()}.` };
     }
 
-    return { data: (data as Provider[]) || [], error: null };
+    // Merge and deduplicate by user_id
+    const seen = new Set<string>();
+    const merged: Provider[] = [];
+    for (const row of [...(byRole.data || []), ...(byProviderType.data || [])]) {
+      const key = (row as any).user_id || (row as any).id;
+      if (key && !seen.has(key)) { seen.add(key); merged.push(row as Provider); }
+    }
+
+    return { data: merged, error: null };
   } catch (err: any) {
     console.error(`Provider load exception for ${type}:`, err);
     return { data: [], error: err?.message || `Failed to load ${getProviderTitle(type).toLowerCase()}.` };
