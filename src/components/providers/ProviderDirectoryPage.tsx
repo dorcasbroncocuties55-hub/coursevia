@@ -11,87 +11,145 @@ import {
 import { getServiceModeLabel } from "@/lib/providerModes";
 import {
   ChevronDown, ChevronUp, MapPin, Search, MessageCircle,
-  CheckCircle, SlidersHorizontal, X, Users, BadgeCheck,
+  SlidersHorizontal, X, Users, BadgeCheck,
 } from "lucide-react";
 
+// ─── constants ───────────────────────────────────────────────────────────────
+const MAX_SUGGESTIONS     = 8;
+const MAX_AUTOCOMPLETE    = 5;
+const MAX_TAG_PREVIEW     = 2;
+const MAX_CITIES_SIDEBAR  = 12;
+const MAX_COUNTRIES_GRID  = 24;
+const MAX_COUNTRIES_LINKS = 32;
+const MAX_SPECIALTIES_DL  = 30;
+const MAX_LANGUAGES_DL    = 20;
+const DEBOUNCE_MS         = 300;
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
 const normalizeText = (v?: string | null) =>
   (v || "").toLowerCase().trim().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
-const cityToSlug = (v?: string | null) => normalizeText(v).replace(/\s+/g, "-");
+
+const cityToSlug = (v?: string | null) =>
+  normalizeText(v).replace(/\s+/g, "-");
+
 const cityNameFromSlug = (v?: string) =>
-  (v || "").split("-").filter(Boolean).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+  (v || "").split("-").filter(Boolean)
+    .map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+
 const asTagList = (v: unknown): string[] => {
   if (Array.isArray(v)) return v.filter(Boolean).map(String);
   if (typeof v === "string") return v.split(",").map(s => s.trim()).filter(Boolean);
   return [];
 };
 
-// Nominatim city autocomplete
-type NominatimResult = { address: { city?: string; town?: string; village?: string; county?: string; country?: string } };
+const isVerified = (p: Provider) =>
+  String(p.kyc_status || p.verification_status || "").toLowerCase() === "approved" ||
+  Boolean(p.is_verified);
+
+// ─── Nominatim city autocomplete ─────────────────────────────────────────────
+type NominatimResult = {
+  address: {
+    city?: string; town?: string; village?: string;
+    county?: string; country?: string;
+  };
+};
+
 const useLocationAutocomplete = (query: string, country: string) => {
-  const [suggestions, setSuggestions] = useState<{ label: string; city: string; country: string }[]>([]);
+  const [suggestions, setSuggestions] = useState<
+    { label: string; city: string; country: string }[]
+  >([]);
   const ref = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (query.length < 2) { setSuggestions([]); return; }
     if (ref.current) clearTimeout(ref.current);
     ref.current = setTimeout(async () => {
       try {
-        const cc = country ? DIRECTORY_COUNTRIES.find(c => c.name === country)?.code?.toLowerCase() : "";
-        const p = new URLSearchParams({ q: query, format: "json", addressdetails: "1", limit: "5", featuretype: "city", ...(cc ? { countrycodes: cc } : {}) });
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?${p}`, { headers: { "Accept-Language": "en", "User-Agent": "Coursevia/1.0" } });
+        const cc = country
+          ? DIRECTORY_COUNTRIES.find(c => c.name === country)?.code?.toLowerCase()
+          : "";
+        const params = new URLSearchParams({
+          q: query, format: "json", addressdetails: "1",
+          limit: String(MAX_AUTOCOMPLETE), featuretype: "city",
+          ...(cc ? { countrycodes: cc } : {}),
+        });
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?${params}`,
+          { headers: { "Accept-Language": "en", "User-Agent": "Coursevia/1.0" } },
+        );
         const data: NominatimResult[] = await res.json();
         const seen = new Set<string>();
-        setSuggestions(data.map(r => {
-          const city = r.address.city || r.address.town || r.address.village || r.address.county || "";
-          const cn = r.address.country || "";
-          return { label: [city, cn].filter(Boolean).join(", "), city, country: cn };
-        }).filter(r => { if (!r.city || seen.has(r.label)) return false; seen.add(r.label); return true; }));
+        setSuggestions(
+          data.map(r => {
+            const city = r.address.city || r.address.town || r.address.village || r.address.county || "";
+            const cn   = r.address.country || "";
+            return { label: [city, cn].filter(Boolean).join(", "), city, country: cn };
+          }).filter(r => {
+            if (!r.city || seen.has(r.label)) return false;
+            seen.add(r.label);
+            return true;
+          }),
+        );
       } catch { setSuggestions([]); }
-    }, 300);
+    }, DEBOUNCE_MS);
     return () => { if (ref.current) clearTimeout(ref.current); };
   }, [query, country]);
+
   return { suggestions, clear: () => setSuggestions([]) };
 };
 
-
-// Provider card — matches therapyroute.com HTML structure exactly
-const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigate }: {
-  provider: Provider; role: ProviderRole; singularWord: string;
-  defaultHeadline: string; onNavigate: (p: string) => void;
+// ─── Provider card ────────────────────────────────────────────────────────────
+const ProviderCard = ({
+  provider, role, singularWord, defaultHeadline, onNavigate,
+}: {
+  provider: Provider;
+  role: ProviderRole;
+  singularWord: string;
+  defaultHeadline: string;
+  onNavigate: (path: string) => void;
 }) => {
   const [expanded, setExpanded] = useState(false);
+
   const name     = provider.full_name || provider.display_name || provider.username || singularWord;
-  const verified = String(provider.kyc_status || provider.verification_status || "").toLowerCase() === "approved" || Boolean(provider.is_verified);
+  const verified = isVerified(provider);
   const co       = getCountryOption(provider.country || provider.country_code || "");
   const location = [provider.city, co?.name || provider.country].filter(Boolean).join(", ");
 
-  const rawSkills    = asTagList((provider as any).skills);
-  const rawExpertise = asTagList((provider as any).expertise_areas);
-  const row1 = rawSkills.length > 0 ? rawSkills : rawExpertise;
-  const row2 = rawSkills.length > 0 && rawExpertise.length > 0 ? rawExpertise : [];
-  const r1Show = row1.slice(0, 2); const r1Extra = row1.length > 2 ? row1.length - 2 : 0;
-  const r2Show = row2.slice(0, 2); const r2Extra = row2.length > 2 ? row2.length - 2 : 0;
+  const row1   = asTagList(provider.skills).length > 0
+    ? asTagList(provider.skills)
+    : asTagList((provider as Provider & { expertise_areas?: unknown }).expertise_areas);
+  const row2   = asTagList(provider.skills).length > 0 &&
+    asTagList((provider as Provider & { expertise_areas?: unknown }).expertise_areas).length > 0
+    ? asTagList((provider as Provider & { expertise_areas?: unknown }).expertise_areas)
+    : [];
 
-  const langs   = asTagList(provider.languages);
-  const bio     = provider.bio?.trim() || "";
-  const mode    = (provider.service_delivery_mode || "").toLowerCase();
-  const modeLabel = mode.includes("both") ? "In person & online"
-    : mode.includes("online") ? "Online"
-    : mode.includes("person") ? "In person"
+  const r1Show  = row1.slice(0, MAX_TAG_PREVIEW);
+  const r1Extra = row1.length > MAX_TAG_PREVIEW ? row1.length - MAX_TAG_PREVIEW : 0;
+  const r2Show  = row2.slice(0, MAX_TAG_PREVIEW);
+  const r2Extra = row2.length > MAX_TAG_PREVIEW ? row2.length - MAX_TAG_PREVIEW : 0;
+
+  const langs = asTagList(provider.languages);
+  const bio   = provider.bio?.trim() || "";
+  const mode  = (provider.service_delivery_mode || "").toLowerCase();
+  const modeLabel = mode.includes("both")   ? "In person & online"
+    : mode.includes("online")  ? "Online"
+    : mode.includes("person")  ? "In person"
     : getServiceModeLabel(provider.service_delivery_mode);
+
   const profilePath = providerProfilePath(role, provider);
+  const messageHref = `/dashboard/messages?user=${provider.user_id || provider.id}`;
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={`View profile of ${name}`}
-      onClick={() => onNavigate(profilePath)}
+    <a
+      href={profilePath}
+      onClick={e => { e.preventDefault(); onNavigate(profilePath); }}
       onKeyDown={e => e.key === "Enter" && onNavigate(profilePath)}
-      className="cursor-pointer bg-card text-card-foreground shadow-sm mx-0 rounded-md border border-border hover:shadow-md transition-shadow"
+      aria-label={`View profile of ${name}`}
+      className="block bg-card text-card-foreground shadow-sm mx-0 rounded-md border border-border hover:shadow-md transition-shadow no-underline"
     >
       <div className="grid grid-cols-1 lg:grid-cols-[168px_2fr_auto] gap-3 md:gap-6 items-start p-4 md:p-0">
 
-        {/* ── Photo ── */}
+        {/* Photo */}
         <div className="relative ml-10 md:mx-auto lg:mx-0 lg:self-start md:mt-5 md:ml-4">
           {provider.avatar_url ? (
             <img
@@ -104,14 +162,15 @@ const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigat
             />
           ) : (
             <div className="rounded-md bg-primary/10 flex items-center justify-center w-[140px] h-[130px] md:w-[170px] md:h-[158px]">
-              <span className="text-4xl font-bold text-primary/40">{name.charAt(0).toUpperCase()}</span>
+              <span className="text-4xl font-bold text-primary/40">
+                {name.charAt(0).toUpperCase()}
+              </span>
             </div>
           )}
         </div>
 
-        {/* ── Info ── */}
+        {/* Info */}
         <div className="space-y-2 ml-[15px] mb-5 mr-[37px] md:ml-0 md:mr-0 md:mt-5">
-
           {/* Name + badge */}
           <div className="flex flex-wrap items-center gap-1">
             <h2 className="font-bold text-lg ml-3 md:ml-0 md:text-2xl leading-none">{name}</h2>
@@ -129,14 +188,11 @@ const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigat
 
           {/* 2-col grid: specialties + meta */}
           <div className="grid grid-cols-1 md:grid-cols-[1.8fr_1fr] gap-2 md:gap-1 lg:mt-3">
-
-            {/* Delivery mode — order 2 */}
             <div className="flex items-center gap-1.5 font-normal text-sm md:order-2 lg:order-2">
               <Users className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
               {modeLabel || "Online"}
             </div>
 
-            {/* First specialty row — order 1 */}
             {r1Show.length > 0 && (
               <div className="flex items-start gap-1.5 md:order-1 lg:order-1">
                 <span className="w-4 text-center text-muted-foreground/60 shrink-0 leading-none mt-[2px]">–</span>
@@ -147,15 +203,13 @@ const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigat
               </div>
             )}
 
-            {/* Language — order 5 */}
             {langs.length > 0 && (
               <div className="flex items-start gap-1.5 text-sm md:order-5 lg:order-5">
                 <span className="w-4 text-center text-muted-foreground/60 shrink-0 leading-none mt-[2px]">–</span>
-                <span className="font-normal text-sm">{langs.slice(0, 2).join(", ")}</span>
+                <span className="font-normal text-sm">{langs.slice(0, MAX_TAG_PREVIEW).join(", ")}</span>
               </div>
             )}
 
-            {/* Second specialty row — order 3 */}
             {r2Show.length > 0 && (
               <div className="flex items-start gap-1.5 md:order-3 lg:order-3">
                 <span className="w-4 text-center text-muted-foreground/60 shrink-0 leading-none mt-[2px]">–</span>
@@ -166,7 +220,6 @@ const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigat
               </div>
             )}
 
-            {/* Location — order 4 */}
             {location && (
               <div className="flex items-start gap-1.5 text-sm md:order-4 lg:order-4">
                 <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-[2px]" aria-hidden />
@@ -175,34 +228,32 @@ const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigat
             )}
           </div>
 
-          {/* Divider */}
           <hr className="my-4 border-border" />
 
-          {/* Bio */}
           {bio && (
             <div className="flex flex-col items-start gap-1">
               <p className={`font-normal leading-relaxed text-sm ${expanded ? "" : "line-clamp-3"}`}>
                 {bio}
               </p>
-              <span
-                role="button"
-                aria-hidden
-                onClick={e => { e.stopPropagation(); setExpanded(v => !v); }}
+              <button
+                type="button"
+                onClick={e => { e.preventDefault(); e.stopPropagation(); setExpanded(v => !v); }}
                 className="text-sm text-primary hover:underline cursor-pointer"
               >
                 {expanded ? "See less ←" : "See more →"}
-              </span>
+              </button>
             </div>
           )}
         </div>
 
-        {/* ── CTA buttons ── */}
+        {/* CTA buttons */}
         <div
           className="flex flex-col gap-4 w-full min-w-[140px] lg:min-w-[160px] p-4 md:pr-6 md:pt-6 md:pb-6"
-          onClick={e => e.stopPropagation()}
+          onClick={e => e.preventDefault()}
         >
           <button
-            onClick={() => onNavigate(`/dashboard/messages?user=${provider.user_id || provider.id}`)}
+            type="button"
+            onClick={e => { e.preventDefault(); e.stopPropagation(); onNavigate(messageHref); }}
             className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white h-10 w-full text-xs md:text-sm rounded-md font-medium transition px-4 py-2"
           >
             <MessageCircle className="w-4 h-4" />
@@ -210,7 +261,8 @@ const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigat
           </button>
 
           <button
-            onClick={() => onNavigate(profilePath)}
+            type="button"
+            onClick={e => { e.preventDefault(); e.stopPropagation(); onNavigate(profilePath); }}
             className="inline-flex items-center justify-center gap-2 border border-primary bg-background hover:bg-accent hover:text-accent-foreground h-10 w-full text-xs sm:text-sm rounded-md font-medium transition px-4 py-2"
           >
             Profile
@@ -223,17 +275,90 @@ const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigat
         </div>
 
       </div>
-    </div>
+    </a>
   );
 };
 
-// Main page
+// ─── Filter state type ────────────────────────────────────────────────────────
+type FilterState = {
+  selectedCountry: string;
+  pageCity: string;
+  searchInput: string;
+  querySearch: string;
+  serviceModeFilter: "all" | "online" | "in_person";
+  advSpecialty: string;
+  advLanguage: string;
+  advMinPrice: string;
+  advMaxPrice: string;
+  advVerified: boolean;
+};
+
+// ─── Pure filter function (outside component for testability) ─────────────────
+function applyFilters(providers: Provider[], f: FilterState): Provider[] {
+  let r = [...providers];
+
+  if (f.selectedCountry) r = filterProviders(r, { selectedCountry: f.selectedCountry });
+
+  if (f.pageCity) {
+    r = r.filter(p =>
+      normalizeText(p.city) === normalizeText(f.pageCity) ||
+      cityToSlug(p.city)    === cityToSlug(f.pageCity),
+    );
+  }
+
+  if (f.searchInput.trim() && !f.pageCity)
+    r = filterProviders(r, { search: f.searchInput.trim() });
+
+  if (f.querySearch)
+    r = filterProviders(r, { search: f.querySearch });
+
+  if (f.serviceModeFilter !== "all") {
+    r = r.filter(p => {
+      const m = normalizeText(p.service_delivery_mode);
+      return f.serviceModeFilter === "online"
+        ? m.includes("online") || m.includes("both")
+        : m.includes("person") || m.includes("both");
+    });
+  }
+
+  if (f.advSpecialty.trim()) {
+    const s = f.advSpecialty.toLowerCase();
+    r = r.filter(p => {
+      const hay = [
+        asTagList(p.skills).join(" "),
+        asTagList((p as Provider & { expertise_areas?: unknown }).expertise_areas).join(" "),
+        p.headline || "",
+        p.bio || "",
+      ].join(" ").toLowerCase();
+      return hay.includes(s);
+    });
+  }
+
+  if (f.advLanguage.trim()) {
+    const l = f.advLanguage.toLowerCase();
+    r = r.filter(p => asTagList(p.languages).join(" ").toLowerCase().includes(l));
+  }
+
+  if (f.advMinPrice)
+    r = r.filter(p => Number(p.booking_price ?? p.session_price ?? p.hourly_rate ?? 0) >= Number(f.advMinPrice));
+
+  if (f.advMaxPrice)
+    r = r.filter(p => Number(p.booking_price ?? p.session_price ?? p.hourly_rate ?? 0) <= Number(f.advMaxPrice));
+
+  if (f.advVerified) r = r.filter(isVerified);
+
+  return r;
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 type Props = { role: ProviderRole };
+
 const ProviderDirectoryPage = ({ role }: Props) => {
-  const navigate   = useNavigate();
+  const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
   const { country, city } = useParams();
-  const roleCopy    = useMemo(() => getRoleCopy(role), [role]);
+
+  const roleCopy     = useMemo(() => getRoleCopy(role), [role]);
   const singularWord = role === "therapist" ? "Therapist" : "Coach";
   const pluralWord   = role === "therapist" ? "Therapists" : "Coaches";
 
@@ -244,13 +369,13 @@ const ProviderDirectoryPage = ({ role }: Props) => {
   const pageCountry   = routeCountry || nearbyCountry;
   const pageCity      = routeCity;
 
-  const [providers,         setProviders]         = useState<any[]>([]);
+  const [providers,         setProviders]         = useState<Provider[]>([]);
   const [loading,           setLoading]           = useState(true);
   const [error,             setError]             = useState("");
   const [geoLoading,        setGeoLoading]        = useState(false);
   const [searchInput,       setSearchInput]       = useState(pageCity || querySearch || "");
   const [selectedCountry,   setSelectedCountry]   = useState(pageCountry);
-  const [serviceModeFilter, setServiceModeFilter] = useState<"all"|"online"|"in_person">("all");
+  const [serviceModeFilter, setServiceModeFilter] = useState<"all" | "online" | "in_person">("all");
   const [showSuggestions,   setShowSuggestions]   = useState(false);
   const [showAdvanced,      setShowAdvanced]      = useState(false);
   const [advSpecialty,      setAdvSpecialty]      = useState("");
@@ -259,56 +384,71 @@ const ProviderDirectoryPage = ({ role }: Props) => {
   const [advMaxPrice,       setAdvMaxPrice]       = useState("");
   const [advVerified,       setAdvVerified]       = useState(false);
 
-  const { suggestions: locationSuggestions, clear: clearLocationSuggestions } = useLocationAutocomplete(searchInput, selectedCountry);
+  const { suggestions: locationSuggestions, clear: clearLocationSuggestions } =
+    useLocationAutocomplete(searchInput, selectedCountry);
 
-  // Build smart DB suggestions from loaded providers
+  // Smart DB-driven suggestions
   const dbSuggestions = useMemo(() => {
-    if (!searchInput.trim() || searchInput.trim().length < 2) return [];
-    const q = searchInput.toLowerCase().trim();
-    const results: { label: string; type: "name"|"city"|"specialty"|"language"; value: string; country?: string }[] = [];
+    const q = searchInput.trim();
+    if (q.length < 2) return [];
+    const lower = q.toLowerCase();
+    const results: { label: string; type: "name" | "city" | "specialty"; value: string; country?: string }[] = [];
     const seen = new Set<string>();
 
     for (const p of providers) {
-      // Name match
       const name = p.full_name || p.display_name || "";
-      if (name.toLowerCase().includes(q) && !seen.has(name)) {
-        seen.add(name); results.push({ label: name, type: "name", value: name });
+      if (name.toLowerCase().includes(lower) && !seen.has(name)) {
+        seen.add(name);
+        results.push({ label: name, type: "name", value: name });
       }
-      // City match
-      const city = p.city || "";
-      const cityKey = `city:${city.toLowerCase()}`;
-      if (city.toLowerCase().includes(q) && !seen.has(cityKey)) {
-        seen.add(cityKey); results.push({ label: `${city}${p.country ? `, ${p.country}` : ""}`, type: "city", value: city, country: p.country });
+
+      const cityVal = p.city || "";
+      const cityKey = `city:${cityVal.toLowerCase()}`;
+      if (cityVal.toLowerCase().includes(lower) && !seen.has(cityKey)) {
+        seen.add(cityKey);
+        results.push({ label: `${cityVal}${p.country ? `, ${p.country}` : ""}`, type: "city", value: cityVal, country: p.country ?? undefined });
       }
-      // Skills/specialties
-      const skills = Array.isArray(p.skills) ? p.skills : typeof p.skills === "string" ? p.skills.split(",").map((s: string) => s.trim()) : [];
-      const expertise = Array.isArray(p.expertise_areas) ? p.expertise_areas : typeof p.expertise_areas === "string" ? p.expertise_areas.split(",").map((s: string) => s.trim()) : [];
-      for (const skill of [...skills, ...expertise]) {
-        const sk = String(skill).trim();
-        const skKey = `skill:${sk.toLowerCase()}`;
-        if (sk.toLowerCase().includes(q) && !seen.has(skKey)) {
-          seen.add(skKey); results.push({ label: sk, type: "specialty", value: sk });
+
+      const allTags = [
+        ...asTagList(p.skills),
+        ...asTagList((p as Provider & { expertise_areas?: unknown }).expertise_areas),
+      ];
+      for (const tag of allTags) {
+        const tagKey = `skill:${tag.toLowerCase()}`;
+        if (tag.toLowerCase().includes(lower) && !seen.has(tagKey)) {
+          seen.add(tagKey);
+          results.push({ label: tag, type: "specialty", value: tag });
         }
       }
-      // Headline
-      if (p.headline?.toLowerCase().includes(q)) {
+
+      if (p.headline?.toLowerCase().includes(lower)) {
         const hKey = `hl:${p.headline}`;
-        if (!seen.has(hKey)) { seen.add(hKey); results.push({ label: p.headline, type: "specialty", value: p.headline }); }
+        if (!seen.has(hKey)) {
+          seen.add(hKey);
+          results.push({ label: p.headline, type: "specialty", value: p.headline });
+        }
       }
+
+      if (results.length >= MAX_SUGGESTIONS) break;
     }
-    return results.slice(0, 8);
+
+    return results.slice(0, MAX_SUGGESTIONS);
   }, [searchInput, providers]);
 
-  // Load
+  // Load providers
   useEffect(() => {
-    loadProviders(role).then(r => { setProviders(r.data || []); setError(r.error || ""); setLoading(false); });
+    loadProviders(role).then(r => {
+      setProviders(r.data || []);
+      setError(r.error || "");
+      setLoading(false);
+    });
   }, [role]);
 
   // Auto-detect country on first load
   useEffect(() => {
     if (pageCountry) return;
     detectLocation().then(r => { if (r.inferredCountry) setSelectedCountry(r.inferredCountry); });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync URL state
   useEffect(() => {
@@ -316,47 +456,53 @@ const ProviderDirectoryPage = ({ role }: Props) => {
     if (pageCity || querySearch) setSearchInput(pageCity || querySearch || "");
   }, [pageCountry, pageCity, querySearch]);
 
-  // Filter
-  const filteredProviders = useMemo(() => {
-    let r = [...providers];
-    if (selectedCountry) r = filterProviders(r, { selectedCountry });
-    if (pageCity) r = r.filter(p => normalizeText(p.city) === normalizeText(pageCity) || cityToSlug(p.city) === cityToSlug(pageCity));
-    if (searchInput.trim() && !pageCity) r = filterProviders(r, { search: searchInput.trim() });
-    if (querySearch) r = filterProviders(r, { search: querySearch });
-    if (serviceModeFilter !== "all") r = r.filter(p => {
-      const m = normalizeText(p.service_delivery_mode);
-      return serviceModeFilter === "online" ? m.includes("online") || m.includes("both") : m.includes("person") || m.includes("both");
-    });
-    if (advSpecialty.trim()) { const s = advSpecialty.toLowerCase(); r = r.filter(p => { const hay = [(p as any).skills, (p as any).expertise_areas, p.headline, p.bio].map(v => Array.isArray(v) ? v.join(" ") : (v||"")).join(" ").toLowerCase(); return hay.includes(s); }); }
-    if (advLanguage.trim()) { const l = advLanguage.toLowerCase(); r = r.filter(p => (Array.isArray(p.languages) ? p.languages.join(" ") : (p.languages||"")).toLowerCase().includes(l)); }
-    if (advMinPrice) r = r.filter(p => Number(p.booking_price ?? p.session_price ?? p.hourly_rate ?? 0) >= Number(advMinPrice));
-    if (advMaxPrice) r = r.filter(p => Number(p.booking_price ?? p.session_price ?? p.hourly_rate ?? 0) <= Number(advMaxPrice));
-    if (advVerified) r = r.filter(p => String(p.kyc_status || p.verification_status || "").toLowerCase() === "approved" || Boolean(p.is_verified));
-    return r;
-  }, [providers, selectedCountry, pageCity, searchInput, querySearch, serviceModeFilter, advSpecialty, advLanguage, advMinPrice, advMaxPrice, advVerified]);
+  const filteredProviders = useMemo(() =>
+    applyFilters(providers, {
+      selectedCountry, pageCity, searchInput, querySearch,
+      serviceModeFilter, advSpecialty, advLanguage,
+      advMinPrice, advMaxPrice, advVerified,
+    }),
+    [providers, selectedCountry, pageCity, searchInput, querySearch,
+     serviceModeFilter, advSpecialty, advLanguage, advMinPrice, advMaxPrice, advVerified],
+  );
 
   const hasFilters = !!(advSpecialty || advLanguage || advMinPrice || advMaxPrice || advVerified || serviceModeFilter !== "all");
-  const clearFilters = () => { setAdvSpecialty(""); setAdvLanguage(""); setAdvMinPrice(""); setAdvMaxPrice(""); setAdvVerified(false); setServiceModeFilter("all"); };
+
+  const clearFilters = () => {
+    setAdvSpecialty(""); setAdvLanguage(""); setAdvMinPrice("");
+    setAdvMaxPrice(""); setAdvVerified(false); setServiceModeFilter("all");
+  };
 
   const cityOptions = useMemo(() => {
     const base = selectedCountry ? filterProviders(providers, { selectedCountry }) : providers;
-    const map = new Map<string, string>();
+    const map  = new Map<string, string>();
     base.forEach(p => { if (p.city) map.set(cityToSlug(p.city), String(p.city).trim()); });
-    return Array.from(map.entries()).map(([slug, name]) => ({ slug, name })).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(map.entries())
+      .map(([slug, name]) => ({ slug, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [providers, selectedCountry]);
 
-  const goToCountry = (name: string) => { setSelectedCountry(name); window.scrollTo({ top: 0, behavior: "smooth" }); };
-  const goToCity    = (cName: string, cityName: string) => navigate(`${roleCopy.routeBase}/${countryToSlug(cName)}/${cityToSlug(cityName)}`);
+  const goToCountry = (name: string) => {
+    setSelectedCountry(name);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const goToCity = (cName: string, cityName: string) =>
+    navigate(`${roleCopy.routeBase}/${countryToSlug(cName)}/${cityToSlug(cityName)}`);
 
   const handleSearch = () => {
     const q = searchInput.trim();
     if (selectedCountry && q) {
-      const m = cityOptions.find(c => normalizeText(c.name) === normalizeText(q));
-      if (m) { navigate(`${roleCopy.routeBase}/${countryToSlug(selectedCountry)}/${m.slug}`); return; }
-      navigate(`${roleCopy.routeBase}/${countryToSlug(selectedCountry)}?q=${encodeURIComponent(q)}`); return;
+      const match = cityOptions.find(c => normalizeText(c.name) === normalizeText(q));
+      if (match) {
+        navigate(`${roleCopy.routeBase}/${countryToSlug(selectedCountry)}/${match.slug}`);
+        return;
+      }
+      navigate(`${roleCopy.routeBase}/${countryToSlug(selectedCountry)}?q=${encodeURIComponent(q)}`);
+      return;
     }
     if (selectedCountry) { navigate(`${roleCopy.routeBase}/${countryToSlug(selectedCountry)}`); return; }
-    if (q) { navigate(`${roleCopy.routeBase}/results?q=${encodeURIComponent(q)}`); }
+    if (q) navigate(`${roleCopy.routeBase}/results?q=${encodeURIComponent(q)}`);
   };
 
   const handleNearby = async () => {
@@ -366,7 +512,20 @@ const ProviderDirectoryPage = ({ role }: Props) => {
     setGeoLoading(false);
   };
 
-  const locationLabel = selectedCountry ? selectedCountry : "Worldwide";
+  const locationLabel = selectedCountry || "Worldwide";
+
+  // Unique specialties & languages for datalists
+  const allSpecialties = useMemo(() =>
+    Array.from(new Set(providers.flatMap(p => [
+      ...asTagList(p.skills),
+      ...asTagList((p as Provider & { expertise_areas?: unknown }).expertise_areas),
+    ]).filter(Boolean))).slice(0, MAX_SPECIALTIES_DL),
+  [providers]);
+
+  const allLanguages = useMemo(() =>
+    Array.from(new Set(providers.flatMap(p => asTagList(p.languages)).filter(Boolean)))
+      .slice(0, MAX_LANGUAGES_DL),
+  [providers]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -376,91 +535,124 @@ const ProviderDirectoryPage = ({ role }: Props) => {
       <div className="bg-primary text-white">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 lg:py-20">
           <div className="max-w-2xl space-y-6">
-              <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-1.5 text-sm font-medium">
-                <span className="h-2 w-2 bg-emerald-400 rounded-full animate-pulse" />
-                {loading ? "Loading..." : `${providers.length} ${pluralWord.toLowerCase()} available`}
-              </div>
-              <h1 className="text-4xl font-extrabold leading-tight sm:text-5xl lg:text-6xl">
-                Find a {singularWord}<br />
-                <span className="text-white/80 text-3xl sm:text-4xl font-semibold">{locationLabel}</span>
-              </h1>
-              <p className="text-lg text-white/75 max-w-lg leading-relaxed">
-                {role === "therapist"
-                  ? "Connect with qualified therapists for anxiety, depression, relationships and more — online or in person."
-                  : "Work with expert coaches who help you grow your career, business, mindset and performance."}
-              </p>
+            <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-1.5 text-sm font-medium">
+              <span className="h-2 w-2 bg-emerald-400 rounded-full animate-pulse" />
+              {loading ? "Loading..." : `${providers.length} ${pluralWord.toLowerCase()} available`}
+            </div>
 
-              {/* Search bar */}
-              <div className="flex flex-col sm:flex-row gap-2 max-w-2xl">
-                <div className="relative flex-1">
-                  <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                  <input type="text" value={searchInput}
-                    onChange={e => { setSearchInput(e.target.value); setShowSuggestions(true); }}
-                    onKeyDown={e => { if (e.key === "Enter") { setShowSuggestions(false); handleSearch(); } }}
-                    onFocus={() => setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                    placeholder={`Search by name, specialty, or city...`}
-                    className="w-full rounded-2xl bg-white text-slate-900 py-4 pl-12 pr-4 text-sm font-medium outline-none placeholder:text-slate-400 shadow-lg" />
-                  {/* DB-driven suggestions */}
-                  {showSuggestions && dbSuggestions.length > 0 && (
-                    <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
-                      {dbSuggestions.map((s, i) => (
-                        <button key={i} type="button" onMouseDown={e => e.preventDefault()}
-                          onClick={() => {
-                            setSearchInput(s.value);
-                            if (s.type === "city" && s.country && !selectedCountry) {
-                              const m = DIRECTORY_COUNTRIES.find(c => c.name.toLowerCase() === s.country!.toLowerCase());
-                              if (m) setSelectedCountry(m.name);
-                            }
-                            setShowSuggestions(false);
-                          }}
-                          className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-100 last:border-0">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                            s.type === "name" ? "bg-blue-100 text-blue-600" :
-                            s.type === "city" ? "bg-emerald-100 text-emerald-600" :
-                            "bg-primary/10 text-primary"
-                          }`}>
-                            {s.type === "name" ? "Name" : s.type === "city" ? "City" : "Specialty"}
-                          </span>
-                          <span className="text-sm text-slate-700">{s.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {/* Location autocomplete fallback */}
-                  {showSuggestions && dbSuggestions.length === 0 && locationSuggestions.length > 0 && (
-                    <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
-                      {locationSuggestions.map((s, i) => (
-                        <button key={i} type="button" onMouseDown={e => e.preventDefault()}
-                          onClick={() => { setSearchInput(s.city); if (s.country && !selectedCountry) { const m = DIRECTORY_COUNTRIES.find(c => c.name.toLowerCase() === s.country.toLowerCase()); if (m) setSelectedCountry(m.name); } clearLocationSuggestions(); setShowSuggestions(false); }}
-                          className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-100 last:border-0">
-                          <MapPin size={13} className="text-primary shrink-0" />
-                          <span className="text-sm text-slate-700">{s.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <select value={selectedCountry} onChange={e => setSelectedCountry(e.target.value)}
-                  className="rounded-2xl bg-white text-slate-700 px-4 py-4 text-sm font-medium outline-none shadow-lg sm:w-[200px]">
-                  <option value="">All Countries</option>
-                  {DIRECTORY_COUNTRIES.map(c => <option key={c.code} value={c.name}>{c.flag} {c.name}</option>)}
-                </select>
-                <button onClick={handleSearch}
-                  className="rounded-2xl bg-white text-primary font-bold px-8 py-4 text-sm hover:bg-slate-50 transition shadow-lg shrink-0">
-                  Search
-                </button>
+            <h1 className="text-4xl font-extrabold leading-tight sm:text-5xl lg:text-6xl">
+              Find a {singularWord}<br />
+              <span className="text-white/80 text-3xl sm:text-4xl font-semibold">{locationLabel}</span>
+            </h1>
+
+            <p className="text-lg text-white/75 max-w-lg leading-relaxed">
+              {role === "therapist"
+                ? "Connect with qualified therapists for anxiety, depression, relationships and more — online or in person."
+                : "Work with expert coaches who help you grow your career, business, mindset and performance."}
+            </p>
+
+            {/* Search bar */}
+            <div className="flex flex-col sm:flex-row gap-2 max-w-2xl">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={e => { setSearchInput(e.target.value); setShowSuggestions(true); }}
+                  onKeyDown={e => { if (e.key === "Enter") { setShowSuggestions(false); handleSearch(); } }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  placeholder="Search by name, specialty, or city..."
+                  className="w-full rounded-2xl bg-white text-slate-900 py-4 pl-12 pr-4 text-sm font-medium outline-none placeholder:text-slate-400 shadow-lg"
+                />
+
+                {/* DB-driven suggestions */}
+                {showSuggestions && dbSuggestions.length > 0 && (
+                  <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+                    {dbSuggestions.map((s, i) => (
+                      <button
+                        key={i} type="button"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => {
+                          setSearchInput(s.value);
+                          if (s.type === "city" && s.country && !selectedCountry) {
+                            const m = DIRECTORY_COUNTRIES.find(c => c.name.toLowerCase() === s.country!.toLowerCase());
+                            if (m) setSelectedCountry(m.name);
+                          }
+                          setShowSuggestions(false);
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-100 last:border-0"
+                      >
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                          s.type === "name"      ? "bg-blue-100 text-blue-600" :
+                          s.type === "city"      ? "bg-emerald-100 text-emerald-600" :
+                                                   "bg-primary/10 text-primary"
+                        }`}>
+                          {s.type === "name" ? "Name" : s.type === "city" ? "City" : "Specialty"}
+                        </span>
+                        <span className="text-sm text-slate-700">{s.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Location autocomplete fallback */}
+                {showSuggestions && dbSuggestions.length === 0 && locationSuggestions.length > 0 && (
+                  <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+                    {locationSuggestions.map((s, i) => (
+                      <button
+                        key={i} type="button"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => {
+                          setSearchInput(s.city);
+                          if (s.country && !selectedCountry) {
+                            const m = DIRECTORY_COUNTRIES.find(c => c.name.toLowerCase() === s.country.toLowerCase());
+                            if (m) setSelectedCountry(m.name);
+                          }
+                          clearLocationSuggestions();
+                          setShowSuggestions(false);
+                        }}
+                        className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-100 last:border-0"
+                      >
+                        <MapPin size={13} className="text-primary shrink-0" />
+                        <span className="text-sm text-slate-700">{s.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Quick actions */}
-              <div className="flex flex-wrap items-center gap-4 text-sm text-white/70">
-                <button onClick={handleNearby} disabled={geoLoading}
-                  className="flex items-center gap-1.5 hover:text-white transition disabled:opacity-50">
-                  <MapPin size={14} /> {geoLoading ? "Detecting..." : "Use my location"}
-                </button>
-                <span>·</span>
-                <span>Free to search · No account needed</span>
-              </div>
+              <select
+                value={selectedCountry}
+                onChange={e => setSelectedCountry(e.target.value)}
+                className="rounded-2xl bg-white text-slate-700 px-4 py-4 text-sm font-medium outline-none shadow-lg sm:w-[200px]"
+              >
+                <option value="">All Countries</option>
+                {DIRECTORY_COUNTRIES.map(c => (
+                  <option key={c.code} value={c.name}>{c.flag} {c.name}</option>
+                ))}
+              </select>
+
+              <button
+                onClick={handleSearch}
+                className="rounded-2xl bg-white text-primary font-bold px-8 py-4 text-sm hover:bg-slate-50 transition shadow-lg shrink-0"
+              >
+                Search
+              </button>
+            </div>
+
+            {/* Quick actions */}
+            <div className="flex flex-wrap items-center gap-4 text-sm text-white/70">
+              <button
+                onClick={handleNearby}
+                disabled={geoLoading}
+                className="flex items-center gap-1.5 hover:text-white transition disabled:opacity-50"
+              >
+                <MapPin size={14} /> {geoLoading ? "Detecting..." : "Use my location"}
+              </button>
+              <span>·</span>
+              <span>Free to search · No account needed</span>
+            </div>
           </div>
         </div>
       </div>
@@ -468,27 +660,44 @@ const ProviderDirectoryPage = ({ role }: Props) => {
       {/* FILTER BAR */}
       <div className="sticky top-16 z-20 bg-white border-b border-slate-200 shadow-sm">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-3 flex flex-wrap items-center gap-3">
-          {/* Mode tabs */}
-          {(["all","in_person","online"] as const).map(m => (
-            <button key={m} onClick={() => setServiceModeFilter(m)}
-              className={`rounded-full px-4 py-1.5 text-sm font-semibold border-2 transition ${serviceModeFilter === m ? "border-primary bg-primary text-white" : "border-slate-200 text-slate-600 hover:border-primary hover:text-primary"}`}>
+          {(["all", "in_person", "online"] as const).map(m => (
+            <button
+              key={m}
+              onClick={() => setServiceModeFilter(m)}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold border-2 transition ${
+                serviceModeFilter === m
+                  ? "border-primary bg-primary text-white"
+                  : "border-slate-200 text-slate-600 hover:border-primary hover:text-primary"
+              }`}
+            >
               {m === "all" ? "All" : m === "in_person" ? "In person" : "Online"}
             </button>
           ))}
 
-          {/* Result count */}
           <span className="text-sm text-slate-500 ml-1">
-            {loading ? "Loading..." : <><strong className="text-slate-900">{filteredProviders.length}</strong> {filteredProviders.length === 1 ? singularWord.toLowerCase() : pluralWord.toLowerCase()} found</>}
+            {loading
+              ? "Loading..."
+              : <><strong className="text-slate-900">{filteredProviders.length}</strong> {filteredProviders.length === 1 ? singularWord.toLowerCase() : pluralWord.toLowerCase()} found</>
+            }
           </span>
 
-          {/* Right side */}
           <div className="ml-auto flex items-center gap-2">
-            <button onClick={() => setShowAdvanced(v => !v)}
-              className={`flex items-center gap-1.5 rounded-xl border-2 px-3 py-1.5 text-sm font-semibold transition ${showAdvanced ? "border-primary bg-primary/10 text-primary" : "border-slate-200 text-slate-600 hover:border-primary"}`}>
-              <SlidersHorizontal size={14} /> Filters {showAdvanced ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            <button
+              onClick={() => setShowAdvanced(v => !v)}
+              className={`flex items-center gap-1.5 rounded-xl border-2 px-3 py-1.5 text-sm font-semibold transition ${
+                showAdvanced
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-slate-200 text-slate-600 hover:border-primary"
+              }`}
+            >
+              <SlidersHorizontal size={14} />
+              Filters {showAdvanced ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
             </button>
             {hasFilters && (
-              <button onClick={clearFilters} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 border border-red-200 rounded-full px-3 py-1.5">
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 border border-red-200 rounded-full px-3 py-1.5"
+              >
                 <X size={11} /> Clear
               </button>
             )}
@@ -499,35 +708,49 @@ const ProviderDirectoryPage = ({ role }: Props) => {
         {showAdvanced && (
           <div className="border-t border-slate-100 bg-slate-50">
             <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 grid grid-cols-2 md:grid-cols-5 gap-3">
-              <input value={advSpecialty} onChange={e => setAdvSpecialty(e.target.value)}
+              <input
+                value={advSpecialty}
+                onChange={e => setAdvSpecialty(e.target.value)}
                 placeholder={role === "therapist" ? "Specialty (e.g. CBT)" : "Focus (e.g. Career)"}
                 list={`specialty-list-${role}`}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+              />
               <datalist id={`specialty-list-${role}`}>
-                {Array.from(new Set(providers.flatMap(p => {
-                  const skills = Array.isArray(p.skills) ? p.skills : typeof p.skills === "string" ? p.skills.split(",").map((s: string) => s.trim()) : [];
-                  const exp = Array.isArray(p.expertise_areas) ? p.expertise_areas : typeof p.expertise_areas === "string" ? p.expertise_areas.split(",").map((s: string) => s.trim()) : [];
-                  return [...skills, ...exp].filter(Boolean);
-                }))).slice(0, 30).map((s, i) => <option key={i} value={String(s)} />)}
+                {allSpecialties.map((s, i) => <option key={i} value={s} />)}
               </datalist>
-              <input value={advLanguage} onChange={e => setAdvLanguage(e.target.value)}
+
+              <input
+                value={advLanguage}
+                onChange={e => setAdvLanguage(e.target.value)}
                 placeholder="Language"
                 list={`language-list-${role}`}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+              />
               <datalist id={`language-list-${role}`}>
-                {Array.from(new Set(providers.flatMap(p => {
-                  const langs = Array.isArray(p.languages) ? p.languages : typeof p.languages === "string" ? p.languages.split(",").map((l: string) => l.trim()) : [];
-                  return langs.filter(Boolean);
-                }))).slice(0, 20).map((l, i) => <option key={i} value={String(l)} />)}
+                {allLanguages.map((l, i) => <option key={i} value={l} />)}
               </datalist>
-              <input type="number" min="0" value={advMinPrice} onChange={e => setAdvMinPrice(e.target.value)}
+
+              <input
+                type="number" min="0"
+                value={advMinPrice}
+                onChange={e => setAdvMinPrice(e.target.value)}
                 placeholder="Min price $"
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
-              <input type="number" min="0" value={advMaxPrice} onChange={e => setAdvMaxPrice(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+              <input
+                type="number" min="0"
+                value={advMaxPrice}
+                onChange={e => setAdvMaxPrice(e.target.value)}
                 placeholder="Max price $"
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+              />
               <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-xl border border-slate-200 bg-white">
-                <input type="checkbox" checked={advVerified} onChange={e => setAdvVerified(e.target.checked)} className="accent-primary" />
+                <input
+                  type="checkbox"
+                  checked={advVerified}
+                  onChange={e => setAdvVerified(e.target.checked)}
+                  className="accent-primary"
+                />
                 <span className="text-sm font-medium text-slate-700">Verified only</span>
               </label>
             </div>
@@ -537,33 +760,51 @@ const ProviderDirectoryPage = ({ role }: Props) => {
 
       {/* MAIN CONTENT */}
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
-        {error && <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left sidebar */}
+          {/* Sidebar */}
           <aside className="lg:w-56 shrink-0 space-y-6">
-            {/* Country filter */}
             <div className="bg-white rounded-2xl border border-slate-200 p-4">
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Country</h3>
-              <select value={selectedCountry} onChange={e => setSelectedCountry(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-primary">
+              <select
+                value={selectedCountry}
+                onChange={e => setSelectedCountry(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-primary"
+              >
                 <option value="">All Countries</option>
-                {DIRECTORY_COUNTRIES.map(c => <option key={c.code} value={c.name}>{c.flag} {c.name}</option>)}
+                {DIRECTORY_COUNTRIES.map(c => (
+                  <option key={c.code} value={c.name}>{c.flag} {c.name}</option>
+                ))}
               </select>
             </div>
 
-            {/* City pills */}
             {selectedCountry && cityOptions.length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-200 p-4">
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">City</h3>
                 <div className="flex flex-col gap-1">
-                  <button onClick={() => navigate(`${roleCopy.routeBase}/${countryToSlug(selectedCountry)}`)}
-                    className={`text-left text-sm px-3 py-1.5 rounded-lg transition ${!pageCity ? "bg-primary/10 text-primary font-semibold" : "text-slate-600 hover:bg-slate-50"}`}>
+                  <button
+                    onClick={() => navigate(`${roleCopy.routeBase}/${countryToSlug(selectedCountry)}`)}
+                    className={`text-left text-sm px-3 py-1.5 rounded-lg transition ${
+                      !pageCity ? "bg-primary/10 text-primary font-semibold" : "text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
                     All cities
                   </button>
                   {cityOptions.map(c => (
-                    <button key={c.slug} onClick={() => goToCity(selectedCountry, c.name)}
-                      className={`text-left text-sm px-3 py-1.5 rounded-lg transition ${cityToSlug(pageCity) === c.slug ? "bg-primary/10 text-primary font-semibold" : "text-slate-600 hover:bg-slate-50"}`}>
+                    <button
+                      key={c.slug}
+                      onClick={() => goToCity(selectedCountry, c.name)}
+                      className={`text-left text-sm px-3 py-1.5 rounded-lg transition ${
+                        cityToSlug(pageCity) === c.slug
+                          ? "bg-primary/10 text-primary font-semibold"
+                          : "text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
                       {c.name}
                     </button>
                   ))}
@@ -571,14 +812,21 @@ const ProviderDirectoryPage = ({ role }: Props) => {
               </div>
             )}
 
-            {/* Browse countries */}
             <div className="bg-white rounded-2xl border border-slate-200 p-4">
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Browse</h3>
               <div className="flex flex-col gap-1">
-                {DIRECTORY_COUNTRIES.slice(0, 12).map(c => (
-                  <button key={c.code} onClick={() => goToCountry(c.name)}
-                    className={`text-left text-sm px-3 py-1.5 rounded-lg transition flex items-center gap-2 ${selectedCountry === c.name ? "bg-primary/10 text-primary font-semibold" : "text-slate-600 hover:bg-slate-50"}`}>
-                    <span>{c.flag}</span><span className="truncate">{c.name}</span>
+                {DIRECTORY_COUNTRIES.slice(0, MAX_CITIES_SIDEBAR).map(c => (
+                  <button
+                    key={c.code}
+                    onClick={() => goToCountry(c.name)}
+                    className={`text-left text-sm px-3 py-1.5 rounded-lg transition flex items-center gap-2 ${
+                      selectedCountry === c.name
+                        ? "bg-primary/10 text-primary font-semibold"
+                        : "text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>{c.flag}</span>
+                    <span className="truncate">{c.name}</span>
                   </button>
                 ))}
               </div>
@@ -589,14 +837,14 @@ const ProviderDirectoryPage = ({ role }: Props) => {
           <div className="flex-1 min-w-0">
             {loading ? (
               <div className="space-y-4">
-                {[1,2,3,4].map(i => (
+                {[1, 2, 3, 4].map(i => (
                   <div key={i} className="bg-white rounded-2xl border border-slate-200 p-5 flex gap-4 animate-pulse">
                     <div className="w-[150px] h-[180px] bg-slate-200 rounded-xl shrink-0" />
                     <div className="flex-1 space-y-3 py-2">
                       <div className="h-6 bg-slate-200 rounded w-1/3" />
                       <div className="h-3 bg-slate-200 rounded w-1/4" />
                       <div className="flex gap-2">
-                        {[1,2,3].map(j => <div key={j} className="h-5 w-20 bg-slate-200 rounded-full" />)}
+                        {[1, 2, 3].map(j => <div key={j} className="h-5 w-20 bg-slate-200 rounded-full" />)}
                       </div>
                       <div className="h-14 bg-slate-200 rounded w-full" />
                     </div>
@@ -607,10 +855,16 @@ const ProviderDirectoryPage = ({ role }: Props) => {
               <div className="bg-white rounded-2xl border border-dashed border-slate-300 py-20 text-center">
                 <p className="text-lg font-bold text-slate-800 mb-2">No {pluralWord.toLowerCase()} found</p>
                 <p className="text-sm text-slate-500 mb-5 max-w-xs mx-auto">
-                  {hasFilters ? "Try adjusting your filters." : selectedCountry ? `No ${pluralWord.toLowerCase()} in ${selectedCountry} yet.` : `Select a country to browse ${pluralWord.toLowerCase()}.`}
+                  {hasFilters
+                    ? "Try adjusting your filters."
+                    : selectedCountry
+                      ? `No ${pluralWord.toLowerCase()} in ${selectedCountry} yet.`
+                      : `Select a country to browse ${pluralWord.toLowerCase()}.`}
                 </p>
-                <button onClick={() => { clearFilters(); setSelectedCountry(""); }}
-                  className="rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-white hover:opacity-90 transition">
+                <button
+                  onClick={() => { clearFilters(); setSelectedCountry(""); }}
+                  className="rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-white hover:opacity-90 transition"
+                >
                   Browse All
                 </button>
               </div>
@@ -619,7 +873,8 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                 {filteredProviders.map(provider => (
                   <ProviderCard
                     key={provider.user_id || provider.id}
-                    provider={provider} role={role}
+                    provider={provider}
+                    role={role}
                     singularWord={singularWord}
                     defaultHeadline={roleCopy.defaultHeadline}
                     onNavigate={navigate}
@@ -630,7 +885,7 @@ const ProviderDirectoryPage = ({ role }: Props) => {
           </div>
         </div>
 
-        {/* ── AFTER RESULTS: Country Grid ── */}
+        {/* Country Grid */}
         <section className="mt-16">
           <div className="rounded-3xl overflow-hidden" style={{ background: "linear-gradient(135deg,#0d1b2a 0%,#1a3a5c 100%)" }}>
             <div className="px-8 py-12 md:px-12">
@@ -638,20 +893,23 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                 <div>
                   <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Global Directory</p>
                   <h2 className="text-2xl font-bold text-white">
-                    Find {role === "therapist" ? "Psychologists &amp; Therapists" : "Coaches &amp; Mentors"}
+                    Find {role === "therapist" ? "Psychologists & Therapists" : "Coaches & Mentors"}
                   </h2>
                   <p className="text-slate-400 text-sm mt-1">Browse verified {pluralWord.toLowerCase()} by country</p>
                 </div>
                 <p className="text-slate-400 text-sm">{DIRECTORY_COUNTRIES.length} countries · {providers.length}+ providers</p>
               </div>
               <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                {DIRECTORY_COUNTRIES.slice(0, 24).map(c => (
-                  <button key={c.code} onClick={() => goToCountry(c.name)}
+                {DIRECTORY_COUNTRIES.slice(0, MAX_COUNTRIES_GRID).map(c => (
+                  <button
+                    key={c.code}
+                    onClick={() => goToCountry(c.name)}
                     className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition ${
                       selectedCountry === c.name
                         ? "border-primary bg-primary/20 text-white"
                         : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:border-primary/50"
-                    }`}>
+                    }`}
+                  >
                     <span className="text-lg shrink-0">{c.flag}</span>
                     <span className="truncate text-xs font-medium">{c.name}</span>
                   </button>
@@ -661,7 +919,7 @@ const ProviderDirectoryPage = ({ role }: Props) => {
           </div>
         </section>
 
-        {/* ── How it Works ── */}
+        {/* How It Works */}
         <section className="mt-12">
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold text-slate-900">How It Works</h2>
@@ -670,8 +928,8 @@ const ProviderDirectoryPage = ({ role }: Props) => {
           <div className="grid md:grid-cols-3 gap-6">
             {[
               { step: "01", title: "Search & Filter", desc: `Browse ${pluralWord.toLowerCase()} by location, specialty, language, and price. Use filters to narrow down exactly what you need.`, icon: "🔍" },
-              { step: "02", title: "View Profiles", desc: `Read full bios, check specialties, see reviews, and compare ${pluralWord.toLowerCase()} side by side before making a decision.`, icon: "👤" },
-              { step: "03", title: "Book a Session", desc: `Message directly or book a session instantly. Pay securely through your wallet and get started right away.`, icon: "📅" },
+              { step: "02", title: "View Profiles",   desc: `Read full bios, check specialties, see reviews, and compare ${pluralWord.toLowerCase()} side by side before making a decision.`, icon: "👤" },
+              { step: "03", title: "Book a Session",  desc: "Message directly or book a session instantly. Pay securely through your wallet and get started right away.", icon: "📅" },
             ].map(s => (
               <div key={s.step} className="bg-white rounded-2xl border border-slate-200 p-6 hover:shadow-md transition">
                 <div className="flex items-center gap-3 mb-4">
@@ -685,7 +943,7 @@ const ProviderDirectoryPage = ({ role }: Props) => {
           </div>
         </section>
 
-        {/* ── FAQ ── */}
+        {/* FAQ */}
         <section className="mt-12 mb-4">
           <div className="grid md:grid-cols-2 gap-8">
             <div>
@@ -709,23 +967,34 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                 ))}
               </div>
             </div>
+
             <div className="space-y-5">
               <div className="bg-gradient-to-br from-primary to-primary/80 rounded-2xl p-6 text-white">
                 <h3 className="text-lg font-bold mb-2">Are you a {singularWord}?</h3>
                 <p className="text-sm text-white/80 mb-4 leading-relaxed">
                   Join thousands of {pluralWord.toLowerCase()} on Coursevia. Create your profile, set your availability and start getting bookings today.
                 </p>
-                <button onClick={() => navigate("/signup")}
-                  className="rounded-xl bg-white text-primary font-bold text-sm px-5 py-2.5 hover:bg-white/90 transition">
+                <button
+                  onClick={() => navigate("/signup")}
+                  className="rounded-xl bg-white text-primary font-bold text-sm px-5 py-2.5 hover:bg-white/90 transition"
+                >
                   Join as a {singularWord}
                 </button>
               </div>
+
               <div className="bg-white rounded-2xl border border-slate-200 p-6">
                 <h3 className="font-bold text-slate-900 mb-3 text-sm">Browse by Country</h3>
                 <div className="flex flex-wrap gap-x-3 gap-y-1.5">
-                  {DIRECTORY_COUNTRIES.slice(0, 32).map(c => (
-                    <button key={c.code} onClick={() => goToCountry(c.name)}
-                      className={`text-xs hover:underline transition ${selectedCountry === c.name ? "text-primary font-bold" : "text-slate-500 hover:text-primary"}`}>
+                  {DIRECTORY_COUNTRIES.slice(0, MAX_COUNTRIES_LINKS).map(c => (
+                    <button
+                      key={c.code}
+                      onClick={() => goToCountry(c.name)}
+                      className={`text-xs hover:underline transition ${
+                        selectedCountry === c.name
+                          ? "text-primary font-bold"
+                          : "text-slate-500 hover:text-primary"
+                      }`}
+                    >
                       {c.name}
                     </button>
                   ))}
