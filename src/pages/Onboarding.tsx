@@ -568,6 +568,7 @@ const Onboarding = () => {
   >("provider_calendar");
   const [meetingPreference, setMeetingPreference] = useState("");
   const [officeAddress, setOfficeAddress] = useState("");
+  const [bookingPrice, setBookingPrice] = useState("");
   const [enablePhoneRelease, setEnablePhoneRelease] = useState(true);
 
   const [learnerGoal, setLearnerGoal] = useState("");
@@ -734,6 +735,7 @@ const Onboarding = () => {
     setCalendarMode("provider_calendar");
     setMeetingPreference("");
     setOfficeAddress("");
+    setBookingPrice("");
     setEnablePhoneRelease(true);
 
     setLearnerGoal("");
@@ -1329,6 +1331,7 @@ const Onboarding = () => {
         p_calendar_mode:           calendarMode || null,
         p_meeting_preference:      meetingPreference.trim() || null,
         p_office_address:          officeAddress.trim() || null,
+        p_booking_price:           bookingPrice ? Number(bookingPrice) : null,
         p_enable_phone_release:    enablePhoneRelease,
         p_business_name:           businessName.trim() || null,
         p_business_email:          businessEmail.trim() || null,
@@ -2307,6 +2310,20 @@ const Onboarding = () => {
                   />
                 </div>
               )}
+
+              {/* Session price */}
+              <div className="space-y-2">
+                <Label>Session price (USD)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={bookingPrice}
+                  onChange={(e) => setBookingPrice(e.target.value)}
+                  placeholder="e.g. 80"
+                  className="bg-white"
+                />
+                <p className="text-xs text-muted-foreground">What you charge per session. Leave 0 for free.</p>
+              </div>
             </div>
 
             <div className="flex justify-between pt-2">
@@ -2380,6 +2397,7 @@ const Onboarding = () => {
                   <p><span className="font-semibold text-slate-950">Expertise areas:</span> {expertiseAreas || "-"}</p>
                   <p><span className="font-semibold text-slate-950">Service areas:</span> {serviceAreas || "-"}</p>
                   <p><span className="font-semibold text-slate-950">Delivery mode:</span> {serviceDeliveryMode === "in_person" ? "In person only" : serviceDeliveryMode === "both" ? "Online and in person" : "Online only"}</p>
+                  <p><span className="font-semibold text-slate-950">Session price:</span> {bookingPrice ? `$${bookingPrice}` : "Not set"}</p>
                   <p><span className="font-semibold text-slate-950">Calendar mode:</span> {calendarMode === "open_schedule" ? "Open schedule" : "Provider booking calendar"}</p>
                   <p><span className="font-semibold text-slate-950">Client note:</span> {meetingPreference || "-"}</p>
                   <p><span className="font-semibold text-slate-950">Office address:</span> {serviceDeliveryMode === "online" ? "Online only" : officeAddress || "-"}</p>

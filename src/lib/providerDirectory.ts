@@ -358,7 +358,7 @@ export const loadProviders = async (type: ProviderRole): Promise<ProviderDirecto
   try {
     const { data, error } = await supabase
       .from("profiles")
-      .select("user_id,full_name,display_name,username,avatar_url,headline,bio,role,provider_type,onboarding_completed,country,country_code,city,updated_at,booking_price,session_price,hourly_rate,rating,total_reviews,is_verified,verification_status,kyc_status,service_delivery_mode,calendar_mode,skills,languages")
+      .select("*")
       .eq("onboarding_completed", true)
       .or(`role.eq.${type},provider_type.eq.${type}`)
       .order("updated_at", { ascending: false });
