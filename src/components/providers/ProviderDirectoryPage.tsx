@@ -280,9 +280,316 @@ const ProviderDirectoryPage = ({ role }: Props) => {
     : querySearch  ? `${pluralWord}: "${querySearch}"`
     : `Find a ${singularWord}`;
 
+  const locationLabel = selectedCountry ? `In ${selectedCountry}` : "Near You";
+
   return (
-    <div className="min-h-screen bg-[#f4f7f9] text-foreground">
+    <div className="min-h-screen bg-[#f5f7fb]">
       <Navbar />
+
+      {/* ── HERO HEADER ── */}
+      <section className="bg-white border-b border-slate-200">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+            {/* Left: title + search */}
+            <div className="flex-1 space-y-5">
+              {/* Breadcrumb */}
+              <p className="text-xs text-muted-foreground">
+                <span className="text-primary font-semibold">{pluralWord}</span>
+                {selectedCountry && <> / {selectedCountry}</>}
+                {pageCity && <> / {pageCity}</>}
+              </p>
+
+              {/* Big title */}
+              <div>
+                <h1 className="text-3xl font-extrabold text-foreground sm:text-4xl">
+                  {pluralWord}{" "}
+                  <span className="text-primary">{locationLabel}</span>
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {loading
+                    ? "Loading..."
+                    : <><span className="font-semibold text-primary">{filteredProviders.length}</span> {singularWord.toLowerCase()}{filteredProviders.length !== 1 ? "s" : ""} found</>}
+                </p>
+              </div>
+
+              {/* Delivery mode tabs */}
+              <div className="flex flex-wrap gap-2">
+                {(["all","in_person","online"] as const).map(m => (
+                  <button key={m} onClick={() => setServiceModeFilter(m)}
+                    className={`rounded-full px-5 py-1.5 text-sm font-medium border transition ${
+                      serviceModeFilter === m
+                        ? "bg-primary text-white border-primary shadow-sm"
+                        : "bg-white text-slate-700 border-slate-300 hover:border-primary hover:text-primary"
+                    }`}>
+                    {m === "all" ? "All" : m === "in_person" ? "In person" : "Online Services"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Search bar */}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <select value={selectedCountry} onChange={e => setSelectedCountry(e.target.value)}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary sm:w-[180px]">
+                  <option value="">All countries</option>
+                  {DIRECTORY_COUNTRIES.map(c => <option key={c.code} value={c.name}>{c.flag} {c.name}</option>)}
+                </select>
+
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input type="text" value={searchInput}
+                    onChange={e => { setSearchInput(e.target.value); setShowSuggestions(true); }}
+                    onKeyDown={e => { if (e.key === "Enter") { clearSuggestions(); setShowSuggestions(false); handleSearch(); } }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                    placeholder={`Name, city or specialty...`}
+                    className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-9 pr-4 text-sm outline-none focus:border-primary transition" />
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg overflow-hidden">
+                      {suggestions.map((s, i) => (
+                        <button key={i} type="button" onMouseDown={e => e.preventDefault()}
+                          onClick={() => {
+                            setSearchInput(s.city);
+                            if (s.country && !selectedCountry) {
+                              const m = DIRECTORY_COUNTRIES.find(c => c.name.toLowerCase() === s.country.toLowerCase());
+                              if (m) setSelectedCountry(m.name);
+                            }
+                            clearSuggestions(); setShowSuggestions(false);
+                          }}
+                          className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                          <MapPin size={13} className="text-primary shrink-0" />
+                          <span className="text-sm">{s.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <button onClick={handleSearch}
+                  className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition">
+                  Search
+                </button>
+
+                <button onClick={() => setShowAdvanced(v => !v)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-medium transition whitespace-nowrap ${
+                    showAdvanced ? "bg-primary/10 border-primary text-primary" : "bg-white border-slate-300 text-slate-700 hover:border-primary"
+                  }`}>
+                  <SlidersHorizontal size={15} />
+                  Advanced Search
+                  {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+              </div>
+
+              {/* Find nearby / clear filters */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <button onClick={handleNearby} disabled={geoLoading}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-primary disabled:opacity-50 transition">
+                  <MapPin className="h-4 w-4 text-primary" />
+                  {geoLoading ? "Detecting..." : "Use my location"}
+                </button>
+                <span className="text-slate-300 text-xs">·</span>
+                <span className="text-xs text-slate-500">Free to search · No signup required</span>
+                {hasActiveFilters && (
+                  <button onClick={clearAdvanced}
+                    className="ml-auto inline-flex items-center gap-1 text-xs text-primary border border-primary/30 rounded-full px-3 py-1 hover:bg-primary/5">
+                    <X size={11} /> Clear filters
+                  </button>
+                )}
+              </div>
+              {geoError && <p className="text-sm text-red-500">{geoError}</p>}
+            </div>
+
+            {/* Right: illustration */}
+            <div className="hidden md:flex items-center justify-center w-48 shrink-0">
+              <img
+                src={role === "therapist" ? "/therapist-directory-hero.png" : "/coach-directory-hero.png"}
+                alt={pluralWord}
+                className="w-full max-w-[160px] object-contain"
+                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── ADVANCED SEARCH PANEL ── */}
+      {showAdvanced && (
+        <section className="bg-slate-50 border-b border-slate-200">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 py-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 mb-1 block">
+                  {role === "therapist" ? "Therapy Type / Focus" : "Coaching Specialty"}
+                </label>
+                <input value={advSpecialty} onChange={e => setAdvSpecialty(e.target.value)}
+                  placeholder={role === "therapist" ? "e.g. Anxiety, CBT, Trauma" : "e.g. Career, Leadership"}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-700 mb-1 block">Language</label>
+                <input value={advLanguage} onChange={e => setAdvLanguage(e.target.value)}
+                  placeholder="e.g. English, French"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-700 mb-1 block">Min Price ($)</label>
+                <input type="number" min="0" value={advMinPrice} onChange={e => setAdvMinPrice(e.target.value)}
+                  placeholder="0"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-700 mb-1 block">Max Price ($)</label>
+                <input type="number" min="0" value={advMaxPrice} onChange={e => setAdvMaxPrice(e.target.value)}
+                  placeholder="Any"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={advVerified} onChange={e => setAdvVerified(e.target.checked)}
+                  className="h-4 w-4 accent-primary rounded" />
+                <span className="text-sm font-medium text-slate-700">Verified only</span>
+              </label>
+              <button onClick={clearAdvanced} className="text-xs text-slate-500 hover:text-primary underline">Reset all filters</button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── MAIN CONTENT ── */}
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
+        {error && <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+        {/* City pills */}
+        {selectedCountry && cityOptions.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            <button onClick={() => navigate(`${roleCopy.routeBase}/${countryToSlug(selectedCountry)}`)}
+              className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition ${!pageCity ? "bg-primary text-white border-primary" : "bg-white text-slate-700 border-slate-300 hover:border-primary"}`}>
+              All
+            </button>
+            {cityOptions.map(c => (
+              <button key={c.slug} onClick={() => goToCity(selectedCountry, c.name)}
+                className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition ${cityToSlug(pageCity) === c.slug ? "bg-primary text-white border-primary" : "bg-white text-slate-700 border-slate-300 hover:border-primary"}`}>
+                {c.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Results */}
+        {loading ? (
+          <div className="space-y-4">
+            {[1,2,3].map(i => (
+              <div key={i} className="rounded-xl bg-white border border-slate-200 p-5 flex gap-4 animate-pulse">
+                <div className="w-[130px] h-[180px] bg-slate-200 rounded-lg shrink-0" />
+                <div className="flex-1 space-y-3 py-2">
+                  <div className="h-5 bg-slate-200 rounded w-1/3" />
+                  <div className="h-3 bg-slate-200 rounded w-1/4" />
+                  <div className="h-3 bg-slate-200 rounded w-2/3" />
+                  <div className="h-12 bg-slate-200 rounded w-full" />
+                </div>
+                <div className="w-[140px] shrink-0 space-y-2">
+                  <div className="h-9 bg-slate-200 rounded-lg" />
+                  <div className="h-9 bg-slate-200 rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredProviders.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white py-20 text-center">
+            <p className="text-lg font-semibold text-slate-900 mb-1">No {pluralWord.toLowerCase()} found</p>
+            <p className="text-sm text-slate-500 max-w-sm mx-auto mb-5">
+              {hasActiveFilters ? "Try adjusting your filters." : selectedCountry ? `No ${pluralWord.toLowerCase()} in ${selectedCountry} yet. Try browsing all countries.` : "Select a country to browse providers."}
+            </p>
+            {(hasActiveFilters || selectedCountry) && (
+              <button onClick={() => { clearAdvanced(); setSelectedCountry(""); setSearchInput(""); }}
+                className="rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition">
+                Show All {pluralWord}
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredProviders.map(provider => (
+              <ProviderCard
+                key={provider.user_id || provider.id}
+                provider={provider}
+                role={role}
+                singularWord={singularWord}
+                defaultHeadline={roleCopy.defaultHeadline}
+                onNavigate={navigate}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Country grid — dark */}
+        <section className="mt-16 rounded-2xl overflow-hidden" style={{ background: "linear-gradient(135deg,#0d1b2a 0%,#1a2f4a 100%)" }}>
+          <div className="px-6 py-10 md:px-10">
+            <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Global Directory</p>
+            <h2 className="text-xl font-bold text-white mb-1">
+              Find {singularWord === "Therapist" ? "Psychologists" : "Coaches"} &amp; {pluralWord}
+            </h2>
+            <p className="text-sm text-slate-400 mb-6">Browse by country to find {pluralWord.toLowerCase()} near you</p>
+            <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+              {DIRECTORY_COUNTRIES.slice(0, 24).map(c => (
+                <button key={c.code} onClick={() => { setSelectedCountry(c.name); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                  className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 hover:bg-white/10 hover:border-primary/50 transition text-left">
+                  <span className="text-lg shrink-0">{c.flag}</span>
+                  <span className="truncate text-xs font-medium text-white">{c.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section className="mt-12">
+          <h2 className="text-xl font-bold text-slate-900 mb-1">
+            Find {pluralWord} {selectedCountry ? `in ${selectedCountry}` : "Anywhere"}
+          </h2>
+          <p className="text-sm text-slate-500 mb-6">
+            All profiles are structured consistently so you can compare before booking. Search by location, specialty, or language.
+          </p>
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="space-y-3">
+              {[
+                [`How do I choose the right ${singularWord.toLowerCase()}?`, `Review the profile summary, service focus, languages, and delivery options. Open the full profile to compare approach and expertise.`],
+                [`Can I book online and in person?`, `Yes. Providers who offer both will show the delivery options on their profile during booking.`],
+                [`Is there a subscription required to search?`, `No. Search and browsing are completely free. You only need an account to book a session.`],
+                [`How do I know a provider is verified?`, `Verified providers have completed identity verification and show a verified badge on their profile card.`],
+              ].map(([q, a], i) => (
+                <details key={i} className="rounded-xl border border-slate-200 bg-white overflow-hidden group">
+                  <summary className="flex items-center justify-between px-5 py-4 cursor-pointer text-sm font-semibold text-slate-900 list-none hover:bg-slate-50">
+                    {q}
+                    <ChevronDown size={16} className="text-slate-400 group-open:rotate-180 transition-transform shrink-0 ml-2" />
+                  </summary>
+                  <p className="px-5 pb-4 text-sm text-slate-600 leading-relaxed">{a}</p>
+                </details>
+              ))}
+            </div>
+            <div>
+              <div className="rounded-xl border border-slate-200 bg-white p-6">
+                <h3 className="font-semibold text-slate-900 mb-3 text-sm">Browse {pluralWord} by Country</h3>
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  {DIRECTORY_COUNTRIES.slice(0, 30).map(c => (
+                    <button key={c.code} onClick={() => { setSelectedCountry(c.name); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                      className="text-xs text-primary hover:underline">
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <Footer />
+    </div>
+  );
+};
+
+export default ProviderDirectoryPage;
 
       {/* ── HEADER ── */}
       <section className="bg-white border-b border-border">
