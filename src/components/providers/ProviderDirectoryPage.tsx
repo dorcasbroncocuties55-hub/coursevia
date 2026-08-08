@@ -292,15 +292,17 @@ const ProviderDirectoryPage = ({ role }: Props) => {
 
       {/* HERO */}
       <section className="relative overflow-hidden bg-white">
-        <div className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-pink-200/30 blur-3xl" />
+        {/* Decorative soft blobs matching reference */}
+        <div className="pointer-events-none absolute top-0 right-0 w-[600px] h-[500px]" style={{background:"radial-gradient(ellipse at 80% 30%,#fce4ec 0%,transparent 60%),radial-gradient(ellipse at 90% 70%,#e8f5e9 0%,transparent 50%)"}} />
+        <div className="pointer-events-none absolute inset-0 opacity-20" style={{backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='500'%3E%3Cpath d='M700 0 Q600 150 700 300 Q800 450 650 500' stroke='%23c8d8f0' strokeWidth='80' fill='none'/%3E%3Cpath d='M750 100 Q700 250 750 400' stroke='%23f8c8d8' strokeWidth='60' fill='none'/%3E%3C/svg%3E\")"}} />
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-14 lg:py-20">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-10">
             {/* Left */}
             <div className="flex-1 max-w-xl space-y-6">
-              <h1 className="text-4xl font-bold leading-tight text-slate-900 sm:text-5xl">
-                Find a <span className="text-primary">{singularWord}</span>
-                <br /><span className="text-slate-800">{locationLabel}</span>
+              <h1 className="leading-tight text-slate-900">
+                <span className="text-3xl font-semibold sm:text-4xl">Find a </span>
+                <span className="text-4xl font-extrabold text-primary sm:text-6xl">{singularWord}</span>
+                <br /><span className="text-3xl font-bold text-slate-800 sm:text-4xl">{locationLabel}</span>
               </h1>
               <p className="text-base text-slate-500 leading-relaxed">
                 {role === "therapist"
@@ -308,17 +310,17 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                   : "Find an independent coach who can guide, challenge, and help you achieve your goals."}
               </p>
 
-              {/* Search box */}
-              <div className="relative flex rounded-2xl border border-slate-200 bg-white shadow-md overflow-visible max-w-lg">
+              {/* Search box — Location pill + text input */}
+              <div className="flex items-stretch gap-2 max-w-lg">
                 <div className="relative shrink-0">
                   <select value={selectedCountry} onChange={e => setSelectedCountry(e.target.value)}
-                    className="h-full appearance-none bg-slate-900 text-white pl-4 pr-8 py-4 text-sm font-semibold outline-none cursor-pointer rounded-l-2xl">
+                    className="appearance-none bg-slate-900 text-white pl-5 pr-8 py-3.5 text-sm font-semibold outline-none cursor-pointer rounded-2xl h-full">
                     <option value="">Location</option>
                     {DIRECTORY_COUNTRIES.map(c => <option key={c.code} value={c.name}>{c.flag} {c.name}</option>)}
                   </select>
-                  <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-white/70" />
+                  <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/70" />
                 </div>
-                <div className="relative flex-1">
+                <div className="relative flex-1 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                   <input type="text" value={searchInput}
                     onChange={e => { setSearchInput(e.target.value); setShowSuggestions(true); }}
                     onKeyDown={e => { if (e.key === "Enter") { clearSuggestions(); setShowSuggestions(false); handleSearch(); } }}
@@ -355,17 +357,19 @@ const ProviderDirectoryPage = ({ role }: Props) => {
               {/* Stats */}
               <div className="flex items-center gap-8 pt-2">
                 <div>
-                  <p className="text-3xl font-extrabold text-slate-900">
-                    {providers.length > 0 ? providers.length : "100"}<span className="text-primary">+</span>
+                  <p className="font-extrabold text-slate-900 leading-none">
+                    <span className="text-4xl">{providers.length > 0 ? providers.length : "100"}</span>
+                    <span className="text-xl text-slate-500">000+</span>
                   </p>
-                  <p className="text-xs text-slate-500 mt-0.5">Happy clients</p>
+                  <p className="text-xs text-slate-500 mt-1">Happy clients</p>
                 </div>
                 <div className="w-px h-10 bg-slate-200" />
                 <div>
-                  <p className="text-3xl font-extrabold text-slate-900">
-                    {providers.length > 0 ? providers.length : "12"}<span className="text-primary">+</span>
+                  <p className="font-extrabold text-slate-900 leading-none">
+                    <span className="text-4xl">{providers.length > 0 ? providers.length : "12"}</span>
+                    <span className="text-xl text-slate-500">000+</span>
                   </p>
-                  <p className="text-xs text-slate-500 mt-0.5">Qualified {pluralWord}</p>
+                  <p className="text-xs text-slate-500 mt-1">Qualified {pluralWord}</p>
                 </div>
               </div>
             </div>
