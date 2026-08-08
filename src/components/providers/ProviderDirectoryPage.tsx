@@ -164,7 +164,7 @@ const ProviderDirectoryPage = ({ role }: Props) => {
   const roleCopy    = useMemo(() => getRoleCopy(role), [role]);
   const singularWord = role === "therapist" ? "Therapist" : "Coach";
   const pluralWord   = role === "therapist" ? "Therapists" : "Coaches";
-  const accentColor  = role === "therapist" ? "#0b7e84" : "#1a6aff";
+  const heroGradient = role === "therapist" ? "from-teal-600 to-cyan-700" : "from-blue-600 to-indigo-700";
 
   const routeCountry  = countryNameFromSlug(country);
   const routeCity     = cityNameFromSlug(city);
@@ -258,9 +258,6 @@ const ProviderDirectoryPage = ({ role }: Props) => {
   };
 
   const locationLabel = selectedCountry ? selectedCountry : "Worldwide";
-  const heroGradient  = role === "therapist"
-    ? "from-teal-600 to-cyan-700"
-    : "from-blue-600 to-indigo-700";
 
   return (
     <div className="min-h-screen bg-slate-50">
