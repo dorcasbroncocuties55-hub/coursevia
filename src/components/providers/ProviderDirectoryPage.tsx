@@ -164,7 +164,6 @@ const ProviderDirectoryPage = ({ role }: Props) => {
   const roleCopy    = useMemo(() => getRoleCopy(role), [role]);
   const singularWord = role === "therapist" ? "Therapist" : "Coach";
   const pluralWord   = role === "therapist" ? "Therapists" : "Coaches";
-  const heroGradient = role === "therapist" ? "from-teal-600 to-cyan-700" : "from-blue-600 to-indigo-700";
 
   const routeCountry  = countryNameFromSlug(country);
   const routeCity     = cityNameFromSlug(city);
@@ -188,7 +187,45 @@ const ProviderDirectoryPage = ({ role }: Props) => {
   const [advMaxPrice,       setAdvMaxPrice]       = useState("");
   const [advVerified,       setAdvVerified]       = useState(false);
 
-  const { suggestions, clear: clearSuggestions } = useLocationAutocomplete(searchInput, selectedCountry);
+  const { suggestions: locationSuggestions, clear: clearLocationSuggestions } = useLocationAutocomplete(searchInput, selectedCountry);
+
+  // Build smart DB suggestions from loaded providers
+  const dbSuggestions = useMemo(() => {
+    if (!searchInput.trim() || searchInput.trim().length < 2) return [];
+    const q = searchInput.toLowerCase().trim();
+    const results: { label: string; type: "name"|"city"|"specialty"|"language"; value: string; country?: string }[] = [];
+    const seen = new Set<string>();
+
+    for (const p of providers) {
+      // Name match
+      const name = p.full_name || p.display_name || "";
+      if (name.toLowerCase().includes(q) && !seen.has(name)) {
+        seen.add(name); results.push({ label: name, type: "name", value: name });
+      }
+      // City match
+      const city = p.city || "";
+      const cityKey = `city:${city.toLowerCase()}`;
+      if (city.toLowerCase().includes(q) && !seen.has(cityKey)) {
+        seen.add(cityKey); results.push({ label: `${city}${p.country ? `, ${p.country}` : ""}`, type: "city", value: city, country: p.country });
+      }
+      // Skills/specialties
+      const skills = Array.isArray(p.skills) ? p.skills : typeof p.skills === "string" ? p.skills.split(",").map((s: string) => s.trim()) : [];
+      const expertise = Array.isArray(p.expertise_areas) ? p.expertise_areas : typeof p.expertise_areas === "string" ? p.expertise_areas.split(",").map((s: string) => s.trim()) : [];
+      for (const skill of [...skills, ...expertise]) {
+        const sk = String(skill).trim();
+        const skKey = `skill:${sk.toLowerCase()}`;
+        if (sk.toLowerCase().includes(q) && !seen.has(skKey)) {
+          seen.add(skKey); results.push({ label: sk, type: "specialty", value: sk });
+        }
+      }
+      // Headline
+      if (p.headline?.toLowerCase().includes(q)) {
+        const hKey = `hl:${p.headline}`;
+        if (!seen.has(hKey)) { seen.add(hKey); results.push({ label: p.headline, type: "specialty", value: p.headline }); }
+      }
+    }
+    return results.slice(0, 8);
+  }, [searchInput, providers]);
 
   // Load
   useEffect(() => {
@@ -264,13 +301,12 @@ const ProviderDirectoryPage = ({ role }: Props) => {
       <Navbar />
 
       {/* HERO */}
-      <div className={`bg-gradient-to-br ${heroGradient} text-white`}>
+      <div className="bg-primary text-white">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 lg:py-20">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-10">
-            <div className="flex-1 space-y-6">
+          <div className="max-w-2xl space-y-6">
               <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-1.5 text-sm font-medium">
                 <span className="h-2 w-2 bg-emerald-400 rounded-full animate-pulse" />
-                {loading ? "Loading..." : `${providers.length} verified ${pluralWord.toLowerCase()} available`}
+                {loading ? "Loading..." : `${providers.length} ${pluralWord.toLowerCase()} available`}
               </div>
               <h1 className="text-4xl font-extrabold leading-tight sm:text-5xl lg:text-6xl">
                 Find a {singularWord}<br />
@@ -288,16 +324,43 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                   <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                   <input type="text" value={searchInput}
                     onChange={e => { setSearchInput(e.target.value); setShowSuggestions(true); }}
-                    onKeyDown={e => { if (e.key === "Enter") { clearSuggestions(); setShowSuggestions(false); handleSearch(); } }}
+                    onKeyDown={e => { if (e.key === "Enter") { setShowSuggestions(false); handleSearch(); } }}
                     onFocus={() => setShowSuggestions(true)}
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                     placeholder={`Search by name, specialty, or city...`}
-                    className="w-full rounded-2xl bg-white/95 backdrop-blur-sm text-slate-900 py-4 pl-12 pr-4 text-sm font-medium outline-none placeholder:text-slate-400 shadow-lg" />
-                  {showSuggestions && suggestions.length > 0 && (
+                    className="w-full rounded-2xl bg-white text-slate-900 py-4 pl-12 pr-4 text-sm font-medium outline-none placeholder:text-slate-400 shadow-lg" />
+                  {/* DB-driven suggestions */}
+                  {showSuggestions && dbSuggestions.length > 0 && (
                     <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
-                      {suggestions.map((s, i) => (
+                      {dbSuggestions.map((s, i) => (
                         <button key={i} type="button" onMouseDown={e => e.preventDefault()}
-                          onClick={() => { setSearchInput(s.city); if (s.country && !selectedCountry) { const m = DIRECTORY_COUNTRIES.find(c => c.name.toLowerCase() === s.country.toLowerCase()); if (m) setSelectedCountry(m.name); } clearSuggestions(); setShowSuggestions(false); }}
+                          onClick={() => {
+                            setSearchInput(s.value);
+                            if (s.type === "city" && s.country && !selectedCountry) {
+                              const m = DIRECTORY_COUNTRIES.find(c => c.name.toLowerCase() === s.country!.toLowerCase());
+                              if (m) setSelectedCountry(m.name);
+                            }
+                            setShowSuggestions(false);
+                          }}
+                          className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                            s.type === "name" ? "bg-blue-100 text-blue-600" :
+                            s.type === "city" ? "bg-emerald-100 text-emerald-600" :
+                            "bg-primary/10 text-primary"
+                          }`}>
+                            {s.type === "name" ? "Name" : s.type === "city" ? "City" : "Specialty"}
+                          </span>
+                          <span className="text-sm text-slate-700">{s.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {/* Location autocomplete fallback */}
+                  {showSuggestions && dbSuggestions.length === 0 && locationSuggestions.length > 0 && (
+                    <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+                      {locationSuggestions.map((s, i) => (
+                        <button key={i} type="button" onMouseDown={e => e.preventDefault()}
+                          onClick={() => { setSearchInput(s.city); if (s.country && !selectedCountry) { const m = DIRECTORY_COUNTRIES.find(c => c.name.toLowerCase() === s.country.toLowerCase()); if (m) setSelectedCountry(m.name); } clearLocationSuggestions(); setShowSuggestions(false); }}
                           className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-100 last:border-0">
                           <MapPin size={13} className="text-primary shrink-0" />
                           <span className="text-sm text-slate-700">{s.label}</span>
@@ -307,7 +370,7 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                   )}
                 </div>
                 <select value={selectedCountry} onChange={e => setSelectedCountry(e.target.value)}
-                  className="rounded-2xl bg-white/95 text-slate-700 px-4 py-4 text-sm font-medium outline-none shadow-lg sm:w-[180px]">
+                  className="rounded-2xl bg-white text-slate-700 px-4 py-4 text-sm font-medium outline-none shadow-lg sm:w-[200px]">
                   <option value="">All Countries</option>
                   {DIRECTORY_COUNTRIES.map(c => <option key={c.code} value={c.name}>{c.flag} {c.name}</option>)}
                 </select>
@@ -326,14 +389,6 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                 <span>·</span>
                 <span>Free to search · No account needed</span>
               </div>
-            </div>
-
-            {/* Illustration */}
-            <div className="hidden lg:block shrink-0 w-72">
-              <img src={role === "therapist" ? "/therapist-hero-right.png" : "/coach-hero-right.png"} alt=""
-                className="w-full object-contain drop-shadow-2xl"
-                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-            </div>
           </div>
         </div>
       </div>
@@ -374,10 +429,25 @@ const ProviderDirectoryPage = ({ role }: Props) => {
             <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 grid grid-cols-2 md:grid-cols-5 gap-3">
               <input value={advSpecialty} onChange={e => setAdvSpecialty(e.target.value)}
                 placeholder={role === "therapist" ? "Specialty (e.g. CBT)" : "Focus (e.g. Career)"}
+                list={`specialty-list-${role}`}
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
+              <datalist id={`specialty-list-${role}`}>
+                {Array.from(new Set(providers.flatMap(p => {
+                  const skills = Array.isArray(p.skills) ? p.skills : typeof p.skills === "string" ? p.skills.split(",").map((s: string) => s.trim()) : [];
+                  const exp = Array.isArray(p.expertise_areas) ? p.expertise_areas : typeof p.expertise_areas === "string" ? p.expertise_areas.split(",").map((s: string) => s.trim()) : [];
+                  return [...skills, ...exp].filter(Boolean);
+                }))).slice(0, 30).map((s, i) => <option key={i} value={String(s)} />)}
+              </datalist>
               <input value={advLanguage} onChange={e => setAdvLanguage(e.target.value)}
                 placeholder="Language"
+                list={`language-list-${role}`}
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
+              <datalist id={`language-list-${role}`}>
+                {Array.from(new Set(providers.flatMap(p => {
+                  const langs = Array.isArray(p.languages) ? p.languages : typeof p.languages === "string" ? p.languages.split(",").map((l: string) => l.trim()) : [];
+                  return langs.filter(Boolean);
+                }))).slice(0, 20).map((l, i) => <option key={i} value={String(l)} />)}
+              </datalist>
               <input type="number" min="0" value={advMinPrice} onChange={e => setAdvMinPrice(e.target.value)}
                 placeholder="Min price $"
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
