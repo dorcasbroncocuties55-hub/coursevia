@@ -11,7 +11,7 @@ import {
 import { getServiceModeLabel } from "@/lib/providerModes";
 import {
   ChevronDown, ChevronUp, MapPin, Search, MessageCircle,
-  CheckCircle, SlidersHorizontal, X, Star, Globe, Languages,
+  CheckCircle, SlidersHorizontal, X, Users, BadgeCheck,
 } from "lucide-react";
 
 const normalizeText = (v?: string | null) =>
@@ -52,8 +52,8 @@ const useLocationAutocomplete = (query: string, country: string) => {
   return { suggestions, clear: () => setSuggestions([]) };
 };
 
-// Provider card component
-const BIO_LIMIT = 200;
+
+// Provider card — matches therapyroute.com HTML structure exactly
 const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigate }: {
   provider: Provider; role: ProviderRole; singularWord: string;
   defaultHeadline: string; onNavigate: (p: string) => void;
@@ -63,93 +63,165 @@ const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigat
   const verified = String(provider.kyc_status || provider.verification_status || "").toLowerCase() === "approved" || Boolean(provider.is_verified);
   const co       = getCountryOption(provider.country || provider.country_code || "");
   const location = [provider.city, co?.name || provider.country].filter(Boolean).join(", ");
-  const tags     = asTagList((provider as any).skills || (provider as any).expertise_areas);
-  const langs    = asTagList(provider.languages);
-  const price    = Number(provider.booking_price ?? provider.session_price ?? provider.hourly_rate ?? 0);
-  const bio      = provider.bio?.trim() || "";
-  const bioShort = bio.length > BIO_LIMIT ? bio.slice(0, BIO_LIMIT).trimEnd() + "..." : bio;
-  const mode     = (provider.service_delivery_mode || "").toLowerCase();
-  const modeLabel = mode.includes("both") ? "In person & online" : mode.includes("online") ? "Online" : mode.includes("person") ? "In person" : getServiceModeLabel(provider.service_delivery_mode);
+
+  const rawSkills    = asTagList((provider as any).skills);
+  const rawExpertise = asTagList((provider as any).expertise_areas);
+  const row1 = rawSkills.length > 0 ? rawSkills : rawExpertise;
+  const row2 = rawSkills.length > 0 && rawExpertise.length > 0 ? rawExpertise : [];
+  const r1Show = row1.slice(0, 2); const r1Extra = row1.length > 2 ? row1.length - 2 : 0;
+  const r2Show = row2.slice(0, 2); const r2Extra = row2.length > 2 ? row2.length - 2 : 0;
+
+  const langs   = asTagList(provider.languages);
+  const bio     = provider.bio?.trim() || "";
+  const mode    = (provider.service_delivery_mode || "").toLowerCase();
+  const modeLabel = mode.includes("both") ? "In person & online"
+    : mode.includes("online") ? "Online"
+    : mode.includes("person") ? "In person"
+    : getServiceModeLabel(provider.service_delivery_mode);
   const profilePath = providerProfilePath(role, provider);
 
   return (
-    <div className="group flex flex-col sm:flex-row bg-white rounded-2xl border border-slate-200 hover:border-primary/40 hover:shadow-lg transition-all duration-200 overflow-hidden">
-      {/* Photo — tall rectangular like reference */}
-      <div className="sm:w-[160px] w-full h-[200px] sm:h-auto sm:min-h-[240px] shrink-0 cursor-pointer overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 relative"
-        onClick={() => onNavigate(profilePath)}>
-        {provider.avatar_url
-          ? <img src={provider.avatar_url} alt={name} className="h-full w-full object-cover object-top group-hover:scale-105 transition-transform duration-300" />
-          : <div className="flex h-full w-full items-center justify-center text-5xl font-bold text-primary/30">{name.charAt(0).toUpperCase()}</div>}
-        {verified && (
-          <div className="absolute top-2 left-2 bg-emerald-500 rounded-full p-1.5 shadow-lg">
-            <CheckCircle size={13} className="text-white" />
-          </div>
-        )}
-      </div>
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`View profile of ${name}`}
+      onClick={() => onNavigate(profilePath)}
+      onKeyDown={e => e.key === "Enter" && onNavigate(profilePath)}
+      className="cursor-pointer bg-card text-card-foreground shadow-sm mx-0 rounded-md border border-border hover:shadow-md transition-shadow"
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-[168px_2fr_auto] gap-3 md:gap-6 items-start p-4 md:p-0">
 
-      {/* Info */}
-      <div className="flex flex-1 flex-col p-5 gap-2.5 min-w-0">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <button onClick={() => onNavigate(profilePath)} className="text-xl font-bold text-slate-900 hover:text-primary transition text-left leading-tight">
-              {name}
-            </button>
-            {verified && <span className="ml-2 text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">Verified</span>}
-            <p className="text-sm text-slate-500 mt-0.5">{provider.headline || defaultHeadline}</p>
-          </div>
-          {price > 0 && (
-            <div className="shrink-0 text-right">
-              <p className="text-lg font-bold text-slate-900">${price.toFixed(0)}</p>
-              <p className="text-xs text-slate-400">per session</p>
+        {/* ── Photo ── */}
+        <div className="relative ml-10 md:mx-auto lg:mx-0 lg:self-start md:mt-5 md:ml-4">
+          {provider.avatar_url ? (
+            <img
+              src={provider.avatar_url}
+              alt={name}
+              width={170}
+              height={158}
+              loading="lazy"
+              className="rounded-md object-cover w-[140px] h-[130px] md:w-[170px] md:h-[158px]"
+            />
+          ) : (
+            <div className="rounded-md bg-primary/10 flex items-center justify-center w-[140px] h-[130px] md:w-[170px] md:h-[158px]">
+              <span className="text-4xl font-bold text-primary/40">{name.charAt(0).toUpperCase()}</span>
             </div>
           )}
         </div>
 
-        {/* Tags */}
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {tags.slice(0, 5).map(t => (
-              <span key={t} className="bg-primary/8 text-primary text-xs font-medium px-2.5 py-1 rounded-full border border-primary/15">{t}</span>
-            ))}
-            {tags.length > 5 && <span className="text-xs text-slate-400 self-center">+{tags.length - 5} more</span>}
-          </div>
-        )}
+        {/* ── Info ── */}
+        <div className="space-y-2 ml-[15px] mb-5 mr-[37px] md:ml-0 md:mr-0 md:mt-5">
 
-        {/* Meta row */}
-        <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
-          {location && <span className="flex items-center gap-1"><MapPin size={11} className="text-primary" />{location}</span>}
-          {modeLabel && <span className="flex items-center gap-1"><Globe size={11} className="text-primary" />{modeLabel}</span>}
-          {langs.length > 0 && <span className="flex items-center gap-1"><Languages size={11} className="text-primary" />{langs.slice(0, 2).join(", ")}</span>}
-          <span className="flex items-center gap-1"><Star size={11} className="text-amber-400 fill-amber-400" />5.0</span>
-        </div>
-
-        {/* Bio */}
-        {bio && (
-          <p className="text-sm text-slate-600 leading-relaxed">
-            {expanded ? bio : bioShort}
-            {bio.length > BIO_LIMIT && (
-              <button onClick={() => setExpanded(v => !v)} className="ml-1.5 text-primary font-semibold text-xs hover:underline">
-                {expanded ? "Less" : "See more"}
-              </button>
+          {/* Name + badge */}
+          <div className="flex flex-wrap items-center gap-1">
+            <h2 className="font-bold text-lg ml-3 md:ml-0 md:text-2xl leading-none">{name}</h2>
+            {verified && (
+              <div className="flex items-center gap-1 text-xs text-green-800">
+                <BadgeCheck className="h-6 w-6 relative -top-[2px]" />
+              </div>
             )}
-          </p>
-        )}
-      </div>
+          </div>
 
-      {/* CTA panel */}
-      <div className="flex sm:flex-col items-center justify-end sm:justify-start gap-2.5 px-4 py-4 sm:pt-5 sm:w-[155px] shrink-0 border-t sm:border-t-0 sm:border-l border-slate-100 bg-slate-50/50">
-        <button onClick={() => onNavigate(`/dashboard/messages?user=${provider.user_id || provider.id}`)}
-          className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white hover:bg-primary/90 transition shadow-sm shadow-primary/20">
-          <MessageCircle size={13} /> Message
-        </button>
-        <button onClick={() => onNavigate(profilePath)}
-          className="w-full rounded-xl border-2 border-primary/20 bg-white px-4 py-2.5 text-xs font-bold text-primary hover:bg-primary hover:text-white transition">
-          View Profile
-        </button>
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 mt-0.5">
-          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          Available
+          {/* Headline */}
+          <p className="ml-3 md:ml-0 mt-1 text-foreground font-normal text-sm">
+            {provider.headline || defaultHeadline}
+          </p>
+
+          {/* 2-col grid: specialties + meta */}
+          <div className="grid grid-cols-1 md:grid-cols-[1.8fr_1fr] gap-2 md:gap-1 lg:mt-3">
+
+            {/* Delivery mode — order 2 */}
+            <div className="flex items-center gap-1.5 font-normal text-sm md:order-2 lg:order-2">
+              <Users className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
+              {modeLabel || "Online"}
+            </div>
+
+            {/* First specialty row — order 1 */}
+            {r1Show.length > 0 && (
+              <div className="flex items-start gap-1.5 md:order-1 lg:order-1">
+                <span className="w-4 text-center text-muted-foreground/60 shrink-0 leading-none mt-[2px]">–</span>
+                <span className="font-normal text-sm">
+                  {r1Show.join(", ")}
+                  {r1Extra > 0 && <span className="font-normal text-primary text-sm"> +{r1Extra}</span>}
+                </span>
+              </div>
+            )}
+
+            {/* Language — order 5 */}
+            {langs.length > 0 && (
+              <div className="flex items-start gap-1.5 text-sm md:order-5 lg:order-5">
+                <span className="w-4 text-center text-muted-foreground/60 shrink-0 leading-none mt-[2px]">–</span>
+                <span className="font-normal text-sm">{langs.slice(0, 2).join(", ")}</span>
+              </div>
+            )}
+
+            {/* Second specialty row — order 3 */}
+            {r2Show.length > 0 && (
+              <div className="flex items-start gap-1.5 md:order-3 lg:order-3">
+                <span className="w-4 text-center text-muted-foreground/60 shrink-0 leading-none mt-[2px]">–</span>
+                <span className="font-normal text-sm">
+                  {r2Show.join(", ")}
+                  {r2Extra > 0 && <span className="font-normal text-primary text-sm"> +{r2Extra}</span>}
+                </span>
+              </div>
+            )}
+
+            {/* Location — order 4 */}
+            {location && (
+              <div className="flex items-start gap-1.5 text-sm md:order-4 lg:order-4">
+                <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-[2px]" aria-hidden />
+                <span className="font-normal text-sm">{location}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Divider */}
+          <hr className="my-4 border-border" />
+
+          {/* Bio */}
+          {bio && (
+            <div className="flex flex-col items-start gap-1">
+              <p className={`font-normal leading-relaxed text-sm ${expanded ? "" : "line-clamp-3"}`}>
+                {bio}
+              </p>
+              <span
+                role="button"
+                aria-hidden
+                onClick={e => { e.stopPropagation(); setExpanded(v => !v); }}
+                className="text-sm text-primary hover:underline cursor-pointer"
+              >
+                {expanded ? "See less ←" : "See more →"}
+              </span>
+            </div>
+          )}
         </div>
+
+        {/* ── CTA buttons ── */}
+        <div
+          className="flex flex-col gap-4 w-full min-w-[140px] lg:min-w-[160px] p-4 md:pr-6 md:pt-6 md:pb-6"
+          onClick={e => e.stopPropagation()}
+        >
+          <button
+            onClick={() => onNavigate(`/dashboard/messages?user=${provider.user_id || provider.id}`)}
+            className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white h-10 w-full text-xs md:text-sm rounded-md font-medium transition px-4 py-2"
+          >
+            <MessageCircle className="w-4 h-4" />
+            Message Now
+          </button>
+
+          <button
+            onClick={() => onNavigate(profilePath)}
+            className="inline-flex items-center justify-center gap-2 border border-primary bg-background hover:bg-accent hover:text-accent-foreground h-10 w-full text-xs sm:text-sm rounded-md font-medium transition px-4 py-2"
+          >
+            Profile
+          </button>
+
+          <div className="flex items-center justify-center gap-2 text-xs md:text-sm h-10 w-full rounded-md border font-medium bg-green-50 text-green-800 border-green-200">
+            <div className="rounded-full w-2 h-2 flex-shrink-0 bg-green-500" />
+            <span>Available Now</span>
+          </div>
+        </div>
+
       </div>
     </div>
   );
