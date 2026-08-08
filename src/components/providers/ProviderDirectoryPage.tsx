@@ -321,13 +321,14 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                   <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/70" />
                 </div>
                 <div className="relative flex-1 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input type="text" value={searchInput}
                     onChange={e => { setSearchInput(e.target.value); setShowSuggestions(true); }}
                     onKeyDown={e => { if (e.key === "Enter") { clearSuggestions(); setShowSuggestions(false); handleSearch(); } }}
                     onFocus={() => setShowSuggestions(true)}
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                    placeholder="Country, City, Suburb"
-                    className="w-full h-full px-4 py-4 text-sm text-slate-700 outline-none placeholder:text-slate-400 bg-transparent" />
+                    placeholder="Name, city or specialty..."
+                    className="w-full h-full px-4 py-3.5 pl-9 text-sm text-slate-700 outline-none placeholder:text-slate-400 bg-transparent" />
                   {showSuggestions && suggestions.length > 0 && (
                     <div className="absolute left-0 top-full z-50 mt-1 w-80 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
                       {suggestions.map((s, i) => (
@@ -348,6 +349,10 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                     </div>
                   )}
                 </div>
+                <button onClick={handleSearch}
+                  className="rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary/90 transition shrink-0">
+                  Search
+                </button>
               </div>
 
               <p className="text-sm font-medium text-slate-600">
