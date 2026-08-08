@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
@@ -25,7 +25,7 @@ const asTagList = (v: unknown): string[] => {
   return [];
 };
 
-// ── Nominatim autocomplete ────────────────────────────────────────────────────
+// â”€â”€ Nominatim autocomplete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type NominatimResult = { address: { city?: string; town?: string; village?: string; county?: string; country?: string } };
 const useLocationAutocomplete = (query: string, country: string) => {
   const [suggestions, setSuggestions] = useState<{ label: string; city: string; country: string }[]>([]);
@@ -52,7 +52,7 @@ const useLocationAutocomplete = (query: string, country: string) => {
   return { suggestions, clear: () => setSuggestions([]) };
 };
 
-// ── ProviderCard ─────────────────────────────────────────────────────────────
+// â”€â”€ ProviderCard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const BIO_LIMIT = 200;
 
 const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigate }: {
@@ -68,7 +68,7 @@ const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigat
   const langs    = asTagList(provider.languages);
   const price    = Number(provider.booking_price ?? provider.session_price ?? provider.hourly_rate ?? 0);
   const bio      = provider.bio?.trim() || "";
-  const bioShort = bio.length > BIO_LIMIT ? bio.slice(0, BIO_LIMIT).trimEnd() + "…" : bio;
+  const bioShort = bio.length > BIO_LIMIT ? bio.slice(0, BIO_LIMIT).trimEnd() + "â€¦" : bio;
   const mode     = (provider.service_delivery_mode || "").toLowerCase();
   const modeLabel = mode.includes("both") ? "In person & online" : mode.includes("online") ? "Online" : mode.includes("person") ? "In person" : getServiceModeLabel(provider.service_delivery_mode);
   const profilePath = providerProfilePath(role, provider);
@@ -93,7 +93,7 @@ const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigat
           <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-foreground">
             {tags.slice(0, 5).map((t, i) => (
               <span key={t} className="flex items-center gap-1">
-                <span className="text-muted-foreground">–</span>{t}
+                <span className="text-muted-foreground">â€“</span>{t}
                 {i === 3 && tags.length > 5 && <span className="text-primary text-xs ml-1">+{tags.length - 4}</span>}
               </span>
             ))}
@@ -109,7 +109,7 @@ const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigat
             {expanded ? bio : bioShort}
             {bio.length > BIO_LIMIT && (
               <button onClick={() => setExpanded(v => !v)} className="ml-1 text-primary font-medium hover:underline text-xs">
-                {expanded ? "See less" : "See more →"}
+                {expanded ? "See less" : "See more â†’"}
               </button>
             )}
           </p>
@@ -135,7 +135,7 @@ const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigat
   );
 };
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type Props = { role: ProviderRole };
 
 const ProviderDirectoryPage = ({ role }: Props) => {
@@ -193,7 +193,7 @@ const ProviderDirectoryPage = ({ role }: Props) => {
     if (pageCity || querySearch) setSearchInput(pageCity || querySearch || "");
   }, [pageCountry, pageCity, querySearch]);
 
-  // ── Filtering ───────────────────────────────────────────────────────────────
+  // â”€â”€ Filtering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const filteredProviders = useMemo(() => {
     let r = [...providers];
 
@@ -286,7 +286,7 @@ const ProviderDirectoryPage = ({ role }: Props) => {
     <div className="min-h-screen bg-[#f5f7fb]">
       <Navbar />
 
-      {/* ── HERO HEADER ── */}
+      {/* â”€â”€ HERO HEADER â”€â”€ */}
       <section className="bg-white border-b border-slate-200">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
@@ -386,8 +386,8 @@ const ProviderDirectoryPage = ({ role }: Props) => {
                   <MapPin className="h-4 w-4 text-primary" />
                   {geoLoading ? "Detecting..." : "Use my location"}
                 </button>
-                <span className="text-slate-300 text-xs">·</span>
-                <span className="text-xs text-slate-500">Free to search · No signup required</span>
+                <span className="text-slate-300 text-xs">Â·</span>
+                <span className="text-xs text-slate-500">Free to search Â· No signup required</span>
                 {hasActiveFilters && (
                   <button onClick={clearAdvanced}
                     className="ml-auto inline-flex items-center gap-1 text-xs text-primary border border-primary/30 rounded-full px-3 py-1 hover:bg-primary/5">
@@ -411,7 +411,7 @@ const ProviderDirectoryPage = ({ role }: Props) => {
         </div>
       </section>
 
-      {/* ── ADVANCED SEARCH PANEL ── */}
+      {/* â”€â”€ ADVANCED SEARCH PANEL â”€â”€ */}
       {showAdvanced && (
         <section className="bg-slate-50 border-b border-slate-200">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 py-5">
@@ -455,7 +455,7 @@ const ProviderDirectoryPage = ({ role }: Props) => {
         </section>
       )}
 
-      {/* ── MAIN CONTENT ── */}
+      {/* â”€â”€ MAIN CONTENT â”€â”€ */}
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
         {error && <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
@@ -522,7 +522,7 @@ const ProviderDirectoryPage = ({ role }: Props) => {
           </div>
         )}
 
-        {/* Country grid — dark */}
+        {/* Country grid â€” dark */}
         <section className="mt-16 rounded-2xl overflow-hidden" style={{ background: "linear-gradient(135deg,#0d1b2a 0%,#1a2f4a 100%)" }}>
           <div className="px-6 py-10 md:px-10">
             <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Global Directory</p>
@@ -591,211 +591,3 @@ const ProviderDirectoryPage = ({ role }: Props) => {
 
 export default ProviderDirectoryPage;
 
-      {/* ── HEADER ── */}
-      <section className="bg-white border-b border-border">
-        <div className="mx-auto max-w-5xl px-4 py-8 space-y-5">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground md:text-4xl">
-              {headingTitle}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {loading ? "Loading..." : <><span className="font-semibold text-primary">{filteredProviders.length}</span> {singularWord.toLowerCase()}{filteredProviders.length !== 1 ? "s" : ""} found</>}
-            </p>
-          </div>
-
-          {/* Delivery mode tabs — like therapyroute */}
-          <div className="flex flex-wrap gap-2">
-            {(["all", "in_person", "online"] as const).map(m => (
-              <button key={m} onClick={() => setServiceModeFilter(m)}
-                className={`rounded-full px-5 py-1.5 text-sm font-medium border transition ${serviceModeFilter === m ? "bg-primary text-white border-primary" : "bg-white text-foreground border-border hover:border-primary"}`}>
-                {m === "all" ? "All" : m === "in_person" ? "In person" : "Online Services"}
-              </button>
-            ))}
-          </div>
-
-          {/* Search bar row */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <select value={selectedCountry} onChange={e => setSelectedCountry(e.target.value)}
-              className="rounded-lg border border-border bg-white px-4 py-2.5 text-sm outline-none focus:border-primary transition sm:w-[190px]">
-              <option value="">All countries</option>
-              {DIRECTORY_COUNTRIES.map(c => <option key={c.code} value={c.name}>{c.flag} {c.name}</option>)}
-            </select>
-
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input type="text" value={searchInput}
-                onChange={e => { setSearchInput(e.target.value); setShowSuggestions(true); }}
-                onKeyDown={e => { if (e.key === "Enter") { clearSuggestions(); setShowSuggestions(false); handleSearch(); } }}
-                onFocus={() => setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                placeholder="City, specialty, or name..."
-                className="w-full rounded-lg border border-border bg-white py-2.5 pl-9 pr-4 text-sm outline-none focus:border-primary transition" />
-              {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-border bg-white shadow-lg overflow-hidden">
-                  {suggestions.map((s, i) => (
-                    <button key={i} type="button" onMouseDown={e => e.preventDefault()}
-                      onClick={() => { setSearchInput(s.city); if (s.country && !selectedCountry) { const m = DIRECTORY_COUNTRIES.find(c => c.name.toLowerCase() === s.country.toLowerCase()); if (m) setSelectedCountry(m.name); } clearSuggestions(); setShowSuggestions(false); }}
-                      className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-muted transition border-b border-border last:border-0">
-                      <MapPin size={13} className="text-primary shrink-0" />
-                      <span className="text-sm">{s.label}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <button onClick={handleSearch} className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition">Search</button>
-
-            {/* Advanced Search toggle */}
-            <button onClick={() => setShowAdvanced(v => !v)}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-medium transition ${showAdvanced ? "bg-primary/10 border-primary text-primary" : "bg-white border-border text-foreground hover:border-primary"}`}>
-              <SlidersHorizontal size={15} /> Advanced Search {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-          </div>
-
-          {/* Find nearby */}
-          <div className="flex items-center gap-3">
-            <button onClick={handleNearby} disabled={geoLoading}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary disabled:opacity-50 transition">
-              <MapPin className="h-4 w-4 text-primary" />
-              {geoLoading ? "Detecting..." : "Find nearby"}
-            </button>
-            <span className="text-muted-foreground text-xs">·</span>
-            <span className="text-xs text-muted-foreground">Free to search · No signup required</span>
-            {hasActiveFilters && (
-              <button onClick={clearAdvanced} className="ml-auto inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                <X size={12} /> Clear filters
-              </button>
-            )}
-          </div>
-          {geoError && <p className="text-sm text-red-600">{geoError}</p>}
-        </div>
-      </section>
-
-      {/* ── ADVANCED SEARCH PANEL ── */}
-      {showAdvanced && (
-        <section className="bg-white border-b border-border">
-          <div className="mx-auto max-w-5xl px-4 py-5">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <label className="text-xs font-semibold text-foreground mb-1 block">Specialty / Focus</label>
-                <input value={advSpecialty} onChange={e => setAdvSpecialty(e.target.value)}
-                  placeholder={role === "therapist" ? "e.g. Anxiety, CBT" : "e.g. Leadership, Career"}
-                  className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-foreground mb-1 block">Language</label>
-                <input value={advLanguage} onChange={e => setAdvLanguage(e.target.value)}
-                  placeholder="e.g. English, French"
-                  className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-foreground mb-1 block">Min Price ($)</label>
-                <input type="number" min="0" value={advMinPrice} onChange={e => setAdvMinPrice(e.target.value)}
-                  placeholder="0"
-                  className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-foreground mb-1 block">Max Price ($)</label>
-                <input type="number" min="0" value={advMaxPrice} onChange={e => setAdvMaxPrice(e.target.value)}
-                  placeholder="Any"
-                  className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center gap-3">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" checked={advVerified} onChange={e => setAdvVerified(e.target.checked)}
-                  className="h-4 w-4 rounded border-border text-primary accent-primary" />
-                <span className="text-sm font-medium text-foreground">Verified only</span>
-              </label>
-              <button onClick={clearAdvanced} className="ml-auto text-xs text-muted-foreground hover:text-primary transition">
-                Reset filters
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ── RESULTS ── */}
-      <div className="mx-auto max-w-5xl px-4 py-8">
-        {error && <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-
-        {/* City pills */}
-        {selectedCountry && cityOptions.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-6">
-            {cityOptions.map(c => (
-              <button key={c.slug} onClick={() => goToCity(selectedCountry, c.name)}
-                className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition ${cityToSlug(pageCity) === c.slug ? "bg-primary text-white border-primary" : "bg-white text-foreground border-border hover:border-primary"}`}>
-                {c.name}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {loading ? (
-          <div className="space-y-4">
-            {[1,2,3].map(i => (
-              <div key={i} className="rounded-xl bg-white border border-border p-5 flex gap-4 animate-pulse">
-                <div className="w-[140px] h-[180px] bg-slate-200 rounded-lg shrink-0" />
-                <div className="flex-1 space-y-3 py-2">
-                  <div className="h-5 bg-slate-200 rounded w-1/3" />
-                  <div className="h-3 bg-slate-200 rounded w-1/4" />
-                  <div className="h-3 bg-slate-200 rounded w-2/3" />
-                  <div className="h-3 bg-slate-200 rounded w-1/2" />
-                  <div className="h-12 bg-slate-200 rounded w-full" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : filteredProviders.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border bg-white py-20 text-center">
-            <p className="text-lg font-semibold text-foreground mb-1">No {pluralWord.toLowerCase()} found</p>
-            <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-5">
-              {hasActiveFilters ? "Try adjusting your filters." : "Try a different country or search term."}
-            </p>
-            {hasActiveFilters && (
-              <button onClick={clearAdvanced} className="rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition">
-                Clear Filters
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredProviders.map(provider => (
-              <ProviderCard
-                key={provider.user_id || provider.id}
-                provider={provider}
-                role={role}
-                singularWord={singularWord}
-                defaultHeadline={roleCopy.defaultHeadline}
-                onNavigate={navigate}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Country browse (shown when no country selected) */}
-        {!loading && !selectedCountry && filteredProviders.length === 0 && (
-          <section className="mt-10 rounded-xl overflow-hidden" style={{ backgroundColor: "#111827" }}>
-            <div className="px-6 py-10 md:px-10">
-              <h2 className="text-xl font-bold text-white mb-6">Browse by Country</h2>
-              <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                {DIRECTORY_COUNTRIES.slice(0, 24).map(c => (
-                  <button key={c.code} onClick={() => goToCountry(c.name)}
-                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 hover:bg-white/10 hover:border-primary/50 transition">
-                    <span className="text-xl shrink-0">{c.flag}</span>
-                    <span className="truncate text-xs font-medium text-white">{c.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-      </div>
-
-      <Footer />
-    </div>
-  );
-};
-
-export default ProviderDirectoryPage;
