@@ -74,15 +74,15 @@ const ProviderCard = ({ provider, role, singularWord, defaultHeadline, onNavigat
 
   return (
     <div className="group flex flex-col sm:flex-row bg-white rounded-2xl border border-slate-200 hover:border-primary/40 hover:shadow-lg transition-all duration-200 overflow-hidden">
-      {/* Photo */}
-      <div className="sm:w-[150px] w-full h-[180px] sm:h-auto shrink-0 cursor-pointer overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 relative"
+      {/* Photo — tall rectangular like reference */}
+      <div className="sm:w-[160px] w-full h-[200px] sm:h-auto sm:min-h-[240px] shrink-0 cursor-pointer overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 relative"
         onClick={() => onNavigate(profilePath)}>
         {provider.avatar_url
           ? <img src={provider.avatar_url} alt={name} className="h-full w-full object-cover object-top group-hover:scale-105 transition-transform duration-300" />
           : <div className="flex h-full w-full items-center justify-center text-5xl font-bold text-primary/30">{name.charAt(0).toUpperCase()}</div>}
         {verified && (
-          <div className="absolute top-2 left-2 bg-emerald-500 rounded-full p-1 shadow">
-            <CheckCircle size={12} className="text-white" />
+          <div className="absolute top-2 left-2 bg-emerald-500 rounded-full p-1.5 shadow-lg">
+            <CheckCircle size={13} className="text-white" />
           </div>
         )}
       </div>

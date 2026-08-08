@@ -356,7 +356,24 @@ export const getRoleCopy = (type: ProviderRole) => {
 
 export const loadProviders = async (type: ProviderRole): Promise<ProviderDirectoryResult> => {
   try {
-    // Primary query: by role column only (most reliable, works with RLS)
+    // Try backend API first — uses service role key, bypasses RLS completely
+    // Works whether user is logged in or not
+    const BACKEND = (import.meta.env.VITE_BACKEND_URL || "https://coursevia-backend.onrender.com").replace(/\/$/, "");
+    try {
+      const res = await fetch(`${BACKEND}/api/directory/${type}`, {
+        signal: AbortSignal.timeout(10000),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data)) {
+          return { data: json.data as Provider[], error: null };
+        }
+      }
+    } catch {
+      // Backend unavailable — fall through to direct Supabase
+    }
+
+    // Fallback: direct Supabase query (works when not logged in due to anon RLS)
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -366,17 +383,7 @@ export const loadProviders = async (type: ProviderRole): Promise<ProviderDirecto
 
     if (error) {
       console.error(`Provider load error for ${type}:`, error);
-      // Fallback: try account_type column
-      const fallback = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("onboarding_completed", true)
-        .eq("account_type", type)
-        .order("updated_at", { ascending: false });
-      if (fallback.error) {
-        return { data: [], error: fallback.error.message };
-      }
-      return { data: (fallback.data || []) as Provider[], error: null };
+      return { data: [], error: error.message };
     }
 
     return { data: (data || []) as Provider[], error: null };

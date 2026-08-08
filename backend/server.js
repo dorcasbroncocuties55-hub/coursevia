@@ -3433,6 +3433,53 @@ app.post("/api/webhooks/paddle",
 // ── GET /api/paddle/config ────────────────────────────────────────────────────
 // Returns the public Paddle config needed by the frontend.
 // Never expose PADDLE_API_KEY — only client token and env.
+
+// ── GET /api/directory/:role ──────────────────────────────────────────────────
+// Returns provider profiles bypassing RLS (uses service role).
+// role = "coach" | "therapist"
+app.get("/api/directory/:role", async (req, res) => {
+  const role = req.params.role;
+  if (!["coach", "therapist"].includes(role)) {
+    return res.status(400).json({ error: "Invalid role" });
+  }
+  if (!supabaseAdmin) {
+    return res.status(503).json({ error: "Backend database not configured" });
+  }
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("profiles")
+      .select("user_id,full_name,display_name,username,avatar_url,headline,bio,role,account_type,onboarding_completed,country,country_code,city,updated_at,booking_price,session_price,hourly_rate,is_verified,verification_status,kyc_status,service_delivery_mode,skills,expertise_areas,languages,profile_slug,specialization_type")
+      .eq("onboarding_completed", true)
+      .eq("role", role)
+      .order("updated_at", { ascending: false });
+
+    if (error) {
+      console.error(`[Directory] Error loading ${role}:`, error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    // Also get account_type fallback
+    const { data: byAccountType } = await supabaseAdmin
+      .from("profiles")
+      .select("user_id,full_name,display_name,username,avatar_url,headline,bio,role,account_type,onboarding_completed,country,country_code,city,updated_at,booking_price,session_price,hourly_rate,is_verified,verification_status,kyc_status,service_delivery_mode,skills,expertise_areas,languages,profile_slug,specialization_type")
+      .eq("onboarding_completed", true)
+      .eq("account_type", role)
+      .order("updated_at", { ascending: false });
+
+    // Merge and deduplicate
+    const seen = new Set();
+    const merged = [];
+    for (const row of [...(data || []), ...(byAccountType || [])]) {
+      const key = row.user_id || row.id;
+      if (key && !seen.has(key)) { seen.add(key); merged.push(row); }
+    }
+
+    return res.json({ data: merged });
+  } catch (err) {
+    console.error(`[Directory] Exception:`, err);
+    return res.status(500).json({ error: err.message || "Failed to load directory" });
+  }
+});
 app.get("/api/paddle/config", async (_req, res) => {
   return res.json({
     configured: !!(PADDLE_API_KEY && !PADDLE_API_KEY.startsWith("replace_")),
