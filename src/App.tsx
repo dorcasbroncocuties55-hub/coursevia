@@ -906,6 +906,7 @@ const App = () => {
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
+              </SubdomainRouter>
             </CartProvider>
           </AuthProvider>
         </BrowserRouter>
