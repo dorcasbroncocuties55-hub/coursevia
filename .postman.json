@@ -1,16 +1,28 @@
 {
-  "workspaceId": "a1346e18-b44e-4f98-845f-aa4573650b85",
-  "collectionId": "53906209-68f47a60-9677-47b1-8c69-a1ccbe4236cc",
-  "environmentId": "53906209-1bb445a4-6728-4659-8a3f-db8a5efd42a5",
+  "workspaceId": "27eb7862-668f-4922-87d8-b743e1bd32c1",
+  "collectionId": "57547551-9ffe0c6e-a427-4f66-b329-343e70351884",
+  "environmentId": "57547551-1559310c-393a-4146-9273-6f216fa90981",
   "collection": {
     "info": {
       "name": "Coursevia Backend API",
       "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "variable": [
-      { "key": "base_url", "value": "http://localhost:5000", "type": "string" },
-      { "key": "user_id", "value": "test-user-id", "type": "string" },
-      { "key": "email", "value": "test@example.com", "type": "string" }
+      {
+        "key": "base_url",
+        "value": "http://localhost:5000",
+        "type": "string"
+      },
+      {
+        "key": "user_id",
+        "value": "test-user-id",
+        "type": "string"
+      },
+      {
+        "key": "email",
+        "value": "test@example.com",
+        "type": "string"
+      }
     ],
     "item": [
       {
@@ -85,7 +97,12 @@
             "name": "Initialize Subscription",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/subscriptions/initialize",
               "body": {
                 "mode": "raw",
@@ -127,7 +144,12 @@
             "name": "Initialize Subscription - Invalid Plan",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/subscriptions/initialize",
               "body": {
                 "mode": "raw",
@@ -153,7 +175,12 @@
             "name": "Cancel Subscription",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/subscriptions/cancel",
               "body": {
                 "mode": "raw",
@@ -186,7 +213,12 @@
             "name": "Initialize Checkout",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/checkout/initialize",
               "body": {
                 "mode": "raw",
@@ -217,7 +249,12 @@
             "name": "Initialize Checkout - Missing Fields",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/checkout/initialize",
               "body": {
                 "mode": "raw",
@@ -292,7 +329,12 @@
             "name": "Create Persona KYC Session",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/kyc/persona/session",
               "body": {
                 "mode": "raw",
@@ -323,7 +365,12 @@
             "name": "Create Persona KYC Session - Missing Fields",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/kyc/persona/session",
               "body": {
                 "mode": "raw",
@@ -349,7 +396,12 @@
             "name": "Persona Webhook",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/kyc/persona/webhook",
               "body": {
                 "mode": "raw",
@@ -491,7 +543,12 @@
             "name": "Resolve Beneficiary",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/payouts/resolve-beneficiary",
               "body": {
                 "mode": "raw",
@@ -517,7 +574,12 @@
             "name": "Send Verification (Add Bank Account)",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/payouts/send-verification",
               "body": {
                 "mode": "raw",
@@ -546,7 +608,12 @@
             "name": "Verify Beneficiary",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/payouts/verify-beneficiary",
               "body": {
                 "mode": "raw",
@@ -593,7 +660,12 @@
             "name": "Withdraw",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/payouts/withdraw",
               "body": {
                 "mode": "raw",
@@ -621,7 +693,12 @@
             "name": "Withdraw - Invalid Amount",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/payouts/withdraw",
               "body": {
                 "mode": "raw",
@@ -674,7 +751,12 @@
             "name": "Wallet Withdraw",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/wallet/withdraw",
               "body": {
                 "mode": "raw",
@@ -701,7 +783,12 @@
             "name": "Wallet Withdraw - Invalid Amount",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/wallet/withdraw",
               "body": {
                 "mode": "raw",
@@ -807,7 +894,12 @@
             "name": "Charge Card Token",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/checkout/charge",
               "body": {
                 "mode": "raw",
@@ -843,7 +935,12 @@
             "name": "Charge Card Token - Missing Fields",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/checkout/charge",
               "body": {
                 "mode": "raw",
@@ -874,7 +971,12 @@
             "name": "Request Refund",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/refunds/request",
               "body": {
                 "mode": "raw",
@@ -902,7 +1004,12 @@
             "name": "Request Refund - Missing Fields",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/refunds/request",
               "body": {
                 "mode": "raw",
@@ -928,7 +1035,12 @@
             "name": "Approve Refund",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/refunds/approve",
               "body": {
                 "mode": "raw",
@@ -956,7 +1068,12 @@
             "name": "Approve Refund - Missing refund_id",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/refunds/approve",
               "body": {
                 "mode": "raw",
@@ -987,7 +1104,12 @@
             "name": "Submit Report",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/reports/submit",
               "body": {
                 "mode": "raw",
@@ -1019,7 +1141,12 @@
             "name": "Submit Report - Missing Fields",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/reports/submit",
               "body": {
                 "mode": "raw",
@@ -1050,7 +1177,12 @@
             "name": "Create Admin Account",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/admin/create-account",
               "body": {
                 "mode": "raw",
@@ -1082,7 +1214,12 @@
             "name": "Create Admin Account - Missing Fields",
             "request": {
               "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "url": "{{base_url}}/api/admin/create-account",
               "body": {
                 "mode": "raw",

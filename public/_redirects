@@ -1,0 +1,14 @@
+# Netlify redirects for subdomain routing
+
+# Judge Portal - console.judge-login.coursevia.site
+https://console.judge-login.coursevia.site/* https://coursevia.com/judge-portal/:splat 301!
+
+# Judge Dashboard - console.judge-portal.coursevia.site  
+https://console.judge-portal.coursevia.site/* https://coursevia.com/judge-portal/:splat 301!
+
+# Fallback redirects for subdomains
+/judge-portal/login /judge-portal/login 200
+/judge-portal/* /judge-portal/index.html 200
+
+# Main site redirects
+/* /index.html 200
