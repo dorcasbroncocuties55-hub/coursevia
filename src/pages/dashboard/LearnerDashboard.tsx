@@ -11,6 +11,7 @@ import { WelcomeBanner } from "@/components/dashboard/WelcomeBanner";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { PageLoading } from "@/components/LoadingSpinner";
+import { queryWithRefresh } from "@/hooks/useSupabaseQuery";
 
 const LearnerDashboard = () => {
   const { user, profile, loading: authLoading } = useAuth();
@@ -32,12 +33,23 @@ const LearnerDashboard = () => {
     const fetchDashboardData = async () => {
       setDataLoading(true);
       try {
+        // Wrap each query with automatic retry on JWT expiration
         const [videos, bookings, notifs, paymentMethods, payments] = await Promise.all([
-          safeSingle<any>(supabase.from("content_access").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("content_type", "video"), { count: 0 }),
-          safeSingle<any>(supabase.from("bookings").select("id", { count: "exact", head: true }).eq("learner_id", user.id), { count: 0 }),
-          safeSingle<any>(supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("is_read", false), { count: 0 }),
-          safeSingle<any>(supabase.from("payment_methods" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id), { count: 0 }),
-          supabase.from("payments").select("amount, created_at, payment_type").eq("payer_id", user.id).eq("status", "success").order("created_at", { ascending: false }).limit(10),
+          queryWithRefresh(
+            () => supabase.from("content_access").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("content_type", "video")
+          ).then(result => safeSingle<any>(result, { count: 0 })),
+          queryWithRefresh(
+            () => supabase.from("bookings").select("id", { count: "exact", head: true }).eq("learner_id", user.id)
+          ).then(result => safeSingle<any>(result, { count: 0 })),
+          queryWithRefresh(
+            () => supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("is_read", false)
+          ).then(result => safeSingle<any>(result, { count: 0 })),
+          queryWithRefresh(
+            () => supabase.from("payment_methods" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id)
+          ).then(result => safeSingle<any>(result, { count: 0 })),
+          queryWithRefresh(
+            () => supabase.from("payments").select("amount, created_at, payment_type").eq("payer_id", user.id).eq("status", "success").order("created_at", { ascending: false }).limit(10)
+          ),
         ]);
 
         const totalSpent = payments.data?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
@@ -56,7 +68,7 @@ const LearnerDashboard = () => {
             type: p.payment_type === "subscription" ? "payment" : (p.payment_type as any),
             title:
               p.payment_type === "subscription" ? "Subscription Payment" :
-              p.payment_type === "booking" ? "Session Booking" : "Payment",
+                p.payment_type === "booking" ? "Session Booking" : "Payment",
             description: `$${p.amount} payment completed`,
             timestamp: p.created_at,
             status: "success" as const,
@@ -82,9 +94,9 @@ const LearnerDashboard = () => {
   const firstName = profile?.full_name?.split(" ")[0] || "Learner";
 
   const quickActions = [
-    { label: "Find Coaches",       href: "/coaches",                   description: "Book 1-on-1 sessions with expert coaches",    icon: Users },
-    { label: "Watch Videos",       href: "/videos",                    description: "Access our library of educational videos",    icon: Video },
-    { label: "Find Therapists",    href: "/therapists",                description: "Connect with verified therapists",            icon: Star },
+    { label: "Find Coaches", href: "/coaches", description: "Book 1-on-1 sessions with expert coaches", icon: Users },
+    { label: "Watch Videos", href: "/videos", description: "Access our library of educational videos", icon: Video },
+    { label: "Find Therapists", href: "/therapists", description: "Connect with verified therapists", icon: Star },
     {
       label: "Manage Subscription", href: "/dashboard/subscription",
       description: "View and update your membership plan", icon: Star,
@@ -129,8 +141,8 @@ const LearnerDashboard = () => {
         )}
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <DashboardCard title="My Videos"   value={stats.videos}   description="Purchased videos"    icon={<Video className="h-6 w-6" />}      href="/dashboard/videos"   color="purple" loading={dataLoading} />
-          <DashboardCard title="Bookings"    value={stats.bookings} description="Scheduled sessions"  icon={<Calendar className="h-6 w-6" />}   href="/dashboard/bookings" color="green"  loading={dataLoading} />
+          <DashboardCard title="My Videos" value={stats.videos} description="Purchased videos" icon={<Video className="h-6 w-6" />} href="/dashboard/videos" color="purple" loading={dataLoading} />
+          <DashboardCard title="Bookings" value={stats.bookings} description="Scheduled sessions" icon={<Calendar className="h-6 w-6" />} href="/dashboard/bookings" color="green" loading={dataLoading} />
           <DashboardCard title="Total Spent" value={`$${stats.totalSpent.toFixed(2)}`} description="All-time investment" icon={<TrendingUp className="h-6 w-6" />} color="orange" loading={dataLoading} />
         </div>
 

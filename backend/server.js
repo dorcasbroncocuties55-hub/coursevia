@@ -1,11 +1,10 @@
-
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import crypto from "crypto";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
-import { getBanks } from "./bankData.js";
+import * as StripeConnect from "./stripe-connect.js";
 
 const app = express();
 app.use(cors());
@@ -21,18 +20,6 @@ const CURRENCY = process.env.CURRENCY || "usd";
 const MONTHLY_PLAN_PRICE = Number(process.env.MONTHLY_PLAN_PRICE || 10);
 const YEARLY_PLAN_PRICE = Number(process.env.YEARLY_PLAN_PRICE || 120);
 const NUBAN_API_KEY = process.env.NUBAN_API_KEY || "";
-
-// Didit KYC
-const DIDIT_CLIENT_ID = process.env.DIDIT_CLIENT_ID || "";
-const DIDIT_API_KEY = process.env.DIDIT_API_KEY || "";
-const DIDIT_BASE_URL = process.env.DIDIT_BASE_URL || "https://api.didit.me";
-const DIDIT_WEBHOOK_SECRET = process.env.DIDIT_WEBHOOK_SECRET || "";
-
-// Persona KYC (Legacy)
-const PERSONA_API_KEY = process.env.PERSONA_API_KEY || "";
-const PERSONA_TEMPLATE_ID = process.env.PERSONA_TEMPLATE_ID || "persona_sandbox_59ce022a-0305-4892-84fd-4bc3482399d5";
-const PERSONA_BASE_URL = process.env.PERSONA_BASE_URL || "https://withpersona.com/api/v1";
-const PERSONA_WEBHOOK_SECRET = process.env.PERSONA_WEBHOOK_SECRET || "";
 
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2024-04-10" }) : null;
 
@@ -64,7 +51,6 @@ const readSubscription = async (userId) => {
 
 const persistPaymentIntent = async ({ reference, userId, amount, type, contentId, status = "pending" }) => {
   if (!supabaseAdmin || !userId) return;
-  // Fire and forget - don't await, don't block the checkout flow
   supabaseAdmin.from("payments").insert({
     payer_id: userId,
     amount: safeNumber(amount),
@@ -154,15 +140,14 @@ const markPaymentVerified = async ({ reference, type, userId, contentId, amount,
 
   if (type === "booking" && contentId) {
     await supabaseAdmin.from("bookings").update({ status: "confirmed", updated_at: new Date().toISOString() }).eq("id", contentId);
-    
-    // Send booking confirmation emails
+
     const { data: booking } = await supabaseAdmin.from("bookings").select("*, coach_profiles(*, profiles(*))").eq("id", contentId).maybeSingle();
     const { data: learner } = await supabaseAdmin.from("profiles").select("*").eq("user_id", userId).maybeSingle();
-    
+
     if (booking && learner) {
       const providerProfile = booking.coach_profiles?.profiles || {};
       const serviceMode = booking.service_delivery_mode || "online";
-      
+
       try {
         await fetch(`${APP_URL}/api/notifications/booking-confirmation`, {
           method: "POST",
@@ -189,25 +174,8 @@ const markPaymentVerified = async ({ reference, type, userId, contentId, amount,
   }
 };
 
-// Persona helpers
-const personaHeaders = () => ({ Authorization: `Bearer ${PERSONA_API_KEY}`, "Content-Type": "application/json", Accept: "application/json" });
-const normalizePersonaStatus = (status = "") => {
-  const v = String(status).toLowerCase();
-  if (["approved", "completed", "passed", "success"].includes(v)) return "approved";
-  if (["declined", "failed", "rejected", "requires_retry"].includes(v)) return "rejected";
-  return v || "pending";
-};
-const isPersonaWebhookAuthorized = (req) => {
-  if (!PERSONA_WEBHOOK_SECRET) return true;
-  const token = req.headers["persona-signature"] || req.headers["x-persona-signature"] || "";
-  return token === PERSONA_WEBHOOK_SECRET;
-};
-
 // In-memory fallbacks
 const demoStore = new Map();
-const payoutAccountsMemory = new Map();
-const payoutWithdrawalsMemory = new Map();
-const payoutVerificationCodes = new Map();
 const listMemory = (store, userId) => store.get(userId) || [];
 const setMemory = (store, userId, rows) => store.set(userId, rows);
 const ensureArray = (v) => Array.isArray(v) ? v : [];
@@ -247,15 +215,10 @@ const subscriptionPlans = [
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
-// Health check - used by UptimeRobot to keep server awake
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// ── Internal payment ──────────────────────────────────────────────────────────
-// POST /api/pay — records a completed payment and credits provider wallet.
-// The frontend collects card details and never sends raw card data here;
-// only masked metadata (brand, last4) is stored for display purposes.
 app.post("/api/pay", async (req, res) => {
   try {
     const {
@@ -278,25 +241,23 @@ app.post("/api/pay", async (req, res) => {
 
     const ref = reference || buildReference("pay");
 
-    // 1. Record the payment
     if (supabaseAdmin) {
       const { error: payErr } = await supabaseAdmin.from("payments").insert({
-        payer_id:       userId,
-        amount:         numericAmount,
-        currency:       CURRENCY,
-        payment_type:   type,
-        reference_id:   ref,
-        status:         "success",
+        payer_id: userId,
+        amount: numericAmount,
+        currency: CURRENCY,
+        payment_type: type,
+        reference_id: ref,
+        status: "success",
         payment_method: "card",
-        admin_notes:    [
-          contentId     ? `content_id:${contentId}`   : null,
-          contentTitle  ? `title:${contentTitle}`      : null,
-          cardBrand     ? `card:${cardBrand} ****${cardLast4}` : null,
+        admin_notes: [
+          contentId ? `content_id:${contentId}` : null,
+          contentTitle ? `title:${contentTitle}` : null,
+          cardBrand ? `card:${cardBrand} ****${cardLast4}` : null,
         ].filter(Boolean).join(" | ") || null,
       });
       if (payErr) console.warn("[pay] payment insert warning:", payErr.message);
 
-      // 2. Credit wallets (same split logic as Stripe flow: 5% admin, 95% provider)
       let providerId = null;
       if (contentId && type !== "subscription") {
         if (type === "booking") {
@@ -312,10 +273,9 @@ app.post("/api/pay", async (req, res) => {
         }
       }
 
-      const adminShare    = type === "subscription" ? numericAmount : Math.round(numericAmount * 0.05 * 100) / 100;
+      const adminShare = type === "subscription" ? numericAmount : Math.round(numericAmount * 0.05 * 100) / 100;
       const providerShare = numericAmount - adminShare;
 
-      // Credit admin wallet
       const { data: adminRole } = await supabaseAdmin.from("user_roles").select("user_id").eq("role", "admin").limit(1).maybeSingle();
       if (adminRole?.user_id) {
         const { data: adminWallet } = await supabaseAdmin.from("wallets").select("*").eq("user_id", adminRole.user_id).maybeSingle();
@@ -333,7 +293,6 @@ app.post("/api/pay", async (req, res) => {
         }
       }
 
-      // Credit provider wallet (pending — 8-day hold)
       if (providerShare > 0 && providerId) {
         await supabaseAdmin.from("wallets").upsert(
           { user_id: providerId, currency: CURRENCY, balance: 0, pending_balance: 0, available_balance: 0 },
@@ -354,14 +313,12 @@ app.post("/api/pay", async (req, res) => {
         }
       }
 
-      // Confirm booking if applicable
       if (type === "booking" && contentId) {
         await supabaseAdmin.from("bookings").update({
           status: "confirmed", updated_at: new Date().toISOString(),
         }).eq("id", contentId);
       }
 
-      // Handle subscription
       if (type === "subscription" && userId && plan) {
         const endsAt = new Date();
         String(plan).toLowerCase() === "yearly"
@@ -382,11 +339,11 @@ app.post("/api/pay", async (req, res) => {
     }
 
     return res.json({
-      success:    true,
-      reference:  ref,
-      status:     "success",
-      message:    "Payment recorded successfully.",
-      amount:     numericAmount,
+      success: true,
+      reference: ref,
+      status: "success",
+      message: "Payment recorded successfully.",
+      amount: numericAmount,
     });
   } catch (error) {
     console.error("[pay] error:", error);
@@ -394,7 +351,6 @@ app.post("/api/pay", async (req, res) => {
   }
 });
 
-// ── ElevenLabs TTS proxy (avoids CORS/401 from browser) ──────────────────────
 app.post("/api/tts", async (req, res) => {
   try {
     const { text, voice_id } = req.body || {};
@@ -457,7 +413,6 @@ app.get("/api/subscriptions/current", async (req, res) => {
   }
 });
 
-// POST /api/subscriptions/initialize — creates a Stripe Checkout Session for subscriptions
 app.post("/api/subscriptions/initialize", async (req, res) => {
   try {
     const { email, userId, planId } = req.body || {};
@@ -473,7 +428,6 @@ app.post("/api/subscriptions/initialize", async (req, res) => {
       const successUrl = `${APP_URL}/billing/subscription-callback?reference=${encodeURIComponent(reference)}`;
       const cancelUrl = `${APP_URL}/billing/subscription-callback?reference=${encodeURIComponent(reference)}&failed=1`;
 
-      // Use recurring price ID if available, otherwise fall back to one-time payment
       const stripePriceId = plan.stripePriceId || (planId === "yearly" ? "price_1TLX5vDrKgcLcR6esrkN3f6L" : "price_1TLX5vDrKgcLcR6e0kVQObOP");
 
       const session = await stripe.checkout.sessions.create({
@@ -488,7 +442,6 @@ app.post("/api/subscriptions/initialize", async (req, res) => {
       return res.json({ success: true, reference, redirect_url: session.url, authorization_url: session.url, message: "Redirecting to Stripe checkout." });
     }
 
-    // Demo fallback
     const authUrl = `${APP_URL}/billing/subscription-callback?reference=${encodeURIComponent(reference)}&demo=1`;
     demoStore.set(reference, { type: "subscription", userId, amount: plan.price, plan: plan.code, contentId: null });
     return res.json({ success: true, reference, redirect_url: authUrl, authorization_url: authUrl, message: "Demo subscription checkout initialized." });
@@ -512,7 +465,6 @@ app.post("/api/subscriptions/cancel", async (req, res) => {
   }
 });
 
-// POST /api/checkout/initialize — creates a Stripe Checkout Session for one-off payments
 app.post("/api/checkout/initialize", async (req, res) => {
   try {
     const { email, user_id: userId, type, amount, content_id: contentId, content_title: contentTitle, plan, callback_url: callbackUrl } = req.body || {};
@@ -540,7 +492,6 @@ app.post("/api/checkout/initialize", async (req, res) => {
       return res.json({ success: true, reference, redirect_url: session.url, authorization_url: session.url, message: "Redirecting to Stripe checkout." });
     }
 
-    // Demo / zero-amount fallback
     const redirectBase = callbackUrl || `${APP_URL}/billing/subscription-callback`;
     const authUrl = `${redirectBase}${redirectBase.includes("?") ? "&" : "?"}reference=${encodeURIComponent(reference)}&demo=1`;
     demoStore.set(reference, { type: normalizedType, userId, amount: numericAmount, contentId: contentId || null, plan: plan || null });
@@ -550,7 +501,6 @@ app.post("/api/checkout/initialize", async (req, res) => {
   }
 });
 
-// GET /api/checkout/verify — verify a Stripe payment by reference
 app.get("/api/checkout/verify", async (req, res) => {
   try {
     const reference = String(req.query.reference || "").trim();
@@ -602,22 +552,20 @@ app.get("/api/checkout/verify", async (req, res) => {
   }
 });
 
-// GET /api/checkout/config — diagnostic
 app.get("/api/checkout/config", (req, res) => {
-  res.json({ 
-    mode: stripe ? "live" : "demo", 
-    provider: "stripe", 
-    currency: CURRENCY, 
+  res.json({
+    mode: stripe ? "live" : "demo",
+    provider: "stripe",
+    currency: CURRENCY,
     app_url: APP_URL,
-    base_url: APP_URL 
+    base_url: APP_URL
   });
 });
 
-// POST /api/checkout/charge — charge a card token directly
 app.post("/api/checkout/charge", async (req, res) => {
   try {
     const { token, amount, currency = CURRENCY, description, metadata = {} } = req.body || {};
-    
+
     if (!token || !amount) {
       return res.status(400).json({ message: "token and amount are required." });
     }
@@ -631,7 +579,6 @@ app.post("/api/checkout/charge", async (req, res) => {
 
     if (stripe) {
       try {
-        // Create payment intent with the card token
         const paymentIntent = await stripe.paymentIntents.create({
           amount: toCents(numericAmount),
           currency: currency.toLowerCase(),
@@ -679,8 +626,7 @@ app.post("/api/checkout/charge", async (req, res) => {
       }
     }
 
-    // Demo mode fallback
-    const demoSuccess = Math.random() > 0.1; // 90% success rate in demo
+    const demoSuccess = Math.random() > 0.1;
     if (demoSuccess) {
       return res.json({
         success: true,
@@ -699,13 +645,12 @@ app.post("/api/checkout/charge", async (req, res) => {
       });
     }
   } catch (error) {
-    return res.status(500).json({ 
-      message: error instanceof Error ? error.message : "Could not process charge." 
+    return res.status(500).json({
+      message: error instanceof Error ? error.message : "Could not process charge."
     });
   }
 });
 
-// POST /api/webhooks/stripe — Stripe webhook handler
 app.post("/api/webhooks/stripe", express.raw({ type: "application/json" }), async (req, res) => {
   try {
     let event;
@@ -731,7 +676,7 @@ app.post("/api/webhooks/stripe", express.raw({ type: "application/json" }), asyn
           amount: safeNumber(obj.amount_total, 0) / 100,
           metadata,
         });
-        console.log(`[Stripe Webhook] ✓ Payment verified: ${reference}`);
+        console.log(`[Stripe Webhook] Payment verified: ${reference}`);
       }
     }
 
@@ -740,7 +685,7 @@ app.post("/api/webhooks/stripe", express.raw({ type: "application/json" }), asyn
       const reference = metadata.reference || "";
       if (reference) {
         await supabaseAdmin.from("payments").update({ status: "failed", updated_at: new Date().toISOString() }).eq("reference_id", reference);
-        console.log(`[Stripe Webhook] ✗ Payment failed: ${reference}`);
+        console.log(`[Stripe Webhook] Payment failed: ${reference}`);
       }
     }
 
@@ -751,486 +696,15 @@ app.post("/api/webhooks/stripe", express.raw({ type: "application/json" }), asyn
   }
 });
 
-// ── KYC / Didit ─────────────────────────────────────────────────────────────
-
-const diditHeaders = () => ({
-  "Content-Type": "application/json",
-  "Authorization": `Bearer ${DIDIT_API_KEY}`,
-  "X-Client-Id": DIDIT_CLIENT_ID,
-});
-
-const normalizeDiditStatus = (status) => {
-  const s = String(status || "").toLowerCase();
-  if (s === "approved" || s === "verified" || s === "completed") return "approved";
-  if (s === "rejected" || s === "declined" || s === "failed") return "rejected";
-  if (s === "pending" || s === "in_progress" || s === "processing") return "pending";
-  return "pending";
-};
-
-app.post("/api/kyc/didit/session", async (req, res) => {
-  try {
-    if (!DIDIT_API_KEY || !DIDIT_CLIENT_ID) {
-      return res.status(500).json({ message: "Didit KYC is not configured." });
-    }
-
-    const { userId, email, fullName, country, phone, role } = req.body || {};
-    if (!userId || !role) {
-      return res.status(400).json({ message: "userId and role are required." });
-    }
-
-    const payload = {
-      vendor_data: userId, // IMPORTANT: This is how we identify the user in webhook
-      email: email || undefined,
-      full_name: fullName || undefined,
-      country: country || undefined,
-      phone: phone || undefined,
-      metadata: {
-        role,
-        platform: "coursevia",
-        user_id: userId, // Backup identifier
-      },
-      callback_url: `${APP_URL}/api/kyc/didit/webhook`,
-      redirect_url: `${APP_URL}/dashboard`,
-    };
-
-    const response = await fetch(`${DIDIT_BASE_URL}/v1/verifications`, {
-      method: "POST",
-      headers: diditHeaders(),
-      body: JSON.stringify(payload),
-    });
-
-    const json = await response.json();
-
-    if (!response.ok) {
-      console.error("Didit API error:", json);
-      return res.status(response.status).json({
-        message: json?.message || "Could not create Didit verification session.",
-        details: json,
-      });
-    }
-
-    const verificationId = json?.id || json?.verification_id || json?.session_id;
-    const verificationUrl = json?.url || json?.verification_url || json?.session_url;
-
-    if (supabaseAdmin && verificationId) {
-      await supabaseAdmin.from("verification_requests").insert({
-        user_id: userId,
-        verification_type: "provider_identity",
-        provider: "didit",
-        inquiry_id: verificationId,
-        status: "pending",
-        verification_method: "api",
-        decision_payload: json,
-      });
-    }
-
-    return res.json({
-      provider: "didit",
-      verificationId,
-      verificationUrl,
-      clientId: DIDIT_CLIENT_ID,
-    });
-  } catch (error) {
-    console.error("Didit session error:", error);
-    return res.status(500).json({
-      message: error instanceof Error ? error.message : "Unknown KYC error.",
-    });
-  }
-});
-
-app.post("/api/kyc/didit/webhook", async (req, res) => {
-  try {
-    const payload = req.body || {};
-    
-    // Didit webhook structure based on actual webhook JSON
-    const webhookType = payload?.webhook_type || "unknown";
-    const sessionId = payload?.session_id;
-    const workflowId = payload?.workflow_id;
-    const vendorData = payload?.vendor_data; // This is the userId we sent
-    const decision = payload?.decision || {};
-    
-    // Extract status from decision object (nested structure)
-    const rawStatus = decision?.status || payload?.status || "pending";
-    const status = normalizeDiditStatus(rawStatus);
-    
-    // Extract user_id from vendor_data (primary) or decision metadata
-    const userId = vendorData || decision?.vendor_data || payload?.metadata?.user_id;
-    
-    // Extract user details from id_verifications array
-    const idVerifications = decision?.id_verifications || [];
-    const idVerification = idVerifications[0] || {};
-    
-    const userDetails = {
-      full_name: idVerification?.full_name || null,
-      first_name: idVerification?.first_name || null,
-      last_name: idVerification?.last_name || null,
-      date_of_birth: idVerification?.date_of_birth || null,
-      document_type: idVerification?.document_type || null,
-      document_number: idVerification?.document_number || null,
-      nationality: idVerification?.nationality || null,
-      issuing_state: idVerification?.issuing_state || null,
-      address: idVerification?.address || idVerification?.formatted_address || null,
-    };
-
-    console.log("Didit webhook received:", {
-      webhookType,
-      sessionId,
-      userId,
-      status,
-      workflowId,
-      userDetails,
-    });
-
-    if (supabaseAdmin && userId && sessionId) {
-      // Update profile KYC status
-      const updateData = {
-        kyc_status: status,
-        kyc_provider: "didit",
-        kyc_inquiry_id: sessionId,
-        is_verified: status === "approved",
-        verified_at: status === "approved" ? new Date().toISOString() : null,
-        updated_at: new Date().toISOString(),
-      };
-      
-      // Add verified user details if approved
-      if (status === "approved" && userDetails.full_name) {
-        updateData.verified_name = userDetails.full_name;
-        updateData.verified_document_type = userDetails.document_type;
-        updateData.verified_nationality = userDetails.nationality;
-      }
-      
-      const { error: profileError } = await supabaseAdmin
-        .from("profiles")
-        .update(updateData)
-        .eq("user_id", userId);
-
-      if (profileError) {
-        console.error("Didit webhook profile update error:", profileError);
-      } else {
-        console.log(`Profile updated for user ${userId}: ${status}`);
-      }
-
-      // Update or create verification request
-      const { error: requestError } = await supabaseAdmin
-        .from("verification_requests")
-        .upsert({
-          user_id: userId,
-          inquiry_id: sessionId,
-          provider: "didit",
-          verification_type: "provider_identity",
-          status,
-          decision_payload: payload,
-          reviewed_at: new Date().toISOString(),
-          verification_method: "api",
-        }, {
-          onConflict: "inquiry_id,user_id"
-        });
-
-      if (requestError) {
-        console.error("Didit webhook request update error:", requestError);
-      }
-
-      // Log verification event
-      await supabaseAdmin.from("provider_verification_events").insert({
-        user_id: userId,
-        provider: "didit",
-        inquiry_id: sessionId,
-        event_type: webhookType,
-        payload,
-      });
-    } else {
-      console.warn("Missing required data:", { userId, sessionId });
-    }
-
-    return res.json({
-      received: true,
-      provider: "didit",
-      webhookType,
-      sessionId,
-      userId,
-      status,
-    });
-  } catch (error) {
-    console.error("Didit webhook error:", error);
-    return res.status(500).json({
-      message: error instanceof Error ? error.message : "Webhook processing failed.",
-    });
-  }
-});
-
-app.get("/api/kyc/didit/status/:verificationId", async (req, res) => {
-  try {
-    if (!DIDIT_API_KEY || !DIDIT_CLIENT_ID) {
-      return res.status(500).json({ message: "Didit KYC is not configured." });
-    }
-
-    const { verificationId } = req.params;
-
-    const response = await fetch(`${DIDIT_BASE_URL}/v1/verifications/${verificationId}`, {
-      method: "GET",
-      headers: diditHeaders(),
-    });
-
-    const json = await response.json();
-
-    if (!response.ok) {
-      return res.status(response.status).json({
-        message: "Could not fetch verification status.",
-        details: json,
-      });
-    }
-
-    const status = normalizeDiditStatus(json?.status);
-
-    return res.json({
-      verificationId,
-      status,
-      data: json,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: error instanceof Error ? error.message : "Status check failed.",
-    });
-  }
-});
-
-// ── KYC / Persona (Legacy) ─────────────────────────────────────────────────────────────
-
-app.post("/api/kyc/persona/session", async (req, res) => {
-  try {
-    if (!PERSONA_API_KEY || !PERSONA_TEMPLATE_ID) return res.status(500).json({ message: "Persona KYC is not configured." });
-    const { userId, email, fullName, country, phone, role, preferredDocument = "national_id" } = req.body || {};
-    if (!userId || !role) return res.status(400).json({ message: "userId and role are required." });
-
-    const payload = {
-      data: {
-        type: "inquiry",
-        attributes: {
-          template_id: PERSONA_TEMPLATE_ID,
-          note: `${role} verification`,
-          reference_id: userId,
-          payload: { user_id: userId, role, preferred_document: preferredDocument, country: country || null, phone: phone || null },
-          redirect_uri: `${APP_URL}/onboarding`,
-        },
-        relationships: {
-          account: { data: { type: "account", attributes: { reference_id: userId, name: fullName || email || `user-${userId}`, email_address: email || undefined } } },
-        },
-      },
-    };
-
-    const response = await fetch(`${PERSONA_BASE_URL}/inquiries`, { method: "POST", headers: personaHeaders(), body: JSON.stringify(payload) });
-    const json = await response.json();
-    if (!response.ok) return res.status(response.status).json({ message: json?.errors?.[0]?.detail || "Could not create Persona inquiry.", details: json });
-
-    const inquiryId = json?.data?.id;
-    const inquiryUrl = json?.data?.attributes?.inquiry_url || json?.data?.attributes?.redirect_uri || null;
-
-    if (supabaseAdmin && inquiryId) {
-      await supabaseAdmin.from("verification_requests").insert({ user_id: userId, verification_type: "provider_identity", provider: "persona", inquiry_id: inquiryId, status: "pending", verification_method: "api", document_type: preferredDocument, decision_payload: json });
-    }
-
-    return res.json({ provider: "persona", inquiryId, inquiryUrl, templateId: PERSONA_TEMPLATE_ID });
-  } catch (error) {
-    return res.status(500).json({ message: error instanceof Error ? error.message : "Unknown KYC error." });
-  }
-});
-
-app.post("/api/kyc/persona/webhook", async (req, res) => {
-  try {
-    if (!isPersonaWebhookAuthorized(req)) return res.status(401).json({ message: "Unauthorized Persona webhook." });
-
-    const payload = req.body || {};
-    const eventType = payload?.data?.attributes?.name || payload?.type || "unknown";
-    const included = Array.isArray(payload?.included) ? payload.included : [];
-    const inquiry = included.find((e) => e?.type === "inquiry") || payload?.data || {};
-    const inquiryId = inquiry?.id || null;
-    const inquiryAttributes = inquiry?.attributes || payload?.data?.attributes || {};
-    const referenceId = inquiryAttributes?.reference_id || inquiryAttributes?.payload?.user_id || null;
-    const rawStatus = inquiryAttributes?.status || (eventType.includes("approved") ? "approved" : eventType.includes("declined") ? "rejected" : "pending");
-    const status = normalizePersonaStatus(rawStatus);
-    const documentVerification = included.find((e) => e?.type === "verification/government-id");
-    const selfieVerification = included.find((e) => e?.type === "verification/selfie");
-    const documentType = documentVerification?.attributes?.id_class || null;
-    const faceMatchStatus = selfieVerification?.attributes?.status || null;
-
-    if (supabaseAdmin && referenceId) {
-      const { error } = await supabaseAdmin.rpc("apply_provider_verification_decision", { p_user_id: referenceId, p_provider: "persona", p_inquiry_id: inquiryId, p_status: status, p_document_type: documentType, p_face_match_status: faceMatchStatus, p_payload: payload });
-      if (error) console.error("Persona webhook RPC error", error);
-      await supabaseAdmin.from("provider_verification_events").insert({ user_id: referenceId, provider: "persona", inquiry_id: inquiryId, event_type: eventType, payload });
-    }
-
-    return res.json({ received: true, provider: "persona", eventType, inquiryId, referenceId, status });
-  } catch (error) {
-    return res.status(500).json({ message: error instanceof Error ? error.message : "Unknown Persona webhook error." });
-  }
-});
-
-// ── Payouts ───────────────────────────────────────────────────────────────────
-
-app.get("/api/payouts/accounts", async (req, res) => {
-  try {
-    const userId = String(req.query.user_id || "").trim();
-    if (!userId) return res.status(400).json({ error: "user_id is required." });
-    if (supabaseAdmin) {
-      const { data, error } = await supabaseAdmin.from("bank_accounts").select("*").eq("user_id", userId).order("created_at", { ascending: false });
-      if (!error) return res.json({ accounts: data || [] });
-    }
-    return res.json({ accounts: listMemory(payoutAccountsMemory, userId) });
-  } catch (error) {
-    return res.status(500).json({ error: error instanceof Error ? error.message : "Could not load payout accounts." });
-  }
-});
-
-app.get("/api/payouts/withdrawals", async (req, res) => {
-  try {
-    const userId = String(req.query.user_id || "").trim();
-    if (!userId) return res.status(400).json({ error: "user_id is required." });
-    if (supabaseAdmin) {
-      const { data, error } = await supabaseAdmin.from("withdrawals").select("id, amount, status, created_at").eq("user_id", userId).order("created_at", { ascending: false });
-      if (!error) return res.json({ withdrawals: data || [] });
-    }
-    return res.json({ withdrawals: listMemory(payoutWithdrawalsMemory, userId) });
-  } catch (error) {
-    return res.status(500).json({ error: error instanceof Error ? error.message : "Could not load withdrawals." });
-  }
-});
-
-app.get("/api/payouts/capabilities", async (req, res) => {
-  const country = String(req.query.country || "").trim().toUpperCase();
-  const currency = String(req.query.currency || "USD").trim().toUpperCase();
-  if (!country) return res.status(400).json({ error: "country is required." });
-  return res.json({ capability: { country_code: country, currency, provider: "Coursevia", rails: ["swift", "iban", "local_bank"], supports_account_resolve: true, verification_mode: "code", supported: true } });
-});
-
-app.get("/api/payouts/banks", async (req, res) => {
-  const country = String(req.query.country || "").trim().toUpperCase();
-  const query = String(req.query.query || "").trim();
-  if (!country) return res.status(400).json({ error: "country is required." });
-  return res.json({ banks: getBanks(country, query) });
-});
-
-app.post("/api/payouts/resolve-beneficiary", async (req, res) => {
-  const { account_number: accountNumber, bank_code: bankCode, country_code: countryCode, account_name: accountName } = req.body || {};
-  if (!accountNumber) return res.status(400).json({ error: "account_number is required." });
-  const country = String(countryCode || "").toUpperCase();
-
-  if (country === "NG" && NUBAN_API_KEY && bankCode) {
-    try {
-      const url = `https://app.nuban.com.ng/api/${NUBAN_API_KEY}?bank_code=${encodeURIComponent(bankCode)}&account_no=${encodeURIComponent(accountNumber)}`;
-      const r = await fetch(url);
-      const json = await r.json().catch(() => ({}));
-      const name = (Array.isArray(json) ? json[0]?.account_name : json?.account_name) || null;
-      if (name) return res.json({ account_name: name, resolved: true });
-    } catch { /* fall through */ }
-  }
-
-  return res.json({ account_name: accountName || null, resolved: false, note: "Please enter the account holder name manually." });
-});
-
-app.post("/api/payouts/send-verification", async (req, res) => {
-  try {
-    const { user_id: userId, country_code: countryCode, bank_name: bankName, bank_code: bankCode, account_number: accountNumber, account_name: accountName, swift_code: swiftCode, iban, payout_method_type: payoutMethodType, currency } = req.body || {};
-    if (!userId || !countryCode || !bankName || !accountNumber) return res.status(400).json({ error: "user_id, country_code, bank_name, and account_number are required." });
-
-    const account = { id: crypto.randomUUID(), user_id: userId, bank_name: bankName, bank_code: bankCode || null, account_name: accountName || `Verified Holder ${String(accountNumber).slice(-4)}`, account_number: accountNumber, country_code: String(countryCode).toUpperCase(), currency: currency || "USD", provider: "Coursevia", verification_status: "pending", verification_method: "code", is_default: false, metadata: { swift_code: swiftCode || null, iban: iban || null, payout_method_type: payoutMethodType || "swift" }, created_at: new Date().toISOString() };
-
-    if (supabaseAdmin) {
-      const { data, error } = await supabaseAdmin.from("bank_accounts").insert(account).select("*").single();
-      if (!error && data) {
-        const code = String(Math.floor(100000 + Math.random() * 900000));
-        payoutVerificationCodes.set(data.id, code);
-        return res.json({ account: data, verification_required: true, message: "Verification code sent.", dev_code: code });
-      }
-    }
-
-    const rows = listMemory(payoutAccountsMemory, userId);
-    rows.unshift(account);
-    setMemory(payoutAccountsMemory, userId, rows);
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    payoutVerificationCodes.set(account.id, code);
-    return res.json({ account, verification_required: true, message: "Verification code sent.", dev_code: code });
-  } catch (error) {
-    return res.status(500).json({ error: error instanceof Error ? error.message : "Could not create payout account." });
-  }
-});
-
-app.post("/api/payouts/verify-beneficiary", async (req, res) => {
-  try {
-    const { user_id: userId, bank_account_id: bankAccountId, code } = req.body || {};
-    if (!userId || !bankAccountId || !code) return res.status(400).json({ error: "user_id, bank_account_id, and code are required." });
-    const expectedCode = payoutVerificationCodes.get(bankAccountId);
-    if (expectedCode && String(expectedCode) !== String(code)) return res.status(400).json({ error: "Invalid verification code." });
-
-    if (supabaseAdmin) {
-      const { error } = await supabaseAdmin.from("bank_accounts").update({ verification_status: "verified" }).eq("id", bankAccountId).eq("user_id", userId);
-      if (!error) { payoutVerificationCodes.delete(bankAccountId); return res.json({ success: true }); }
-    }
-
-    const rows = listMemory(payoutAccountsMemory, userId).map((r) => r.id === bankAccountId ? { ...r, verification_status: "verified" } : r);
-    setMemory(payoutAccountsMemory, userId, rows);
-    payoutVerificationCodes.delete(bankAccountId);
-    return res.json({ success: true });
-  } catch (error) {
-    return res.status(500).json({ error: error instanceof Error ? error.message : "Could not verify payout account." });
-  }
-});
-
-app.delete("/api/payouts/accounts/:id", async (req, res) => {
-  try {
-    const userId = String(req.query.user_id || "").trim();
-    const accountId = String(req.params.id || "").trim();
-    if (!userId || !accountId) return res.status(400).json({ error: "user_id and account id are required." });
-    if (supabaseAdmin) {
-      const { error } = await supabaseAdmin.from("bank_accounts").delete().eq("id", accountId).eq("user_id", userId);
-      if (!error) return res.json({ success: true });
-    }
-    const rows = listMemory(payoutAccountsMemory, userId).filter((r) => r.id !== accountId);
-    setMemory(payoutAccountsMemory, userId, rows);
-    return res.json({ success: true });
-  } catch (error) {
-    return res.status(500).json({ error: error instanceof Error ? error.message : "Could not remove payout account." });
-  }
-});
-
-app.post("/api/payouts/withdraw", async (req, res) => {
-  try {
-    const { user_id: userId, amount, bank_account_id: bankAccountId } = req.body || {};
-    const numericAmount = safeNumber(amount, 0);
-    if (!userId || !bankAccountId || numericAmount <= 0) return res.status(400).json({ error: "user_id, bank_account_id, and a valid amount are required." });
-
-    if (supabaseAdmin) {
-      const { data: wallet, error: walletError } = await supabaseAdmin.from("wallets").select("*").eq("user_id", userId).maybeSingle();
-      if (!walletError && wallet) {
-        const available = safeNumber(wallet.available_balance ?? wallet.balance, 0);
-        if (numericAmount > available) return res.status(400).json({ error: "Amount exceeds available balance." });
-        const withdrawal = { id: crypto.randomUUID(), user_id: userId, bank_account_id: bankAccountId, amount: numericAmount, status: "pending", created_at: new Date().toISOString() };
-        const insertResult = await supabaseAdmin.from("withdrawals").insert(withdrawal);
-        if (!insertResult.error) {
-          await supabaseAdmin.from("wallets").update({ available_balance: Math.max(0, available - numericAmount), balance: Math.max(0, safeNumber(wallet.balance, 0) - numericAmount) }).eq("user_id", userId);
-          return res.json({ success: true, withdrawal });
-        }
-      }
-    }
-
-    const withdrawals = listMemory(payoutWithdrawalsMemory, userId);
-    const withdrawal = { id: crypto.randomUUID(), amount: numericAmount, status: "pending", created_at: new Date().toISOString() };
-    withdrawals.unshift(withdrawal);
-    setMemory(payoutWithdrawalsMemory, userId, withdrawals);
-    return res.json({ success: true, withdrawal });
-  } catch (error) {
-    return res.status(500).json({ error: error instanceof Error ? error.message : "Could not create withdrawal." });
-  }
-});
+// ── OLD PAYOUT SYSTEM REMOVED ─────────────────────────────────────────────────
+// The old /api/payouts/* routes have been removed and replaced with Stripe Connect.
+// See STRIPE_CONNECT_SETUP_GUIDE.md for the new implementation.
+// Historical data in bank_accounts and withdrawals tables is preserved for reference.
 
 // ── Stripe Connect (Real Bank Verification & Payouts) ────────────────────────
 
 const STRIPE_CLIENT_ID = process.env.STRIPE_CLIENT_ID || "";
 
-/**
- * POST /api/connect/onboard
- * Creates a Stripe Connect Express account for a provider.
- * Provider completes KYC + bank setup directly on Stripe's hosted page.
- */
 app.post("/api/connect/onboard", async (req, res) => {
   try {
     if (!stripe) return res.status(503).json({ error: "Stripe not configured." });
@@ -1238,7 +712,6 @@ app.post("/api/connect/onboard", async (req, res) => {
     const { user_id: userId, email, role = "coach" } = req.body || {};
     if (!userId || !email) return res.status(400).json({ error: "user_id and email are required." });
 
-    // Check if provider already has a Connect account
     let stripeAccountId = null;
     if (supabaseAdmin) {
       const { data: profile } = await supabaseAdmin
@@ -1246,7 +719,6 @@ app.post("/api/connect/onboard", async (req, res) => {
       stripeAccountId = profile?.stripe_account_id || null;
     }
 
-    // Create new Express account if none exists
     if (!stripeAccountId) {
       const account = await stripe.accounts.create({
         type: "express",
@@ -1264,12 +736,11 @@ app.post("/api/connect/onboard", async (req, res) => {
       }
     }
 
-    // Generate onboarding link — provider fills in bank + identity on Stripe
     const returnBase = `${APP_URL}/${role}/bank-accounts`;
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
       refresh_url: `${returnBase}?connect=refresh`,
-      return_url:  `${returnBase}?connect=success`,
+      return_url: `${returnBase}?connect=success`,
       type: "account_onboarding",
     });
 
@@ -1280,10 +751,6 @@ app.post("/api/connect/onboard", async (req, res) => {
   }
 });
 
-/**
- * GET /api/connect/status?user_id=xxx
- * Returns the provider's Stripe Connect account status.
- */
 app.get("/api/connect/status", async (req, res) => {
   try {
     const userId = String(req.query.user_id || "").trim();
@@ -1316,10 +783,6 @@ app.get("/api/connect/status", async (req, res) => {
   }
 });
 
-/**
- * POST /api/connect/dashboard-link
- * Returns a link to the provider's Stripe Express dashboard.
- */
 app.post("/api/connect/dashboard-link", async (req, res) => {
   try {
     if (!stripe) return res.status(503).json({ error: "Stripe not configured." });
@@ -1343,11 +806,6 @@ app.post("/api/connect/dashboard-link", async (req, res) => {
   }
 });
 
-/**
- * POST /api/connect/payout
- * Transfers funds from platform to provider's connected Stripe account,
- * then triggers a payout to their bank. Fully reflected in Stripe dashboard.
- */
 app.post("/api/connect/payout", async (req, res) => {
   try {
     if (!stripe) return res.status(503).json({ error: "Stripe not configured." });
@@ -1356,7 +814,6 @@ app.post("/api/connect/payout", async (req, res) => {
     const numericAmount = safeNumber(amount, 0);
     if (!userId || numericAmount <= 0) return res.status(400).json({ error: "user_id and a valid amount are required." });
 
-    // Get provider's Stripe Connect account
     let stripeAccountId = null;
     if (supabaseAdmin) {
       const { data: profile } = await supabaseAdmin
@@ -1368,13 +825,11 @@ app.post("/api/connect/payout", async (req, res) => {
       return res.status(400).json({ error: "Provider has not connected their bank via Stripe. Ask them to complete onboarding from their Bank Accounts page." });
     }
 
-    // Verify account can receive payouts
     const account = await stripe.accounts.retrieve(stripeAccountId);
     if (!account.payouts_enabled) {
       return res.status(400).json({ error: "Provider's Stripe account is not yet verified. They need to complete their Stripe onboarding." });
     }
 
-    // Step 1: Transfer from platform → provider's connected account
     const transfer = await stripe.transfers.create({
       amount: toCents(numericAmount),
       currency: currency.toLowerCase(),
@@ -1383,7 +838,6 @@ app.post("/api/connect/payout", async (req, res) => {
       metadata: { user_id: userId, withdrawal_id: withdrawalId || "" },
     });
 
-    // Step 2: Trigger payout from connected account → provider's bank
     const payout = await stripe.payouts.create(
       {
         amount: toCents(numericAmount),
@@ -1394,7 +848,6 @@ app.post("/api/connect/payout", async (req, res) => {
       { stripeAccount: stripeAccountId }
     );
 
-    // Update withdrawal record
     if (supabaseAdmin && withdrawalId) {
       await supabaseAdmin.from("withdrawals").update({
         status: "processing",
@@ -1418,10 +871,6 @@ app.post("/api/connect/payout", async (req, res) => {
   }
 });
 
-/**
- * POST /api/webhooks/stripe-connect
- * Handles Connect events: account verified, payout paid/failed.
- */
 app.post("/api/webhooks/stripe-connect", express.raw({ type: "application/json" }), async (req, res) => {
   try {
     let event;
@@ -1440,7 +889,6 @@ app.post("/api/webhooks/stripe-connect", express.raw({ type: "application/json" 
         stripe_connect_status: payoutsEnabled ? "active" : "pending",
       }).eq("stripe_account_id", obj.id);
 
-      // Auto-verify bank accounts when Stripe confirms the account
       if (payoutsEnabled) {
         const { data: profile } = await supabaseAdmin.from("profiles")
           .select("user_id").eq("stripe_account_id", obj.id).maybeSingle();
@@ -1562,7 +1010,6 @@ app.get("/api/escrow/:userId", async (req, res) => {
 
 // ── Refunds ───────────────────────────────────────────────────────────────────
 
-// Refund request for a payment (course, video, booking)
 app.post("/api/refunds/request-payment", async (req, res) => {
   try {
     const { payment_id, user_id, reason } = req.body || {};
@@ -1573,12 +1020,10 @@ app.post("/api/refunds/request-payment", async (req, res) => {
     if (!payment) return res.status(404).json({ message: "Payment not found." });
     if (!["completed", "success", "approved"].includes(payment.status)) return res.status(400).json({ message: "Only completed payments can be refunded." });
 
-    // 7-day window
     const paidAt = new Date(payment.created_at);
     const windowEnd = new Date(paidAt.getTime() + 7 * 24 * 60 * 60 * 1000);
     if (new Date() > windowEnd) return res.status(400).json({ message: "Refund window has closed. Requests must be submitted within 7 days of purchase." });
 
-    // No duplicate
     const { data: existing } = await supabaseAdmin.from("refunds").select("id, status").eq("payment_id", payment_id).in("status", ["pending", "processed"]).maybeSingle();
     if (existing) return res.status(409).json({ message: "A refund request already exists for this payment." });
 
@@ -1595,7 +1040,7 @@ app.post("/api/refunds/request-payment", async (req, res) => {
     }).select("*").single();
     if (error) throw new Error(error.message);
 
-    return res.json({ success: true, refund, message: "Refund request submitted. Admin will review within 24–48 hours." });
+    return res.json({ success: true, refund, message: "Refund request submitted. Admin will review within 24-48 hours." });
   } catch (error) {
     return res.status(500).json({ message: error instanceof Error ? error.message : "Could not submit refund request." });
   }
@@ -1645,7 +1090,7 @@ app.post("/api/refunds/request", async (req, res) => {
     }).select("*").single();
     if (error) throw new Error(error.message);
 
-    return res.json({ success: true, refund, message: "Refund request submitted. Admin will review within 24–48 hours." });
+    return res.json({ success: true, refund, message: "Refund request submitted. Admin will review within 24-48 hours." });
   } catch (error) {
     return res.status(500).json({ message: error instanceof Error ? error.message : "Could not submit refund request." });
   }
@@ -1665,10 +1110,8 @@ app.post("/api/refunds/approve", async (req, res) => {
     let refundMethod = "original_payment";
     let stripeRefundId = null;
 
-    // ── Try Stripe refund to original payment method first ──────────────────
     if (stripe && refund.payment_id) {
       try {
-        // Find the Stripe payment intent from our payments table
         const { data: payment } = await supabaseAdmin
           .from("payments")
           .select("reference_id, payment_method")
@@ -1676,7 +1119,6 @@ app.post("/api/refunds/approve", async (req, res) => {
           .maybeSingle();
 
         if (payment?.reference_id) {
-          // Look up the Stripe PaymentIntent by our reference
           const paymentIntents = await stripe.paymentIntents.list({ limit: 100 });
           const pi = paymentIntents.data.find(p =>
             p.metadata?.reference === payment.reference_id ||
@@ -1703,7 +1145,6 @@ app.post("/api/refunds/approve", async (req, res) => {
       refundMethod = "wallet_fallback";
     }
 
-    // ── Wallet fallback if Stripe refund not possible ────────────────────────
     if (refundMethod === "wallet_fallback") {
       await supabaseAdmin.from("wallets").upsert(
         { user_id: refund.user_id, currency: "USD", balance: 0, pending_balance: 0, available_balance: 0 },
@@ -1719,13 +1160,12 @@ app.post("/api/refunds/approve", async (req, res) => {
         }).eq("user_id", refund.user_id);
         await supabaseAdmin.from("wallet_ledger").insert({
           wallet_id: wallet.id, amount, type: "credit",
-          description: `Refund approved — credited to wallet (original payment method unavailable)`,
+          description: `Refund approved - credited to wallet (original payment method unavailable)`,
           balance_after: newBal,
         });
       }
     }
 
-    // ── Mark refund processed ────────────────────────────────────────────────
     await supabaseAdmin.from("refunds").update({
       status: "processed",
       processed_at: new Date().toISOString(),
@@ -1733,7 +1173,6 @@ app.post("/api/refunds/approve", async (req, res) => {
       stripe_refund_id: stripeRefundId,
     }).eq("id", refund_id);
 
-    // Cancel booking if applicable
     if (refund.booking_id) {
       await supabaseAdmin.from("bookings")
         .update({ status: "cancelled", updated_at: new Date().toISOString() })
@@ -1741,9 +1180,8 @@ app.post("/api/refunds/approve", async (req, res) => {
         .in("status", ["pending", "confirmed"]);
     }
 
-    // Notify user
     const methodMsg = refundMethod === "stripe_original"
-      ? "The refund has been sent to your original payment method and should appear within 5–10 business days."
+      ? "The refund has been sent to your original payment method and should appear within 5-10 business days."
       : "The refund has been credited to your Coursevia wallet.";
 
     await supabaseAdmin.from("notifications").insert({
@@ -1751,7 +1189,7 @@ app.post("/api/refunds/approve", async (req, res) => {
       title: "Refund Approved",
       message: `Your refund of $${amount.toFixed(2)} has been approved. ${methodMsg}`,
       type: "refund",
-    }).catch(() => {});
+    }).catch(() => { });
 
     const msg = refundMethod === "stripe_original"
       ? `Refund of $${amount.toFixed(2)} sent to learner's original payment method (Stripe).`
@@ -1779,7 +1217,6 @@ app.post("/api/refunds/reject", async (req, res) => {
       updated_at: new Date().toISOString(),
     }).eq("id", refund_id);
 
-    // Notify user
     await supabaseAdmin.from("notifications").insert({
       user_id: refund.user_id,
       title: "Refund Request Update",
@@ -1787,7 +1224,7 @@ app.post("/api/refunds/reject", async (req, res) => {
         ? `Your refund request of $${Number(refund.amount).toFixed(2)} was not approved. Reason: ${reject_reason.trim()}`
         : `Your refund request of $${Number(refund.amount).toFixed(2)} was reviewed and not approved.`,
       type: "refund",
-    }).catch(() => {});
+    }).catch(() => { });
 
     return res.json({ success: true, message: "Refund rejected." });
   } catch (error) {
@@ -1871,20 +1308,17 @@ app.post("/api/admin/create-account", async (req, res) => {
 app.post("/api/notifications/booking-confirmation", async (req, res) => {
   try {
     const { booking_id, learner_email, provider_email, learner_name, provider_name, scheduled_at, service_title, service_mode, office_address, provider_phone } = req.body || {};
-    
+
     if (!booking_id || !learner_email || !provider_email) {
       return res.status(400).json({ message: "booking_id, learner_email, and provider_email are required." });
     }
 
-    // Format email content based on service mode
     const learnerEmailContent = service_mode === "in_person"
       ? `Your in-person session with ${provider_name} is confirmed!\n\nSession Details:\n- Service: ${service_title}\n- Date & Time: ${scheduled_at}\n- Location: ${office_address || "Contact provider for address"}${provider_phone ? `\n- Phone: ${provider_phone}` : ""}\n\nPlease arrive 5-10 minutes early.`
       : `Your online session with ${provider_name} is confirmed!\n\nSession Details:\n- Service: ${service_title}\n- Date & Time: ${scheduled_at}\n- You will receive a meeting link via email before the session.`;
 
     const providerEmailContent = `New booking received!\n\n${learner_name} has booked a ${service_mode} session with you.\n\nBooking Details:\n- Service: ${service_title}\n- Date & Time: ${scheduled_at}\n- Mode: ${service_mode === "in_person" ? "In-Person" : "Online"}\n${service_mode === "in_person" ? `- Location: ${office_address}${provider_phone ? `\n- Contact: ${provider_phone}` : ""}` : ""}\n\nPlease confirm and prepare for the session.`;
 
-    // TODO: Integrate with email service (SendGrid, Resend, etc.)
-    // For now, log the email details
     console.log("[Email] Booking confirmation to learner:", {
       to: learner_email,
       subject: `Booking Confirmed: ${service_title}`,
@@ -1897,14 +1331,13 @@ app.post("/api/notifications/booking-confirmation", async (req, res) => {
       content: providerEmailContent,
     });
 
-    // Store notification in database
     if (supabaseAdmin) {
       await supabaseAdmin.from("notifications").insert([
         {
           user_id: req.body.learner_id,
           type: "booking_confirmation",
           title: "Booking Confirmed",
-          message: service_mode === "in_person" 
+          message: service_mode === "in_person"
             ? `Your in-person session with ${provider_name} is confirmed at ${office_address || "the provider's office"}`
             : `Your online session with ${provider_name} is confirmed for ${scheduled_at}`,
           metadata: { booking_id, service_mode, office_address, scheduled_at, provider_name },
@@ -1919,8 +1352,8 @@ app.post("/api/notifications/booking-confirmation", async (req, res) => {
       ]);
     }
 
-    return res.json({ 
-      success: true, 
+    return res.json({
+      success: true,
       message: "Booking confirmation emails queued.",
       learner_email_content: learnerEmailContent,
       provider_email_content: providerEmailContent,
@@ -1933,19 +1366,17 @@ app.post("/api/notifications/booking-confirmation", async (req, res) => {
 app.post("/api/notifications/welcome", async (req, res) => {
   try {
     const { user_id, email, full_name, role } = req.body || {};
-    
+
     if (!user_id || !email) {
       return res.status(400).json({ message: "user_id and email are required." });
     }
 
-    // TODO: Integrate with email service
     console.log("[Email] Welcome email:", {
       to: email,
       name: full_name,
       role,
     });
 
-    // Store notification
     if (supabaseAdmin) {
       await supabaseAdmin.from("notifications").insert({
         user_id,
@@ -1964,8 +1395,6 @@ app.post("/api/notifications/welcome", async (req, res) => {
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 
-// Auto-release pending wallet balances every 6 hours
-// Moves funds from pending_balance → available_balance after 8-day hold
 const releasePendingBalances = async () => {
   if (!supabaseAdmin) return;
   try {
@@ -2000,14 +1429,12 @@ const releasePendingBalances = async () => {
   }
 };
 
-// Run on startup then every 6 hours
 releasePendingBalances();
 setInterval(releasePendingBalances, 6 * 60 * 60 * 1000);
 
-// Health check
 app.get("/", (req, res) => {
-  res.json({ 
-    status: "ok", 
+  res.json({
+    status: "ok",
     service: "Coursevia Backend",
     stripe: stripe ? "live" : "demo",
     db: supabaseAdmin ? "connected" : "demo"
@@ -2019,35 +1446,27 @@ app.get("/health", (req, res) => {
 });
 
 // ── Airwallex Virtual Accounts ────────────────────────────────────────────────
-//
-// Each learner gets a unique local bank account number (USD/GBP/EUR/etc).
-// When they transfer money to it from their own bank, Airwallex sends a
-// webhook → we credit their Coursevia wallet automatically.
-//
-// Docs: https://www.airwallex.com/docs/receiving-money__virtual-account
 
-const AIRWALLEX_CLIENT_ID     = process.env.AIRWALLEX_CLIENT_ID     || "";
-const AIRWALLEX_API_KEY       = process.env.AIRWALLEX_API_KEY        || "";
-const AIRWALLEX_ENV           = process.env.AIRWALLEX_ENV            || "demo";
-const AIRWALLEX_WEBHOOK_SECRET= process.env.AIRWALLEX_WEBHOOK_SECRET || "";
+const AIRWALLEX_CLIENT_ID = process.env.AIRWALLEX_CLIENT_ID || "";
+const AIRWALLEX_API_KEY = process.env.AIRWALLEX_API_KEY || "";
+const AIRWALLEX_ENV = process.env.AIRWALLEX_ENV || "demo";
+const AIRWALLEX_WEBHOOK_SECRET = process.env.AIRWALLEX_WEBHOOK_SECRET || "";
 
 const AIRWALLEX_BASE = AIRWALLEX_ENV === "production"
   ? "https://api.airwallex.com"
   : "https://api-demo.airwallex.com";
 
-// ── Airwallex helpers ─────────────────────────────────────────────────────────
-
-let airwallexToken     = null;
-let airwallexTokenExp  = 0;
+let airwallexToken = null;
+let airwallexTokenExp = 0;
 
 const getAirwallexToken = async () => {
   if (airwallexToken && Date.now() < airwallexTokenExp) return airwallexToken;
 
   const res = await fetch(`${AIRWALLEX_BASE}/api/v1/authentication/login`, {
-    method:  "POST",
+    method: "POST",
     headers: {
-      "x-client-id":  AIRWALLEX_CLIENT_ID,
-      "x-api-key":    AIRWALLEX_API_KEY,
+      "x-client-id": AIRWALLEX_CLIENT_ID,
+      "x-api-key": AIRWALLEX_API_KEY,
       "Content-Type": "application/json",
     },
   });
@@ -2058,8 +1477,7 @@ const getAirwallexToken = async () => {
   }
 
   const data = await res.json();
-  airwallexToken    = data.token;
-  // token valid for 30 min — refresh 2 min early
+  airwallexToken = data.token;
   airwallexTokenExp = Date.now() + (28 * 60 * 1000);
   return airwallexToken;
 };
@@ -2070,7 +1488,7 @@ const airwallexRequest = async (method, path, body = null) => {
     method,
     headers: {
       "Authorization": `Bearer ${token}`,
-      "Content-Type":  "application/json",
+      "Content-Type": "application/json",
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
@@ -2079,22 +1497,18 @@ const airwallexRequest = async (method, path, body = null) => {
   return data;
 };
 
-// Verify Airwallex webhook signature
 const verifyAirwallexWebhook = (req) => {
-  if (!AIRWALLEX_WEBHOOK_SECRET) return true; // skip in dev if not set
+  if (!AIRWALLEX_WEBHOOK_SECRET) return true;
   const signature = req.headers["x-signature"] || req.headers["x-airwallex-signature"] || "";
-  const timestamp = req.headers["x-timestamp"]  || req.headers["x-airwallex-timestamp"] || "";
-  const payload   = `${timestamp}.${JSON.stringify(req.body)}`;
-  const expected  = crypto
+  const timestamp = req.headers["x-timestamp"] || req.headers["x-airwallex-timestamp"] || "";
+  const payload = `${timestamp}.${JSON.stringify(req.body)}`;
+  const expected = crypto
     .createHmac("sha256", AIRWALLEX_WEBHOOK_SECRET)
     .update(payload)
     .digest("hex");
   return signature === expected;
 };
 
-// ── POST /api/virtual-account/create ─────────────────────────────────────────
-// Creates (or returns existing) virtual account for a learner.
-// Called when learner visits their wallet and doesn't have an account yet.
 app.post("/api/virtual-account/create", async (req, res) => {
   try {
     if (!AIRWALLEX_CLIENT_ID || !AIRWALLEX_API_KEY) {
@@ -2104,7 +1518,6 @@ app.post("/api/virtual-account/create", async (req, res) => {
     const { user_id: userId, email, full_name: fullName, currency = "USD", country_code: countryCode = "US" } = req.body || {};
     if (!userId || !email) return res.status(400).json({ error: "user_id and email are required." });
 
-    // Check if already exists in DB
     if (supabaseAdmin) {
       const { data: existing } = await supabaseAdmin
         .from("virtual_accounts")
@@ -2116,43 +1529,41 @@ app.post("/api/virtual-account/create", async (req, res) => {
       if (existing) return res.json({ success: true, account: existing, already_exists: true });
     }
 
-    // Create on Airwallex
     const nickname = `coursevia-${userId.slice(0, 8)}`;
     const awAccount = await airwallexRequest("POST", "/api/v1/va/account_details/create", {
-      request_id:  buildReference("va"),
+      request_id: buildReference("va"),
       nickname,
-      currency:    currency.toUpperCase(),
+      currency: currency.toUpperCase(),
       country_code: countryCode.toUpperCase(),
       beneficiary: {
-        name:        fullName || email,
+        name: fullName || email,
         email,
       },
     });
 
-    // Extract account details from Airwallex response
-    const details    = awAccount?.account_details?.[0] || {};
-    const bankCode   = details?.bank_details?.bank_name || "";
+    const details = awAccount?.account_details?.[0] || {};
+    const bankCode = details?.bank_details?.bank_name || "";
     const accountNum = details?.bank_details?.account_number
-                    || details?.bank_details?.iban
-                    || "";
-    const routing    = details?.bank_details?.routing_number
-                    || details?.bank_details?.sort_code
-                    || "";
-    const iban       = details?.bank_details?.iban || null;
-    const bic        = details?.bank_details?.bic  || details?.bank_details?.swift_code || null;
+      || details?.bank_details?.iban
+      || "";
+    const routing = details?.bank_details?.routing_number
+      || details?.bank_details?.sort_code
+      || "";
+    const iban = details?.bank_details?.iban || null;
+    const bic = details?.bank_details?.bic || details?.bank_details?.swift_code || null;
 
     const record = {
-      user_id:        userId,
-      airwallex_id:   awAccount.id || awAccount.account_id || nickname,
+      user_id: userId,
+      airwallex_id: awAccount.id || awAccount.account_id || nickname,
       account_number: accountNum,
       routing_number: routing,
       iban,
       bic,
-      bank_name:      bankCode,
-      account_name:   fullName || email,
-      currency:       currency.toUpperCase(),
-      country_code:   countryCode.toUpperCase(),
-      status:         "active",
+      bank_name: bankCode,
+      account_name: fullName || email,
+      currency: currency.toUpperCase(),
+      country_code: countryCode.toUpperCase(),
+      status: "active",
     };
 
     if (supabaseAdmin) {
@@ -2173,11 +1584,9 @@ app.post("/api/virtual-account/create", async (req, res) => {
   }
 });
 
-// ── GET /api/virtual-account/:userId ─────────────────────────────────────────
-// Returns the learner's virtual account(s).
 app.get("/api/virtual-account/:userId", async (req, res) => {
   try {
-    const userId   = String(req.params.userId || "").trim();
+    const userId = String(req.params.userId || "").trim();
     const currency = String(req.query.currency || "").toUpperCase() || null;
     if (!userId) return res.status(400).json({ error: "userId is required." });
 
@@ -2202,9 +1611,6 @@ app.get("/api/virtual-account/:userId", async (req, res) => {
   }
 });
 
-// ── POST /api/webhooks/airwallex ──────────────────────────────────────────────
-// Airwallex calls this when money arrives in a virtual account.
-// We credit the learner's wallet automatically.
 app.post("/api/webhooks/airwallex", async (req, res) => {
   try {
     if (!verifyAirwallexWebhook(req)) {
@@ -2212,37 +1618,35 @@ app.post("/api/webhooks/airwallex", async (req, res) => {
       return res.status(401).json({ error: "Invalid signature" });
     }
 
-    const event    = req.body || {};
-    const type     = event.name || event.type || "";
-    const data     = event.data || event.payload || {};
+    const event = req.body || {};
+    const type = event.name || event.type || "";
+    const data = event.data || event.payload || {};
 
     console.log(`[AW Webhook] ${type}`, JSON.stringify(data).slice(0, 200));
 
-    // We only care about incoming transfer events
     const isIncoming =
-      type.includes("transfer.received")    ||
-      type.includes("payment.received")     ||
-      type.includes("incoming_payment")     ||
+      type.includes("transfer.received") ||
+      type.includes("payment.received") ||
+      type.includes("incoming_payment") ||
       type.includes("va.payment_received");
 
     if (!isIncoming) return res.json({ received: true, type, action: "ignored" });
 
-    const airwallexAccountId = data?.account_id      || data?.virtual_account_id || "";
-    const amount             = safeNumber(data?.amount || data?.payment_amount   || 0);
-    const currency           = (data?.currency || data?.payment_currency || "USD").toUpperCase();
-    const eventId            = event.id || event.event_id || buildReference("awe");
-    const senderName         = data?.sender_name      || data?.remitter_name     || null;
-    const senderBank         = data?.sender_bank_name || null;
-    const reference          = data?.reference        || data?.payment_reference || null;
+    const airwallexAccountId = data?.account_id || data?.virtual_account_id || "";
+    const amount = safeNumber(data?.amount || data?.payment_amount || 0);
+    const currency = (data?.currency || data?.payment_currency || "USD").toUpperCase();
+    const eventId = event.id || event.event_id || buildReference("awe");
+    const senderName = data?.sender_name || data?.remitter_name || null;
+    const senderBank = data?.sender_bank_name || null;
+    const reference = data?.reference || data?.payment_reference || null;
 
     if (!airwallexAccountId || amount <= 0) {
       console.warn("[AW Webhook] Missing account_id or amount", { airwallexAccountId, amount });
       return res.json({ received: true, error: "Missing account_id or amount" });
     }
 
-    if (!supabaseAdmin) return res.json({ received: true, note: "No DB — demo mode" });
+    if (!supabaseAdmin) return res.json({ received: true, note: "No DB - demo mode" });
 
-    // Idempotency — skip if already processed
     const { data: existing } = await supabaseAdmin
       .from("wallet_topups")
       .select("id")
@@ -2250,7 +1654,6 @@ app.post("/api/webhooks/airwallex", async (req, res) => {
       .maybeSingle();
     if (existing) return res.json({ received: true, action: "duplicate_skipped" });
 
-    // Find the virtual account → get user_id
     const { data: vaRecord } = await supabaseAdmin
       .from("virtual_accounts")
       .select("id, user_id")
@@ -2264,26 +1667,23 @@ app.post("/api/webhooks/airwallex", async (req, res) => {
 
     const userId = vaRecord.user_id;
 
-    // Record topup
     await supabaseAdmin.from("wallet_topups").insert({
-      user_id:            userId,
+      user_id: userId,
       virtual_account_id: vaRecord.id,
       airwallex_event_id: eventId,
       amount,
       currency,
-      sender_name:        senderName,
-      sender_bank:        senderBank,
+      sender_name: senderName,
+      sender_bank: senderBank,
       reference,
-      status:             "completed",
+      status: "completed",
     });
 
-    // Ensure wallet exists
     await supabaseAdmin.from("wallets").upsert(
       { user_id: userId, currency, balance: 0, pending_balance: 0, available_balance: 0 },
       { onConflict: "user_id", ignoreDuplicates: true }
     );
 
-    // Credit wallet — topups go straight to available (no hold — they sent it from their own bank)
     const { data: wallet } = await supabaseAdmin
       .from("wallets")
       .select("*")
@@ -2292,33 +1692,32 @@ app.post("/api/webhooks/airwallex", async (req, res) => {
 
     if (wallet) {
       const newAvailable = safeNumber(wallet.available_balance) + amount;
-      const newBalance   = safeNumber(wallet.balance) + amount;
+      const newBalance = safeNumber(wallet.balance) + amount;
 
       await supabaseAdmin.from("wallets").update({
         available_balance: newAvailable,
-        balance:           newBalance,
-        updated_at:        new Date().toISOString(),
+        balance: newBalance,
+        updated_at: new Date().toISOString(),
       }).eq("id", wallet.id);
 
       await supabaseAdmin.from("wallet_ledger").insert({
-        wallet_id:    wallet.id,
-        type:         "credit",
+        wallet_id: wallet.id,
+        type: "credit",
         amount,
         balance_after: newAvailable,
-        description:  `Wallet top-up via bank transfer${senderName ? ` from ${senderName}` : ""}${reference ? ` (ref: ${reference})` : ""}`,
+        description: `Wallet top-up via bank transfer${senderName ? ` from ${senderName}` : ""}${reference ? ` (ref: ${reference})` : ""}`,
       });
     }
 
-    // Notify the user
     await supabaseAdmin.from("notifications").insert({
       user_id: userId,
-      type:    "wallet_topup",
-      title:   "Wallet funded",
+      type: "wallet_topup",
+      title: "Wallet funded",
       message: `$${amount.toFixed(2)} ${currency} has been credited to your Coursevia wallet.`,
       metadata: { amount, currency, sender_name: senderName, reference },
-    }).catch(() => {});
+    }).catch(() => { });
 
-    console.log(`[AW Webhook] ✓ Credited $${amount} ${currency} to user ${userId}`);
+    console.log(`[AW Webhook] Credited $${amount} ${currency} to user ${userId}`);
     return res.json({ received: true, action: "wallet_credited", amount, userId });
   } catch (error) {
     console.error("[AW Webhook] Error:", error);
@@ -2326,8 +1725,6 @@ app.post("/api/webhooks/airwallex", async (req, res) => {
   }
 });
 
-// ── GET /api/virtual-account/:userId/topups ───────────────────────────────────
-// Returns top-up history for a user.
 app.get("/api/virtual-account/:userId/topups", async (req, res) => {
   try {
     const userId = String(req.params.userId || "").trim();
@@ -2348,6 +1745,204 @@ app.get("/api/virtual-account/:userId/topups", async (req, res) => {
     return res.json({ topups: [] });
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Could not load topups." });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STRIPE CONNECT - WITHDRAWALS & REFUNDS
+// ══════════════════════════════════════════════════════════════════════════════
+
+app.post("/api/stripe-connect/setup", async (req, res) => {
+  try {
+    const { userId, email, country, roles } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: "userId is required" });
+    }
+
+    const result = await StripeConnect.setupProviderAccount({
+      userId,
+      email,
+      country: country || 'US',
+      roles: roles || ['creator']
+    });
+
+    if (result.needsOnboarding) {
+      const onboardingUrl = await StripeConnect.createOnboardingLink(result.accountId, userId);
+      return res.json({
+        success: true,
+        accountId: result.accountId,
+        needsOnboarding: true,
+        onboardingUrl: onboardingUrl
+      });
+    }
+
+    return res.json({
+      success: true,
+      accountId: result.accountId,
+      needsOnboarding: false,
+      payoutsEnabled: result.payoutsEnabled,
+      message: 'Account already setup'
+    });
+
+  } catch (error) {
+    console.error('[Stripe Connect] Setup error:', error);
+    return res.status(500).json({
+      message: error instanceof Error ? error.message : 'Failed to setup withdrawal account'
+    });
+  }
+});
+
+app.get("/api/stripe-connect/status/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const status = await StripeConnect.getWithdrawalStatus(userId);
+    return res.json(status);
+  } catch (error) {
+    console.error('[Stripe Connect] Status error:', error);
+    return res.status(500).json({
+      message: error instanceof Error ? error.message : 'Failed to get status'
+    });
+  }
+});
+
+app.post("/api/stripe-connect/withdraw", async (req, res) => {
+  try {
+    const { userId, amount, role } = req.body;
+
+    if (!userId || !amount) {
+      return res.status(400).json({ message: "userId and amount are required" });
+    }
+
+    const result = await StripeConnect.requestWithdrawal({
+      userId,
+      amount: parseFloat(amount),
+      role: role || 'creator'
+    });
+
+    return res.json(result);
+
+  } catch (error) {
+    console.error('[Stripe Connect] Withdrawal error:', error);
+    return res.status(400).json({
+      message: error instanceof Error ? error.message : 'Withdrawal failed'
+    });
+  }
+});
+
+app.get("/api/stripe-connect/withdrawals/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const limit = parseInt(req.query.limit) || 50;
+    const history = await StripeConnect.getWithdrawalHistory(userId, limit);
+    return res.json(history);
+  } catch (error) {
+    console.error('[Stripe Connect] History error:', error);
+    return res.status(500).json({
+      message: error instanceof Error ? error.message : 'Failed to get history'
+    });
+  }
+});
+
+app.post("/api/stripe-connect/refund", async (req, res) => {
+  try {
+    const {
+      paymentId,
+      bookingId,
+      contentId,
+      learnerId,
+      providerId,
+      providerRole,
+      amount,
+      reason,
+      refundType,
+      requestedBy
+    } = req.body;
+
+    if (!learnerId || !providerId || !amount || !reason) {
+      return res.status(400).json({
+        message: "learnerId, providerId, amount, and reason are required"
+      });
+    }
+
+    const result = await StripeConnect.processRefund({
+      paymentId,
+      bookingId,
+      contentId,
+      learnerId,
+      providerId,
+      providerRole: providerRole || 'creator',
+      amount: parseFloat(amount),
+      reason,
+      refundType: refundType || 'full',
+      requestedBy
+    });
+
+    return res.json(result);
+
+  } catch (error) {
+    console.error('[Stripe Connect] Refund error:', error);
+    return res.status(400).json({
+      message: error instanceof Error ? error.message : 'Refund failed'
+    });
+  }
+});
+
+app.get("/api/stripe-connect/refunds/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const limit = parseInt(req.query.limit) || 50;
+    const history = await StripeConnect.getRefundHistory(userId, limit);
+    return res.json(history);
+  } catch (error) {
+    console.error('[Stripe Connect] Refund history error:', error);
+    return res.status(500).json({
+      message: error instanceof Error ? error.message : 'Failed to get refund history'
+    });
+  }
+});
+
+app.post("/api/stripe-connect/webhook", express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+
+  try {
+    const event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_CONNECT_WEBHOOK_SECRET || STRIPE_WEBHOOK_SECRET
+    );
+
+    console.log('[Stripe Connect Webhook]', event.type);
+
+    switch (event.type) {
+      case 'account.updated':
+        await StripeConnect.updateProviderAccountStatus(event.data.object.id);
+        break;
+
+      case 'transfer.created':
+        console.log('Transfer created:', event.data.object.id);
+        break;
+
+      case 'transfer.failed':
+        console.log('Transfer failed:', event.data.object.id);
+        break;
+
+      case 'payout.paid':
+        console.log('Payout paid:', event.data.object.id);
+        break;
+
+      case 'payout.failed':
+        console.log('Payout failed:', event.data.object.id);
+        break;
+    }
+
+    res.json({ received: true });
+
+  } catch (error) {
+    console.error('[Stripe Connect Webhook] Error:', error);
+    return res.status(400).json({
+      message: error instanceof Error ? error.message : 'Webhook error'
+    });
   }
 });
 

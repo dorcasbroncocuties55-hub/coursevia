@@ -16,8 +16,9 @@ import { uploadPrivateVideoFile } from "@/lib/videoAccess";
 import { MIN_PROVIDER_PRICE, isValidProviderPrice } from "@/lib/pricingRules";
 import { LongContentHandler } from "@/components/ui/long-content-handler";
 import {
-  Upload, Film, Plus, Trash2, ImageIcon, DollarSign,
+  Upload, Film, Plus, ImageIcon, DollarSign,
   CheckCircle2, Loader2, ChevronDown, ChevronUp, X, Play,
+  Sparkles, Info, FileVideo, Clock, Eye, AlertCircle,
 } from "lucide-react";
 import { PageLoading } from "@/components/LoadingSpinner";
 
@@ -51,33 +52,57 @@ const VideoDropZone = ({
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
-      className={`relative cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-200 ${
-        dragging ? "border-primary bg-primary/5 scale-[1.01]" : file ? "border-emerald-400 bg-emerald-50/50" : "border-border hover:border-primary/50 hover:bg-accent/50"
-      }`}
+      className={`relative cursor-pointer rounded-xl border-2 border-dashed transition-all duration-300 group ${dragging
+          ? "border-primary bg-gradient-to-br from-primary/10 to-primary/5 scale-[1.02] shadow-lg"
+          : file
+            ? "border-emerald-400 bg-gradient-to-br from-emerald-50 to-emerald-50/30 shadow-sm"
+            : "border-gray-300 hover:border-primary hover:shadow-md hover:bg-gradient-to-br hover:from-gray-50 hover:to-white"
+        }`}
     >
       <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
-      <div className="flex flex-col items-center justify-center gap-3 p-8 text-center">
+      <div className="flex flex-col items-center justify-center gap-4 p-10 text-center">
         {file ? (
           <>
-            <div className="h-12 w-12 rounded-2xl bg-emerald-100 flex items-center justify-center">
-              <CheckCircle2 size={24} className="text-emerald-600" />
+            <div className="relative">
+              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg">
+                <CheckCircle2 size={32} className="text-white" />
+              </div>
+              <div className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-md">
+                <FileVideo size={14} className="text-white" />
+              </div>
             </div>
-            <div>
-              <p className="font-semibold text-foreground text-sm">{file.name}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{formatBytes(file.size)}</p>
+            <div className="space-y-1">
+              <p className="font-semibold text-foreground">{file.name}</p>
+              <p className="text-sm text-emerald-600 font-medium">{formatBytes(file.size)}</p>
             </div>
-            <p className="text-xs text-muted-foreground">Click to replace</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-full text-xs"
+              onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
+            >
+              Replace File
+            </Button>
           </>
         ) : (
           <>
-            <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <Upload size={22} className="text-primary" />
+            <div className="relative">
+              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center group-hover:from-primary/30 group-hover:to-primary/20 transition-all">
+                <Upload size={28} className="text-primary group-hover:scale-110 transition-transform" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary/20 flex items-center justify-center">
+                <Plus size={16} className="text-primary" />
+              </div>
             </div>
-            <div>
-              <p className="font-semibold text-foreground text-sm">{label}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Drag & drop or click to browse</p>
+            <div className="space-y-2">
+              <p className="font-semibold text-foreground text-base">{label}</p>
+              <p className="text-sm text-muted-foreground">Drag & drop or click to browse</p>
             </div>
-            <p className="text-xs text-muted-foreground/60">MP4, MOV, AVI, MKV supported</p>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground/80">
+              <FileVideo size={14} />
+              <span>MP4, MOV, AVI, MKV • Max 2GB</span>
+            </div>
           </>
         )}
       </div>
@@ -99,23 +124,28 @@ const ThumbnailDropZone = ({ file, onFile }: { file: File | null; onFile: (f: Fi
   return (
     <div
       onClick={() => inputRef.current?.click()}
-      className="relative cursor-pointer rounded-2xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-accent/50 transition-all overflow-hidden aspect-video"
+      className="relative cursor-pointer rounded-xl border-2 border-dashed border-gray-300 hover:border-primary hover:shadow-md transition-all overflow-hidden aspect-video group"
     >
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
       {preview ? (
         <>
           <img src={preview} alt="Thumbnail" className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-            <p className="text-white text-sm font-medium">Change thumbnail</p>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent flex items-end justify-center p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+            <p className="text-white text-sm font-medium flex items-center gap-2">
+              <ImageIcon size={16} />
+              Change Thumbnail
+            </p>
           </div>
         </>
       ) : (
-        <div className="flex flex-col items-center justify-center gap-2 h-full text-center p-4">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <ImageIcon size={20} className="text-primary" />
+        <div className="flex flex-col items-center justify-center gap-3 h-full text-center p-6">
+          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center group-hover:from-primary/30 group-hover:to-primary/20 transition-all">
+            <ImageIcon size={24} className="text-primary" />
           </div>
-          <p className="text-sm font-medium text-foreground">Add thumbnail</p>
-          <p className="text-xs text-muted-foreground">Recommended: 1280×720</p>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-foreground">Add Thumbnail</p>
+            <p className="text-xs text-muted-foreground">Recommended: 1280×720 • 16:9 ratio</p>
+          </div>
         </div>
       )}
     </div>
@@ -123,17 +153,24 @@ const ThumbnailDropZone = ({ file, onFile }: { file: File | null; onFile: (f: Fi
 };
 
 const UploadProgress = ({ progress, label }: { progress: number; label: string }) => (
-  <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
-    <div className="flex items-center gap-3 mb-3">
-      <Loader2 size={18} className="text-primary animate-spin" />
-      <p className="text-sm font-medium text-foreground">{label}</p>
-      <span className="ml-auto text-sm font-bold text-primary">{progress}%</span>
+  <div className="rounded-xl border-2 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 p-6 shadow-lg">
+    <div className="flex items-center gap-4 mb-4">
+      <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+        <Loader2 size={20} className="text-primary animate-spin" />
+      </div>
+      <div className="flex-1">
+        <p className="text-sm font-semibold text-foreground mb-1">{label}</p>
+        <p className="text-xs text-muted-foreground">Please don't close this page</p>
+      </div>
+      <span className="text-xl font-bold text-primary">{progress}%</span>
     </div>
-    <div className="h-2 rounded-full bg-primary/20 overflow-hidden">
+    <div className="h-3 rounded-full bg-gray-200 overflow-hidden">
       <div
-        className="h-full rounded-full bg-primary transition-all duration-300"
+        className="h-full rounded-full bg-gradient-to-r from-primary to-primary/80 transition-all duration-500 ease-out relative overflow-hidden"
         style={{ width: `${progress}%` }}
-      />
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+      </div>
     </div>
   </div>
 );
@@ -297,183 +334,304 @@ const UploadVideo = () => {
 
   return (
     <DashboardLayout role={ownerRole as any}>
-      <LongContentHandler 
+      <LongContentHandler
         content={
-          <div className="max-w-3xl space-y-8">
-            {/* Header */}
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <Film size={24} className="text-primary" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Publish Video Content</h1>
-                <p className="text-sm text-muted-foreground">Upload a single video or a full episode series for your audience.</p>
-              </div>
-            </div>
-
-        {loading && uploadProgress > 0 && (
-          <UploadProgress progress={uploadProgress} label={uploadLabel} />
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Content type selector */}
-          <div className="grid grid-cols-2 gap-3">
-            {(["single_video", "episode_series"] as UnifiedContentType[]).map((type) => {
-              const meta = contentTypeMeta[type];
-              const active = contentType === type;
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setContentType(type)}
-                  className={`relative rounded-2xl border-2 p-4 text-left transition-all ${
-                    active ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/40 hover:bg-accent/50"
-                  }`}
-                >
-                  <div className={`mb-2 h-9 w-9 rounded-xl flex items-center justify-center ${active ? "bg-primary/15" : "bg-muted"}`}>
-                    {type === "single_video" ? <Play size={18} className={active ? "text-primary" : "text-muted-foreground"} /> : <Film size={18} className={active ? "text-primary" : "text-muted-foreground"} />}
-                  </div>
-                  <p className={`font-semibold text-sm ${active ? "text-primary" : "text-foreground"}`}>
-                    {type === "single_video" ? "Single Video" : "Episode Series"}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{meta.pricingHint}</p>
-                  {active && <div className="absolute top-3 right-3 h-5 w-5 rounded-full bg-primary flex items-center justify-center"><CheckCircle2 size={12} className="text-white" /></div>}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Core details */}
-          <div className="rounded-3xl border border-border bg-card p-6 space-y-5">
-            <h2 className="font-semibold text-foreground">Content details</h2>
-            <div>
-              <Label className="mb-1.5 block text-sm font-medium">Title <span className="text-red-500">*</span></Label>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Give your content a compelling title" className="rounded-xl h-11" required />
-            </div>
-            <div>
-              <Label className="mb-1.5 block text-sm font-medium">Description</Label>
-              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} placeholder="Describe what viewers will learn or experience…" className="rounded-xl resize-none" />
-            </div>
-            <div>
-              <Label className="mb-1.5 block text-sm font-medium">
-                <span className="flex items-center gap-1.5"><DollarSign size={14} /> Price (USD) <span className="text-red-500">*</span></span>
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">$</span>
-                <Input
-                  type="number" min={String(MIN_PROVIDER_PRICE)} step="0.01"
-                  value={price} onChange={(e) => setPrice(e.target.value)}
-                  placeholder="6.00" className="rounded-xl h-11 pl-7"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mt-1.5">Minimum ${MIN_PROVIDER_PRICE}. Viewers get a 5-second free preview before purchase.</p>
-            </div>
-          </div>
-
-          {/* Thumbnail */}
-          <div className="rounded-3xl border border-border bg-card p-6 space-y-4">
-            <div>
-              <h2 className="font-semibold text-foreground">Thumbnail</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">A great thumbnail increases clicks. Recommended 1280×720.</p>
-            </div>
-            <div className="max-w-xs">
-              <ThumbnailDropZone file={thumbnailFile} onFile={setThumbnailFile} />
-            </div>
-          </div>
-
-          {/* Video upload */}
-          {contentType === "single_video" ? (
-            <div className="rounded-3xl border border-border bg-card p-6 space-y-4">
-              <h2 className="font-semibold text-foreground">Video file <span className="text-red-500">*</span></h2>
-              <VideoDropZone file={singleVideoFile} onFile={setSingleVideoFile} label="Drop your video here" />
-            </div>
-          ) : (
-            <div className="rounded-3xl border border-border bg-card p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="font-semibold text-foreground">Episodes</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {validEpisodeCount} of {episodes.length} episodes ready
-                  </p>
+          <div className="max-w-4xl mx-auto space-y-6 pb-12">
+            {/* Enhanced Header */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20 p-8 shadow-sm">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10" />
+              <div className="flex items-start gap-6">
+                <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shrink-0">
+                  <Film size={32} className="text-white" />
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={addEpisode} className="gap-1.5 rounded-xl">
-                  <Plus size={14} /> Add episode
-                </Button>
+                <div className="flex-1">
+                  <h1 className="text-3xl font-bold text-foreground mb-2">Upload Your Content</h1>
+                  <p className="text-muted-foreground mb-4">
+                    Share your expertise with the world. Upload a single video or create an episode series to reach your audience.
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground bg-white/50 rounded-full px-3 py-1.5">
+                      <Eye size={14} />
+                      <span>5-second free preview</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground bg-white/50 rounded-full px-3 py-1.5">
+                      <Clock size={14} />
+                      <span>Instant publishing</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground bg-white/50 rounded-full px-3 py-1.5">
+                      <Sparkles size={14} />
+                      <span>Professional marketplace</span>
+                    </div>
+                  </div>
+                </div>
               </div>
+            </div>
 
-              <div className="space-y-3">
-                {episodes.map((episode, index) => {
-                  const isOpen = expandedEpisode === index;
-                  const isReady = episode.title.trim() && episode.file;
-                  return (
-                    <div key={index} className={`rounded-2xl border transition-colors ${isReady ? "border-emerald-200 bg-emerald-50/30" : "border-border bg-background"}`}>
+            {loading && uploadProgress > 0 && (
+              <UploadProgress progress={uploadProgress} label={uploadLabel} />
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Content type selector with better design */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-foreground mb-4">Choose Content Type</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(["single_video", "episode_series"] as UnifiedContentType[]).map((type) => {
+                    const meta = contentTypeMeta[type];
+                    const active = contentType === type;
+                    return (
                       <button
+                        key={type}
                         type="button"
-                        onClick={() => setExpandedEpisode(isOpen ? null : index)}
-                        className="flex items-center gap-3 w-full p-4 text-left"
+                        onClick={() => setContentType(type)}
+                        className={`relative rounded-xl border-2 p-5 text-left transition-all group ${active
+                            ? "border-primary bg-gradient-to-br from-primary/10 to-primary/5 shadow-md scale-[1.02]"
+                            : "border-gray-200 hover:border-primary/40 hover:shadow-md hover:scale-[1.01]"
+                          }`}
                       >
-                        <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${isReady ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
-                          {isReady ? <CheckCircle2 size={16} /> : index + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {episode.title || `Episode ${index + 1}`}
-                          </p>
-                          {episode.file && <p className="text-xs text-muted-foreground">{episode.file.name}</p>}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {episodes.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); removeEpisode(index); }}
-                              className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
-                            >
-                              <X size={14} />
-                            </button>
+                        <div className="flex items-start gap-4">
+                          <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 transition-all ${active ? "bg-primary shadow-lg" : "bg-gray-100 group-hover:bg-primary/10"
+                            }`}>
+                            {type === "single_video" ? (
+                              <Play size={24} className={active ? "text-white" : "text-gray-600 group-hover:text-primary"} />
+                            ) : (
+                              <Film size={24} className={active ? "text-white" : "text-gray-600 group-hover:text-primary"} />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p className={`font-semibold mb-1 ${active ? "text-primary" : "text-foreground"}`}>
+                              {type === "single_video" ? "Single Video" : "Episode Series"}
+                            </p>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              {type === "single_video"
+                                ? "Perfect for tutorials, workshops, or standalone content"
+                                : "Create a multi-episode series with organized content"
+                              }
+                            </p>
+                          </div>
+                          {active && (
+                            <div className="absolute top-4 right-4 h-6 w-6 rounded-full bg-primary flex items-center justify-center shadow-md">
+                              <CheckCircle2 size={16} className="text-white" />
+                            </div>
                           )}
-                          {isOpen ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
                         </div>
                       </button>
-
-                      {isOpen && (
-                        <div className="px-4 pb-4 space-y-3 border-t border-border pt-4">
-                          <Input
-                            placeholder="Episode title"
-                            value={episode.title}
-                            onChange={(e) => updateEpisode(index, { title: e.target.value })}
-                            className="rounded-xl h-10"
-                          />
-                          <Textarea
-                            placeholder="Episode description (optional)"
-                            value={episode.description}
-                            onChange={(e) => updateEpisode(index, { description: e.target.value })}
-                            rows={2}
-                            className="rounded-xl resize-none text-sm"
-                          />
-                          <VideoDropZone
-                            file={episode.file}
-                            onFile={(f) => updateEpisode(index, { file: f })}
-                            label={`Upload episode ${index + 1}`}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Submit */}
-          <Button type="submit" disabled={loading} size="lg" className="w-full rounded-2xl h-13 gap-2 text-base">
-            {loading ? (
-              <><Loader2 size={18} className="animate-spin" /> Publishing…</>
-            ) : (
-              <><Upload size={18} /> Publish {contentType === "single_video" ? "Video" : "Series"}</>
-            )}
-          </Button>
-        </form>
-      </div>
+              {/* Core details with better organization */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-6">
+                <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
+                  <Info size={18} className="text-primary" />
+                  <h2 className="text-lg font-semibold text-foreground">Content Details</h2>
+                </div>
+
+                <div className="space-y-5">
+                  <div>
+                    <Label className="mb-2 flex items-center gap-1 text-sm font-semibold">
+                      Title <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="e.g., Complete Python Programming Masterclass"
+                      className="rounded-xl h-12 text-base border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground mt-1.5">Make it clear, compelling, and searchable</p>
+                  </div>
+
+                  <div>
+                    <Label className="mb-2 block text-sm font-semibold">Description</Label>
+                    <Textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      rows={5}
+                      placeholder="Describe what viewers will learn, what makes your content unique, and who it's for..."
+                      className="rounded-xl resize-none text-base border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1.5">Help learners understand the value of your content</p>
+                  </div>
+
+                  <div>
+                    <Label className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+                      <DollarSign size={16} className="text-primary" />
+                      Price (USD) <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold text-lg">$</span>
+                      <Input
+                        type="number"
+                        min={String(MIN_PROVIDER_PRICE)}
+                        step="0.01"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        placeholder="6.00"
+                        className="rounded-xl h-12 pl-9 text-base border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+                    <div className="flex items-start gap-2 mt-2 p-3 rounded-lg bg-blue-50 border border-blue-100">
+                      <Info size={14} className="text-blue-600 mt-0.5 shrink-0" />
+                      <p className="text-xs text-blue-900">
+                        Minimum ${MIN_PROVIDER_PRICE}. Buyers get a 5-second free preview before purchasing. Price competitively based on content length and value.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Thumbnail section with better visual */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground mb-1">Thumbnail Image</h2>
+                  <p className="text-sm text-muted-foreground">
+                    An eye-catching thumbnail increases click-through rates by up to 80%
+                  </p>
+                </div>
+                <div className="max-w-md">
+                  <ThumbnailDropZone file={thumbnailFile} onFile={setThumbnailFile} />
+                </div>
+              </div>
+
+              {/* Video upload section */}
+              {contentType === "single_video" ? (
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-semibold text-foreground">
+                      Video File <span className="text-red-500">*</span>
+                    </h2>
+                  </div>
+                  <VideoDropZone file={singleVideoFile} onFile={setSingleVideoFile} label="Upload Your Video" />
+                  <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-100">
+                    <AlertCircle size={14} className="text-amber-600 mt-0.5 shrink-0" />
+                    <p className="text-xs text-amber-900">
+                      Ensure your video is high quality (720p or better) and under 2GB. Supported formats: MP4, MOV, AVI, MKV.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                    <div>
+                      <h2 className="text-lg font-semibold text-foreground">Episodes</h2>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {validEpisodeCount} of {episodes.length} episodes ready to publish
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addEpisode}
+                      className="gap-2 rounded-xl font-medium"
+                    >
+                      <Plus size={16} /> Add Episode
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {episodes.map((episode, index) => {
+                      const isOpen = expandedEpisode === index;
+                      const isReady = episode.title.trim() && episode.file;
+                      return (
+                        <div
+                          key={index}
+                          className={`rounded-xl border-2 transition-all ${isReady
+                              ? "border-emerald-300 bg-gradient-to-br from-emerald-50 to-emerald-50/30"
+                              : "border-gray-200 bg-white hover:border-gray-300"
+                            }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setExpandedEpisode(isOpen ? null : index)}
+                            className="flex items-center gap-4 w-full p-4 text-left"
+                          >
+                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${isReady
+                                ? "bg-emerald-500 text-white shadow-md"
+                                : "bg-gray-100 text-gray-600"
+                              }`}>
+                              {isReady ? <CheckCircle2 size={20} /> : index + 1}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-foreground truncate">
+                                {episode.title || `Episode ${index + 1} - Not configured`}
+                              </p>
+                              {episode.file && (
+                                <p className="text-xs text-muted-foreground truncate">{episode.file.name}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {episodes.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); removeEpisode(index); }}
+                                  className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                >
+                                  <X size={16} />
+                                </button>
+                              )}
+                              {isOpen ? (
+                                <ChevronUp size={18} className="text-gray-400" />
+                              ) : (
+                                <ChevronDown size={18} className="text-gray-400" />
+                              )}
+                            </div>
+                          </button>
+
+                          {isOpen && (
+                            <div className="px-4 pb-4 space-y-4 border-t border-gray-200 pt-4">
+                              <Input
+                                placeholder={`Episode ${index + 1} title`}
+                                value={episode.title}
+                                onChange={(e) => updateEpisode(index, { title: e.target.value })}
+                                className="rounded-xl h-11 border-gray-300"
+                              />
+                              <Textarea
+                                placeholder="Episode description (optional)"
+                                value={episode.description}
+                                onChange={(e) => updateEpisode(index, { description: e.target.value })}
+                                rows={3}
+                                className="rounded-xl resize-none text-sm border-gray-300"
+                              />
+                              <VideoDropZone
+                                file={episode.file}
+                                onFile={(f) => updateEpisode(index, { file: f })}
+                                label={`Upload Episode ${index + 1}`}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Enhanced Submit Button */}
+              <div className="sticky bottom-0 bg-gradient-to-t from-white via-white to-transparent pt-6 pb-2">
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  size="lg"
+                  className="w-full rounded-xl h-14 gap-3 text-base font-semibold shadow-lg hover:shadow-xl transition-all bg-gradient-to-r from-primary to-primary/90"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 size={20} className="animate-spin" />
+                      Publishing Your Content...
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={20} />
+                      Publish {contentType === "single_video" ? "Video" : "Series"}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
         }
         type="component"
         maxHeight="h-full"

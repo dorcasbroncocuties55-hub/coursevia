@@ -1,0 +1,129 @@
+﻿import { useState } from "react";
+import { createBooking } from "@/services/bookingService";
+import { checkConflict } from "@/services/conflictService";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { walletPay } from "@/lib/walletPay";
+import { getServiceModeLabel } from "@/lib/providerModes";
+import { 
+  CalendarDays, Clock, Globe, MapPin, MessageCircle, 
+  ChevronRight, ChevronLeft, CheckCircle2, User, FileText
+} from "lucide-react";
+type Props = {
+  provider: {
+    id: string;
+    user_id?: string;
+    provider_type?: string;
+    coach_profile_id?: string;
+    service_delivery_mode?: "online" | "in_person" | "both" | string;
+    calendar_mode?: "open_schedule" | "provider_calendar" | string;
+    phone?: string | null;
+    phone_visible_after_booking?: boolean | null;
+    full_name?: string;
+  };
+  learner: { id: string };
+  selectedService?: any;
+  services?: any[];
+};
+export default function BookingModal({ provider, learner, selectedService: initialService, services = [] }: Props) {
+  const [currentStep, setCurrentStep] = useState(1);
+  const [sessionMode, setSessionMode] = useState<"online" | "in_person">("online");
+  const [selectedService, setSelectedService] = useState(initialService);
+  const [learnerGoals, setLearnerGoals] = useState("");
+  const [date, setDate] = useState("");
+  const [loading, setLoading] = useState(false);
+  const offeredMode = selectedService?.service_delivery_mode || provider.service_delivery_mode || "online";
+  const canChooseMode = offeredMode === "both";
+  const hasMultipleServices = services.length > 1;
+  const price = Number(selectedService?.price || 0);
+  const providerName = provider.full_name || "Provider";
+  let stepSequence: string[] = [];
+  if (canChooseMode) stepSequence.push("sessionType");
+  if (hasMultipleServices) stepSequence.push("service");
+  stepSequence.push("goals", "datetime", "review");
+  const totalSteps = stepSequence.length;
+  const handleNext = () => {
+    const currentStepType = stepSequence[currentStep - 1];
+    if (currentStepType === "sessionType" && !sessionMode) {
+      toast.error("Please select a session type");
+      return;
+    }
+    if (currentStepType === "service" && !selectedService) {
+      toast.error("Please select a service");
+      return;
+    }
+    if (currentStepType === "goals" && !learnerGoals.trim()) {
+      toast.error("Please tell us what you want to work on");
+      return;
+    }
+    if (currentStepType === "datetime" && !date) {
+      toast.error("Please select a date and time");
+      return;
+    }
+    setCurrentStep(prev => Math.min(prev + 1, totalSteps));
+  };
+  const handleBack = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
+  const handleBooking = async () => {
+    setLoading(true);
+    try {
+      const conflict = await checkConflict(provider.id, date);
+      if (conflict) {
+        toast.error("This time slot is unavailable. Please select another time.");
+        const datetimeStepIndex = stepSequence.indexOf("datetime") + 1;
+        setCurrentStep(datetimeStepIndex);
+        setLoading(false);
+        return;
+      }
+      const booking = await createBooking({
+        provider_id: provider.id,
+        learner_id: learner.id,
+        booking_type: "scheduled",
+        scheduled_time: date,
+        duration: selectedService?.duration_minutes || 60,
+        service_id: selectedService?.id || null,
+        notes: learnerGoals,
+        provider_type: provider.provider_type,
+        coach_profile_id: selectedService?.coach_id || provider.coach_profile_id || null,
+        service_delivery_mode: sessionMode,
+        calendar_mode: provider.calendar_mode || "provider_calendar",
+        release_provider_phone: sessionMode === "in_person" && Boolean(provider.phone_visible_after_booking),
+      } as any);
+      if (price > 0) {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser?.email) throw new Error("A valid email is required for payment.");
+        await walletPay({
+          user_id: learner.id,
+          email: authUser.email,
+          type: "booking",
+          amount: price,
+          content_id: booking.id,
+          content_title: selectedService?.title || "Session booking",
+        });
+      }
+      toast.success("Booking confirmed! Check your email for session details.");
+      window.location.href = "/dashboard/bookings";
+    } catch (error: any) {
+      toast.error(error.message || "Booking failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  const currentStepType = stepSequence[currentStep - 1];
+  const bookingDate = date ? new Date(date) : null;
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-xs text-slate-500">
+          <span>Step {currentStep} of {totalSteps}</span>
+          <span>{Math.round((currentStep / totalSteps) * 100)}%</span>
+        </div>
+        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-[#0b7e84] transition-all duration-300"
+            style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+          />
+        </div>
+      </div>
+      <div className="min-h-[300px]">

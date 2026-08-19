@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Profile Access Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; max-width: 800px; margin: 0 auto; }
+    button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    .result { margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 5px; }
+    .success { background: #d4edda; color: #155724; }
+    .error { background: #f8d7da; color: #721c24; }
+    pre { background: #000; color: #0f0; padding: 10px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Profile Access Diagnostic</h1>
+  
+  <div>
+    <h3>1. Test Anonymous Access (Logged Out)</h3>
+    <button onclick="testAnon()">Test Anon Access</button>
+    <div id="anon-result"></div>
+  </div>
+  
+  <div>
+    <h3>2. Login First</h3>
+    <input id="email" type="email" placeholder="Your email" style="padding: 8px; width: 250px;" />
+    <input id="password" type="password" placeholder="Password" style="padding: 8px; width: 250px;" />
+    <button onclick="login()">Login</button>
+    <div id="login-result"></div>
+  </div>
+  
+  <div>
+    <h3>3. Test Authenticated Access (Logged In)</h3>
+    <button onclick="testAuth()">Test Auth Access</button>
+    <div id="auth-result"></div>
+  </div>
+  
+  <div>
+    <h3>4. Test Specific Profile</h3>
+    <input id="profile-id" type="text" placeholder="Profile user_id" value="1e56d601-d64a-4f17-ad44-737d9f64a220" style="padding: 8px; width: 400px;" />
+    <button onclick="testProfile()">Test Profile</button>
+    <div id="profile-result"></div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://lpvcaukviteexnjzqqeo.supabase.co';
+    const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwdmNhdWt2aXRlZXhuanpxcWVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5MTQxNDgsImV4cCI6MjA4OTQ5MDE0OH0.rHd16T2wKEUxyu2IWME-faqW-ZlrW8fNCmFaTs1IiV8';
+    
+    const supabase = window.supabase.createClient(SUPABASE_URL, ANON_KEY);
+    
+    async function testAnon() {
+      const result = document.getElementById('anon-result');
+      result.innerHTML = '<div class="result">Testing...</div>';
+      
+      try {
+        const response = await fetch(
+          `${SUPABASE_URL}/rest/v1/profiles?select=user_id,full_name,role&role=not.is.null&limit=5`,
+          {
+            headers: {
+              'apikey': ANON_KEY,
+              'Authorization': `Bearer ${ANON_KEY}`
+            }
+          }
+        );
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          result.innerHTML = `
+            <div class="result success">
+              ✅ Anonymous access WORKS<br>
+              Found ${data.length} profiles
+            </div>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `;
+        } else {
+          result.innerHTML = `
+            <div class="result error">
+              ❌ Anonymous access FAILED<br>
+              Status: ${response.status}<br>
+              Error: ${JSON.stringify(data, null, 2)}
+            </div>
+          `;
+        }
+      } catch (error) {
+        result.innerHTML = `<div class="result error">❌ Error: ${error.message}</div>`;
+      }
+    }
+    
+    async function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const result = document.getElementById('login-result');
+      
+      if (!email || !password) {
+        result.innerHTML = '<div class="result error">❌ Enter email and password</div>';
+        return;
+      }
+      
+      result.innerHTML = '<div class="result">Logging in...</div>';
+      
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        
+        if (error) {
+          result.innerHTML = `<div class="result error">❌ Login failed: ${error.message}</div>`;
+        } else {
+          result.innerHTML = `
+            <div class="result success">
+              ✅ Logged in successfully<br>
+              Email: ${data.user.email}<br>
+              User ID: ${data.user.id}
+            </div>
+          `;
+        }
+      } catch (error) {
+        result.innerHTML = `<div class="result error">❌ Error: ${error.message}</div>`;
+      }
+    }
+    
+    async function testAuth() {
+      const result = document.getElementById('auth-result');
+      result.innerHTML = '<div class="result">Testing...</div>';
+      
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        
+        if (!session.session) {
+          result.innerHTML = '<div class="result error">❌ Not logged in. Login first!</div>';
+          return;
+        }
+        
+        const { data: profiles, error } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, role, onboarding_completed')
+          .not('role', 'is', null)
+          .limit(5);
+        
+        if (error) {
+          result.innerHTML = `
+            <div class="result error">
+              ❌ Authenticated access FAILED<br>
+              Error: ${error.message}<br>
+              Code: ${error.code}
+            </div>
+            <pre>${JSON.stringify(error, null, 2)}</pre>
+          `;
+        } else {
+          result.innerHTML = `
+            <div class="result success">
+              ✅ Authenticated access WORKS<br>
+              Found ${profiles.length} profiles
+            </div>
+            <pre>${JSON.stringify(profiles, null, 2)}</pre>
+          `;
+        }
+      } catch (error) {
+        result.innerHTML = `<div class="result error">❌ Error: ${error.message}</div>`;
+      }
+    }
+    
+    async function testProfile() {
+      const profileId = document.getElementById('profile-id').value;
+      const result = document.getElementById('profile-result');
+      
+      if (!profileId) {
+        result.innerHTML = '<div class="result error">❌ Enter profile user_id</div>';
+        return;
+      }
+      
+      result.innerHTML = '<div class="result">Testing...</div>';
+      
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        const isLoggedIn = !!session.session;
+        
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', profileId)
+          .single();
+        
+        if (error) {
+          result.innerHTML = `
+            <div class="result error">
+              ❌ Profile access FAILED<br>
+              Logged in: ${isLoggedIn ? 'YES' : 'NO'}<br>
+              Error: ${error.message}<br>
+              Code: ${error.code}
+            </div>
+            <pre>${JSON.stringify(error, null, 2)}</pre>
+          `;
+        } else {
+          result.innerHTML = `
+            <div class="result success">
+              ✅ Profile access WORKS<br>
+              Logged in: ${isLoggedIn ? 'YES' : 'NO'}<br>
+              Name: ${profile.full_name}<br>
+              Role: ${profile.role}<br>
+              Onboarding: ${profile.onboarding_completed}
+            </div>
+            <pre>${JSON.stringify(profile, null, 2)}</pre>
+          `;
+        }
+      } catch (error) {
+        result.innerHTML = `<div class="result error">❌ Error: ${error.message}</div>`;
+      }
+    }
+  </script>
+</body>
+</html>

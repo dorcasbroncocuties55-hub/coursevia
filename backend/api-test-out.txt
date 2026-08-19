@@ -1,0 +1,51 @@
+✅ [200] GET /api/subscription/plans
+✅ [200] GET /api/subscriptions/current
+✅ [200] GET /api/payouts/accounts
+✅ [200] GET /api/payouts/banks
+✅ [200] GET /api/payouts/capabilities
+✅ [200] GET /api/payouts/withdrawals
+❌ [500] GET /api/payouts/history
+     → {"error":"column payout_requests.reference does not exist"}
+✅ [200] GET /api/wallet/:id
+✅ [200] GET /api/wallet/balance/:id
+❌ [404] GET /api/wallet/transactions/:id
+     → "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot GET /api/wallet/transactions/12345678-1234-5678-9012-123456789012</pre>\n</bo
+✅ [200] GET /api/checkout/config
+❌ [500] GET /api/admin/payouts
+     → {"error":"Could not find a relationship between 'payout_requests' and 'profiles' in the schema cache"}
+❌ [500] POST /api/subscriptions/initialize
+     → {"message":"Could not create Paddle transaction. Invalid request."}
+❌ [500] POST /api/checkout/initialize
+     → {"message":"Could not create Paddle transaction. Invalid request."}
+❌ [500] POST /api/wallet/topup
+     → {"error":"Checkouts aren't enabled for this account. This typically means that you haven't fully completed the Paddle onboarding process.","hint":"Ensure PADDLE_API_KEY is set and your Paddle account 
+❌ [402] POST /api/wallet/pay
+     → {"message":"Insufficient wallet balance. Available: $0.00, Required: $25.00","available":0,"required":25}
+❌ [404] POST /api/payouts/request
+     → {"error":"Wallet not found."}
+✅ [200] POST /api/notifications/booking-confirmation
+✅ [200] POST /api/ai/chat
+
+══════════════════════════════════════════
+  RESULTS: 11 passed  |  8 failed
+══════════════════════════════════════════
+
+❌ FAILING ENDPOINTS:
+  [500] GET /api/payouts/history
+        {"error":"column payout_requests.reference does not exist"}
+  [404] GET /api/wallet/transactions/:id
+        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot GET /api/wallet/transactions/12345678-1234-5678-9012-123456789012</pre>\n</body>\n</html>\n"
+  [500] GET /api/admin/payouts
+        {"error":"Could not find a relationship between 'payout_requests' and 'profiles' in the schema cache"}
+  [500] POST /api/subscriptions/initialize
+        {"message":"Could not create Paddle transaction. Invalid request."}
+  [500] POST /api/checkout/initialize
+        {"message":"Could not create Paddle transaction. Invalid request."}
+  [500] POST /api/wallet/topup
+        {"error":"Checkouts aren't enabled for this account. This typically means that you haven't fully completed the Paddle onboarding process.","hint":"Ensure PADDLE_API_KEY is set and your Paddle account is active."}
+  [402] POST /api/wallet/pay
+        {"message":"Insufficient wallet balance. Available: $0.00, Required: $25.00","available":0,"required":25}
+  [404] POST /api/payouts/request
+        {"error":"Wallet not found."}
+
+Full results saved to api-test-results.json

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth & Booking Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>CourseVia Auth & Booking Flow Test</h1>
+    
+    <div id="status"></div>
+    
+    <h2>Actions</h2>
+    <button onclick="checkAuth()">Check Auth Status</button>
+    <button onclick="testBookingFlow()">Test Booking Flow</button>
+    <button onclick="clearStorage()">Clear Storage</button>
+    <button onclick="showLocalStorage()">Show localStorage</button>
+    
+    <h2>Results</h2>
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+        const status = document.getElementById('status');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            results.appendChild(div);
+        }
+        
+        function showPreformatted(title, data) {
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>${title}:</strong><pre>${JSON.stringify(data, null, 2)}</pre>`;
+            results.appendChild(div);
+        }
+        
+        async function checkAuth() {
+            log('Checking authentication status...', 'info');
+            
+            // Check localStorage for auth tokens
+            const allKeys = Object.keys(localStorage);
+            const authKeys = allKeys.filter(key => 
+                key.startsWith('sb-') || 
+                key.includes('auth') || 
+                key.includes('supabase')
+            );
+            
+            log(`Found ${authKeys.length} potential auth keys`, authKeys.length > 0 ? 'success' : 'warning');
+            showPreformatted('Auth Keys', authKeys);
+            
+            // Check each auth key
+            for (const key of authKeys) {
+                try {
+                    const value = localStorage.getItem(key);
+                    const parsed = JSON.parse(value || '{}');
+                    
+                    if (parsed.user || parsed.access_token) {
+                        log(`Valid auth data found in: ${key}`, 'success');
+                        showPreformatted(`Auth Data (${key})`, {
+                            hasUser: !!parsed.user,
+                            hasAccessToken: !!parsed.access_token,
+                            userEmail: parsed.user?.email,
+                            userId: parsed.user?.id,
+                            expiresAt: parsed.expires_at
+                        });
+                    }
+                } catch (e) {
+                    log(`Failed to parse ${key}: ${e.message}`, 'error');
+                }
+            }
+            
+            // Test fetch to profiles endpoint
+            if (authKeys.length > 0) {
+                log('Testing profile API call...', 'info');
+                try {
+                    const anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwdmNhdWt2aXRlZXhuanpxcWVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5MTQxNDgsImV4cCI6MjA4OTQ5MDE0OH0.rHd16T2wKEUxyu2IWME-faqW-ZlrW8fNCmFaTs1IiV8";
+                    
+                    const response = await fetch('https://lpvcaukviteexnjzqqeo.supabase.co/rest/v1/profiles?limit=1', {
+                        headers: {
+                            'apikey': anonKey,
+                            'Authorization': `Bearer ${anonKey}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    log(`Profile API call: ${response.status}`, response.ok ? 'success' : 'error');
+                } catch (e) {
+                    log(`Profile API error: ${e.message}`, 'error');
+                }
+            }
+        }
+        
+        async function testBookingFlow() {
+            log('Testing booking flow...', 'info');
+            
+            // Simulate what happens when user clicks "Book Session" 
+            const profileUrl = 'http://localhost:5173/coach/ajibola-gbenga-joseph-ado-nigeria';
+            
+            log(`Opening profile: ${profileUrl}`, 'info');
+            
+            // Check if we can access the profile without redirect
+            try {
+                const testWindow = window.open(profileUrl, '_blank', 'width=800,height=600');
+                log('Profile opened in new window - check if it redirects to login', 'info');
+                
+                setTimeout(() => {
+                    if (testWindow && !testWindow.closed) {
+                        const currentUrl = testWindow.location.href;
+                        if (currentUrl.includes('/login')) {
+                            log('❌ Profile redirected to login page', 'error');
+                        } else {
+                            log('✅ Profile loaded without redirect', 'success');
+                        }
+                    }
+                }, 3000);
+            } catch (e) {
+                log(`Booking flow test error: ${e.message}`, 'error');
+            }
+        }
+        
+        function clearStorage() {
+            log('Clearing all localStorage...', 'warning');
+            localStorage.clear();
+            log('Storage cleared', 'success');
+        }
+        
+        function showLocalStorage() {
+            log('Showing all localStorage keys...', 'info');
+            const storage = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                storage[key] = value?.substring(0, 100) + (value?.length > 100 ? '...' : '');
+            }
+            showPreformatted('localStorage', storage);
+        }
+        
+        // Auto-check on page load
+        window.addEventListener('load', checkAuth);
+    </script>
+</body>
+</html>

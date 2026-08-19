@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     lastSyncedUserIdRef.current = null;
   };
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, retryCount = 0): Promise<Profile | null> => {
     const { data, error } = await supabase
       .from("profiles")
       .select("user_id, full_name, avatar_url, onboarding_completed, email, role, bio, phone, country, kyc_status, is_verified")
@@ -97,6 +97,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
 
     if (error) {
+      // If JWT expired, try to refresh the session once
+      if ((error.message?.includes("JWT expired") || error.code === "PGRST301") && retryCount === 0) {
+        console.log("[AuthContext] JWT expired, attempting session refresh...");
+
+        const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+
+        if (refreshError) {
+          console.error("[AuthContext] Session refresh failed:", refreshError);
+          // If refresh fails, sign out the user
+          await logout();
+          return null;
+        }
+
+        if (refreshedSession) {
+          console.log("[AuthContext] Session refreshed successfully, retrying profile fetch");
+          // Retry the fetch with the refreshed session
+          return fetchProfile(userId, retryCount + 1);
+        }
+      }
+
       logSupabaseError("fetchProfile error:", error);
       setProfile(null);
       return null;
@@ -107,13 +127,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return nextProfile;
   };
 
-  const fetchRoles = async (userId: string, profileRole?: AppRole | null, metadataRole?: AppRole | null) => {
+  const fetchRoles = async (userId: string, profileRole?: AppRole | null, metadataRole?: AppRole | null, retryCount = 0): Promise<AppRole[]> => {
     const { data, error } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", userId);
 
     if (error) {
+      // If JWT expired, try to refresh the session once
+      if ((error.message?.includes("JWT expired") || error.code === "PGRST301") && retryCount === 0) {
+        console.log("[AuthContext] JWT expired in fetchRoles, attempting session refresh...");
+
+        const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+
+        if (refreshError) {
+          console.error("[AuthContext] Session refresh failed in fetchRoles:", refreshError);
+          await logout();
+          const fallbackRoles = buildRoleList([], profileRole, metadataRole);
+          setRoles(fallbackRoles);
+          return fallbackRoles;
+        }
+
+        if (refreshedSession) {
+          console.log("[AuthContext] Session refreshed successfully, retrying roles fetch");
+          return fetchRoles(userId, profileRole, metadataRole, retryCount + 1);
+        }
+      }
+
       logSupabaseError("fetchRoles error:", error);
       const fallbackRoles = buildRoleList([], profileRole, metadataRole);
       setRoles(fallbackRoles);
@@ -310,6 +350,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Check if the session is expired and refresh if needed
+      const now = Math.floor(Date.now() / 1000);
+      const expiresAt = nextSession.expires_at;
+
+      if (expiresAt && expiresAt < now) {
+        console.log("[AuthContext] Session expired, attempting refresh...");
+
+        const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+
+        if (refreshError || !refreshedSession) {
+          console.error("[AuthContext] Session refresh failed, logging out");
+          await logout();
+          return;
+        }
+
+        console.log("[AuthContext] Session refreshed successfully");
+        nextSession = refreshedSession;
+        setSession(refreshedSession);
+        setUser(refreshedSession.user);
+      }
+
       const currentUserId = nextSession.user.id;
       const metadataRole = parseRole(nextSession.user.user_metadata?.requested_role);
 
@@ -369,7 +430,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.auth.signOut({ scope: "global" }),
         new Promise(resolve => setTimeout(resolve, 4000)),
       ]);
-    } catch {}
+    } catch { }
     window.location.replace("/");
   };
 
@@ -416,11 +477,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .select("user_id")
           .eq("user_id", nextSession.user.id)
           .maybeSingle();
-        
+
         if (profileError?.code === "PGRST301") {
           // User deleted - clear everything and redirect
-          try { await supabase.auth.signOut({ scope: "local" }); } catch {}
-          try { window.localStorage.clear(); window.sessionStorage.clear(); } catch {}
+          try { await supabase.auth.signOut({ scope: "local" }); } catch { }
+          try { window.localStorage.clear(); window.sessionStorage.clear(); } catch { }
           if (mounted) {
             clearAuthState();
             setLoading(false);
