@@ -32,3 +32,30 @@ backend/.env
 .env.local
 .env.production
 .env.staging
+
+# Dependencies
+node_modules/
+backend/node_modules/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Test outputs
+*.log
+test-output.txt
+*-test-*.txt
+*-err.txt
+*-out.txt
+newman-results.json
+
+# Lock files
+bun.lock
+bun.lockb
+yarn.lock
+
+# Temporary files
+tmp_*
+temp_*
+*.tmp
