@@ -29,7 +29,7 @@ const DIDIT_WEBHOOK_SECRET = process.env.DIDIT_WEBHOOK_SECRET || "";
 
 // Persona KYC (Legacy)
 const PERSONA_API_KEY = process.env.PERSONA_API_KEY || "";
-const PERSONA_TEMPLATE_ID = process.env.PERSONA_TEMPLATE_ID || "persona_sandbox_59ce022a-0305-4892-84fd-4bc3482399d5";
+const PERSONA_TEMPLATE_ID = process.env.PERSONA_TEMPLATE_ID || "your_persona_template_id_here";
 const PERSONA_BASE_URL = process.env.PERSONA_BASE_URL || "https://withpersona.com/api/v1";
 const PERSONA_WEBHOOK_SECRET = process.env.PERSONA_WEBHOOK_SECRET || "";
 

@@ -11,7 +11,7 @@ export type KycSessionResult = {
 
 const backendBaseUrl = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/$/, "");
 export const personaTemplateId =
-  import.meta.env.VITE_PERSONA_TEMPLATE_ID || "persona_sandbox_59ce022a-0305-4892-84fd-4bc3482399d5";
+  import.meta.env.VITE_PERSONA_TEMPLATE_ID || "your_persona_template_id_here";
 
 export const isKycBackendConfigured = () => {
   return Boolean(backendBaseUrl);
@@ -40,8 +40,8 @@ export const createPersonaKycSession = async (payload: {
       "Content-Type": "application/json",
       ...(session?.access_token
         ? {
-            Authorization: `Bearer ${session.access_token}`,
-          }
+          Authorization: `Bearer ${session.access_token}`,
+        }
         : {}),
     },
     body: JSON.stringify(payload),
