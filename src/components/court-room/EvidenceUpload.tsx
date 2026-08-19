@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Upload, FileText, Image, Video, Audio, File, X, AlertTriangle, CheckCircle, Eye, Download, Shield } from "lucide-react";
+import { Upload, FileText, Image, Video, Music, File, X, AlertTriangle, CheckCircle, Eye, Download, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface EvidenceUploadProps {
@@ -44,9 +44,9 @@ export default function EvidenceUpload({ caseId, userId, judgeId, userRole, onEv
     'video/avi': { icon: Video, color: 'text-purple-400', name: 'AVI Video' },
     'video/mov': { icon: Video, color: 'text-purple-400', name: 'MOV Video' },
     'video/quicktime': { icon: Video, color: 'text-purple-400', name: 'QuickTime Video' },
-    'audio/mp3': { icon: Audio, color: 'text-green-400', name: 'MP3 Audio' },
-    'audio/wav': { icon: Audio, color: 'text-green-400', name: 'WAV Audio' },
-    'audio/m4a': { icon: Audio, color: 'text-green-400', name: 'M4A Audio' },
+    'audio/mp3': { icon: Music, color: 'text-green-400', name: 'MP3 Audio' },
+    'audio/wav': { icon: Music, color: 'text-green-400', name: 'WAV Audio' },
+    'audio/m4a': { icon: Music, color: 'text-green-400', name: 'M4A Audio' },
     'text/plain': { icon: FileText, color: 'text-gray-400', name: 'Text File' }
   };
 
@@ -82,14 +82,14 @@ export default function EvidenceUpload({ caseId, userId, judgeId, userRole, onEv
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
       const validation = validateFile(file);
-      
+
       if (validation) {
         alert(`${file.name}: ${validation}`);
         continue;
       }
 
       const preview = await createFilePreview(file);
-      
+
       newFiles.push({
         file,
         id: crypto.randomUUID(),
@@ -105,7 +105,7 @@ export default function EvidenceUpload({ caseId, userId, judgeId, userRole, onEv
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files) {
       handleFileSelect(e.dataTransfer.files);
     }
@@ -128,7 +128,7 @@ export default function EvidenceUpload({ caseId, userId, judgeId, userRole, onEv
     // Create a unique file path
     const fileExt = file.name.split('.').pop();
     const uniqueFileName = `${caseId}/${Date.now()}-${fileName}.${fileExt}`;
-    
+
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
       .from('evidence-files')
@@ -153,10 +153,10 @@ export default function EvidenceUpload({ caseId, userId, judgeId, userRole, onEv
       // Upload each file and create evidence records
       for (let i = 0; i < files.length; i++) {
         const fileUpload = files[i];
-        
+
         // Update file status
-        setFiles(prev => prev.map(f => 
-          f.id === fileUpload.id 
+        setFiles(prev => prev.map(f =>
+          f.id === fileUpload.id
             ? { ...f, status: 'uploading', progress: 0 }
             : f
         ));
@@ -178,8 +178,8 @@ export default function EvidenceUpload({ caseId, userId, judgeId, userRole, onEv
           const fileUrl = await uploadToStorage(fileUpload.file, fileUpload.file.name);
 
           // Update progress
-          setFiles(prev => prev.map(f => 
-            f.id === fileUpload.id 
+          setFiles(prev => prev.map(f =>
+            f.id === fileUpload.id
               ? { ...f, progress: 50 }
               : f
           ));
@@ -211,24 +211,24 @@ export default function EvidenceUpload({ caseId, userId, judgeId, userRole, onEv
           }
 
           // Mark file as completed
-          setFiles(prev => prev.map(f => 
-            f.id === fileUpload.id 
+          setFiles(prev => prev.map(f =>
+            f.id === fileUpload.id
               ? { ...f, status: 'completed', progress: 100 }
               : f
           ));
 
         } catch (error) {
           console.error(`Error uploading file ${fileUpload.file.name}:`, error);
-          
+
           // Mark file as error
-          setFiles(prev => prev.map(f => 
-            f.id === fileUpload.id 
-              ? { 
-                  ...f, 
-                  status: 'error', 
-                  progress: 0,
-                  error: error instanceof Error ? error.message : 'Upload failed'
-                }
+          setFiles(prev => prev.map(f =>
+            f.id === fileUpload.id
+              ? {
+                ...f,
+                status: 'error',
+                progress: 0,
+                error: error instanceof Error ? error.message : 'Upload failed'
+              }
               : f
           ));
         }
@@ -236,7 +236,7 @@ export default function EvidenceUpload({ caseId, userId, judgeId, userRole, onEv
 
       // Check if all uploads completed successfully
       const allCompleted = files.every(f => f.status === 'completed');
-      
+
       if (allCompleted) {
         // Reset form
         setFiles([]);
@@ -244,10 +244,10 @@ export default function EvidenceUpload({ caseId, userId, judgeId, userRole, onEv
         setDescription('');
         setEvidenceWeight('normal');
         setIsPublic(true);
-        
+
         // Notify parent component
         onEvidenceUploaded();
-        
+
         alert(`Successfully uploaded ${files.length} evidence file(s)!`);
       }
 
@@ -367,11 +367,10 @@ export default function EvidenceUpload({ caseId, userId, judgeId, userRole, onEv
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        className={`relative border-2 border-dashed rounded-lg p-8 text-center transition ${
-          dragActive 
-            ? 'border-[#0b7e84] bg-gray-700' 
-            : 'border-gray-600 hover:border-gray-500'
-        }`}
+        className={`relative border-2 border-dashed rounded-lg p-8 text-center transition ${dragActive
+          ? 'border-[#0b7e84] bg-gray-700'
+          : 'border-gray-600 hover:border-gray-500'
+          }`}
       >
         <input
           ref={fileInputRef}
@@ -381,7 +380,7 @@ export default function EvidenceUpload({ caseId, userId, judgeId, userRole, onEv
           onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
-        
+
         <div className="space-y-4">
           <Upload className="mx-auto text-gray-400" size={48} />
           <div>
@@ -389,7 +388,7 @@ export default function EvidenceUpload({ caseId, userId, judgeId, userRole, onEv
               Drop files here or click to browse
             </p>
             <p className="text-sm text-gray-400">
-              Supported: Images (JPEG, PNG, GIF, WebP), Videos (MP4, AVI, MOV), 
+              Supported: Images (JPEG, PNG, GIF, WebP), Videos (MP4, AVI, MOV),
               Documents (PDF, DOC, DOCX), Audio (MP3, WAV, M4A)
             </p>
           </div>
@@ -403,7 +402,7 @@ export default function EvidenceUpload({ caseId, userId, judgeId, userRole, onEv
           <div className="space-y-2">
             {files.map((fileUpload) => {
               const { icon: IconComponent, color } = getFileIcon(fileUpload.file.type);
-              
+
               return (
                 <div key={fileUpload.id} className="bg-gray-700 border border-gray-600 rounded-lg p-4">
                   <div className="flex items-center space-x-4">
@@ -437,7 +436,7 @@ export default function EvidenceUpload({ caseId, userId, judgeId, userRole, onEv
                           </button>
                         )}
                       </div>
-                      
+
                       <div className="flex items-center justify-between text-xs text-gray-400">
                         <span>{formatFileSize(fileUpload.file.size)}</span>
                         <span className="capitalize">{fileUpload.file.type.split('/')[0]}</span>
@@ -488,7 +487,7 @@ export default function EvidenceUpload({ caseId, userId, judgeId, userRole, onEv
             </div>
           )}
         </div>
-        
+
         <button
           onClick={uploadEvidence}
           disabled={!title.trim() || files.length === 0 || uploading}

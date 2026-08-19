@@ -1,4 +1,41 @@
 import { useState, useEffect } from "react";
+
+interface EvidenceGalleryProps {
+  caseId: string;
+  userRole: 'learner' | 'provider' | 'judge';
+  canUpload: boolean;
+}
+
+export default function EvidenceGallery({ caseId, userRole, canUpload }: EvidenceGalleryProps) {
+  const [evidence, setEvidence] = useState<any[]>([]);
+
+  useEffect(() => {
+    // TODO: Fetch evidence for this case
+  }, [caseId]);
+
+  return (
+    <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+      <h3 className="text-xl font-bold text-white mb-6">
+        Evidence Gallery
+      </h3>
+
+      {evidence.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-400">No evidence has been submitted yet.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {evidence.map((item, index) => (
+            <div key={index} className="bg-gray-700 border border-gray-600 rounded-lg p-4">
+              <p className="text-white font-medium">{item.title}</p>
+              <p className="text-gray-400 text-sm">{item.description}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 import { FileText, Image, Video, Audio, File, Download, Eye, Shield, Clock, User, Scale, AlertTriangle, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -34,7 +71,7 @@ export default function EvidenceGallery({ caseId, userRole, userId, judgeId }: E
   const [loading, setLoading] = useState(true);
   const [selectedEvidence, setSelectedEvidence] = useState<Evidence | null>(null);
   const [showModal, setShowModal] = useState(false);
-  
+
   // Filters
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [submitterFilter, setSubmitterFilter] = useState<string>('all');
@@ -67,7 +104,7 @@ export default function EvidenceGallery({ caseId, userRole, userId, judgeId }: E
       const visibleEvidence = (data || []).filter(item => {
         // Judges can see all evidence
         if (userRole === 'judge') return true;
-        
+
         // Non-judges can only see public evidence
         return item.is_public;
       });
@@ -133,7 +170,7 @@ export default function EvidenceGallery({ caseId, userRole, userId, judgeId }: E
       if (error) throw error;
 
       // Update local state
-      setEvidence(prev => prev.map(item => 
+      setEvidence(prev => prev.map(item =>
         item.id === evidenceId ? { ...item, verified } : item
       ));
 
@@ -314,7 +351,7 @@ export default function EvidenceGallery({ caseId, userRole, userId, judgeId }: E
           <FileText className="mx-auto text-gray-400 mb-4" size={48} />
           <h3 className="text-xl font-bold text-white mb-2">No Evidence Found</h3>
           <p className="text-gray-400">
-            {evidence.length === 0 
+            {evidence.length === 0
               ? 'No evidence has been submitted for this case yet.'
               : 'No evidence matches your current filters.'
             }
@@ -325,7 +362,7 @@ export default function EvidenceGallery({ caseId, userRole, userId, judgeId }: E
           {filteredEvidence.map((item) => {
             const { icon: TypeIcon, color: typeColor } = getEvidenceTypeIcon(item.evidence_type);
             const { icon: SubmitterIcon, color: submitterColor, label: submitterLabel } = getSubmitterIcon(item.submitter_type);
-            
+
             return (
               <div key={item.id} className="bg-gray-800 border border-gray-700 rounded-lg p-4 hover:bg-gray-750 transition">
                 {/* Evidence Header */}
@@ -334,18 +371,18 @@ export default function EvidenceGallery({ caseId, userRole, userId, judgeId }: E
                     <TypeIcon className={typeColor} size={20} />
                     <span className="text-xs text-gray-400 capitalize">{item.evidence_type}</span>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <span className={`px-2 py-1 rounded-full border text-xs ${getWeightColor(item.evidence_weight)}`}>
                       {item.evidence_weight}
                     </span>
-                    
+
                     {!item.is_public && (
                       <div className="flex items-center space-x-1 text-yellow-400" title="Judge Only">
                         <Shield size={12} />
                       </div>
                     )}
-                    
+
                     {item.verified && (
                       <div className="flex items-center space-x-1 text-green-400" title="Verified by Judge">
                         <CheckCircle size={12} />
@@ -356,7 +393,7 @@ export default function EvidenceGallery({ caseId, userRole, userId, judgeId }: E
 
                 {/* Evidence Title and Description */}
                 <h4 className="font-medium text-white mb-2 line-clamp-2">{item.title}</h4>
-                
+
                 {item.description && (
                   <p className="text-sm text-gray-300 mb-3 line-clamp-2">{item.description}</p>
                 )}
@@ -414,11 +451,10 @@ export default function EvidenceGallery({ caseId, userRole, userId, judgeId }: E
                     {userRole === 'judge' && (
                       <button
                         onClick={() => handleVerifyEvidence(item.id, !item.verified)}
-                        className={`flex items-center space-x-1 text-sm transition ${
-                          item.verified 
+                        className={`flex items-center space-x-1 text-sm transition ${item.verified
                             ? 'text-green-400 hover:text-green-300'
                             : 'text-yellow-400 hover:text-yellow-300'
-                        }`}
+                          }`}
                       >
                         {item.verified ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}
                         <span>{item.verified ? 'Verified' : 'Verify'}</span>
@@ -462,7 +498,7 @@ export default function EvidenceGallery({ caseId, userRole, userId, judgeId }: E
                   {selectedEvidence.file_url && (
                     <div className="bg-gray-700 border border-gray-600 rounded-lg p-4">
                       <h4 className="font-medium text-white mb-2">File Preview</h4>
-                      
+
                       {selectedEvidence.evidence_type === 'image' && (
                         <img
                           src={selectedEvidence.file_url}

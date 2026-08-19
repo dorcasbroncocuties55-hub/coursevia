@@ -3,21 +3,21 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../integrations/supabase/client';
 import { useAuth } from '../../hooks/useAuth';
-import { CourtRoomInterface } from './CourtRoomInterface';
-import { ProviderRestrictionOverlay } from './ProviderRestrictionOverlay';
-import { EvidenceUpload } from './EvidenceUpload';
-import { EvidenceGallery } from './EvidenceGallery';
+import CourtRoomInterface from './CourtRoomInterface';
+import ProviderRestrictionOverlay from './ProviderRestrictionOverlay';
+import EvidenceUpload from './EvidenceUpload';
+import EvidenceGallery from './EvidenceGallery';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { 
-  Scale, 
-  MessageSquare, 
-  FileText, 
-  Clock, 
+import {
+  Scale,
+  MessageSquare,
+  FileText,
+  Clock,
   AlertTriangle,
   CheckCircle,
   XCircle,
@@ -54,7 +54,7 @@ export const CourtRoomApp: React.FC = () => {
   const { caseId } = useParams<{ caseId: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
-  
+
   const [courtCase, setCourtCase] = useState<CourtCase | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -264,8 +264,8 @@ export const CourtRoomApp: React.FC = () => {
                   Mercy Window Active
                 </Badge>
               )}
-              <Button 
-                onClick={() => navigate('/dashboard')} 
+              <Button
+                onClick={() => navigate('/dashboard')}
                 variant="outline"
                 size="sm"
               >
@@ -295,7 +295,7 @@ export const CourtRoomApp: React.FC = () => {
           </TabsList>
 
           <TabsContent value="chat" className="space-y-6">
-            <CourtRoomInterface 
+            <CourtRoomInterface
               caseId={caseId!}
               userRole={userRole}
               accessLevel={accessLevel}
@@ -305,7 +305,7 @@ export const CourtRoomApp: React.FC = () => {
           <TabsContent value="evidence" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
-                <EvidenceGallery 
+                <EvidenceGallery
                   caseId={caseId!}
                   userRole={userRole}
                   canUpload={accessLevel === 'full' || accessLevel === 'mercy'}
@@ -313,7 +313,7 @@ export const CourtRoomApp: React.FC = () => {
               </div>
               <div>
                 {(accessLevel === 'full' || accessLevel === 'mercy') && (
-                  <EvidenceUpload 
+                  <EvidenceUpload
                     caseId={caseId!}
                     userRole={userRole}
                     onUploadSuccess={() => {
@@ -368,7 +368,7 @@ export const CourtRoomApp: React.FC = () => {
                       </div>
                     </div>
                   ))}
-                  
+
                   {courtCase.judges && (
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
