@@ -5,6 +5,8 @@ import crypto from "crypto";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import * as StripeConnect from "./stripe-connect.js";
+import { courtRoomRoutes } from "./court-room-routes.js";
+import { autoEscalateToCourtRoom } from "./court-room-integration.js";
 
 const app = express();
 app.use(cors());
@@ -1090,7 +1092,36 @@ app.post("/api/refunds/request", async (req, res) => {
     }).select("*").single();
     if (error) throw new Error(error.message);
 
-    return res.json({ success: true, refund, message: "Refund request submitted. Admin will review within 24-48 hours." });
+    // Auto-escalate to Court Room (as per user requirement: 1a - any refund triggers court room)
+    try {
+      const escalationResult = await autoEscalateToCourtRoom({
+        booking_id,
+        learner_id: user_id,
+        provider_id: booking.provider_id,
+        amount,
+        reason: reason.trim() || "",
+        refund_type: 'dispute'
+      });
+
+      if (escalationResult.escalated) {
+        // Update refund record with court case reference
+        await supabaseAdmin.from("refunds").update({
+          court_case_id: escalationResult.courtCase.id,
+          status: "escalated_to_court"
+        }).eq("id", refund.id);
+
+        console.log(`Refund auto-escalated to court room: ${escalationResult.courtCase.case_number}`);
+      }
+    } catch (escalationError) {
+      console.error('Court room escalation failed:', escalationError);
+      // Continue with regular refund process even if escalation fails
+    }
+
+    return res.json({
+      success: true,
+      refund,
+      message: "Refund request submitted and escalated to dispute resolution. You will receive further instructions via email."
+    });
   } catch (error) {
     return res.status(500).json({ message: error instanceof Error ? error.message : "Could not submit refund request." });
   }
@@ -1945,6 +1976,10 @@ app.post("/api/stripe-connect/webhook", express.raw({ type: 'application/json' }
     });
   }
 });
+
+// ── Court Room Routes ─────────────────────────────────────────────────────────
+// Add Court Room dispute resolution system routes
+courtRoomRoutes(app, supabaseAdmin);
 
 // ─────────────────────────────────────────────────────────────────────────────
 
