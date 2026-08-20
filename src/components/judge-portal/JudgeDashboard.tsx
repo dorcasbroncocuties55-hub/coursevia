@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Gavel,
   TrendingUp,
@@ -25,6 +25,7 @@ interface JudgeProfile {
   rank: string;
   hire_date: string;
   specialization: string[];
+  avatar_url?: string;
 }
 
 interface PerformanceMetrics {
@@ -68,7 +69,20 @@ const JudgeDashboard = () => {
         throw new Error('Judge profile not found');
       }
 
-      setJudge(judgeData);
+      // Get user profile for avatar
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('user_id', user.id)
+        .single();
+
+      // Merge profile data with judge data
+      const judgeWithAvatar = {
+        ...judgeData,
+        avatar_url: profileData?.avatar_url
+      };
+
+      setJudge(judgeWithAvatar);
 
       // Get performance metrics
       const { data: metricsData, error: metricsError } = await supabase
@@ -176,6 +190,7 @@ const JudgeDashboard = () => {
                 </div>
               </div>
               <Avatar>
+                <AvatarImage src={judge.avatar_url} alt={judge.full_name} />
                 <AvatarFallback className="bg-purple-100 text-purple-600">
                   {judge.full_name.split(' ').map(n => n[0]).join('')}
                 </AvatarFallback>

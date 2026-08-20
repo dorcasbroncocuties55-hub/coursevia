@@ -21,6 +21,7 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 import AuthCallback from "@/pages/AuthCallback";
 const VerifyEmail = lazy(() => import("@/pages/VerifyEmail"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
+const WelcomePage = lazy(() => import("@/components/WelcomePage"));
 const About = lazy(() => import("./pages/public/About"));
 const Therapists = lazy(() => import("./pages/public/Therapists"));
 const Courses = lazy(() => import("./pages/public/Courses"));
@@ -257,6 +258,15 @@ const App = () => {
                       element={
                         <ProtectedRoute requireOnboarding={false}>
                           <Onboarding />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/welcome"
+                      element={
+                        <ProtectedRoute requireOnboarding={false}>
+                          <WelcomePage />
                         </ProtectedRoute>
                       }
                     />
