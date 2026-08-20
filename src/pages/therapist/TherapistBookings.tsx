@@ -327,7 +327,7 @@ const TherapistBookings = () => {
 
                     {isLoading ? (
                         <div className="text-center py-12">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
                             <p className="text-gray-500 mt-4">Loading bookings...</p>
                         </div>
                     ) : (
@@ -440,7 +440,7 @@ const TherapistBookings = () => {
                                                 <div className="flex items-center space-x-4">
                                                     <div className="text-sm font-medium text-gray-900 w-24">
                                                         <div>{date}</div>
-                                                        <div className="text-teal-600">{time}</div>
+                                                        <div className="text-primary">{time}</div>
                                                     </div>
                                                     <Avatar className="h-10 w-10">
                                                         <AvatarImage src={booking.patient_avatar} alt={booking.patient_name} />

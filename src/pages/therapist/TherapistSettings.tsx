@@ -358,7 +358,7 @@ const TherapistSettings = () => {
         <main className="flex-1 p-6">
           {isLoading ? (
             <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
               <p className="text-gray-500 mt-4">Loading settings...</p>
             </div>
           ) : (
@@ -386,7 +386,7 @@ const TherapistSettings = () => {
                       <div className="flex items-center space-x-6">
                         <Avatar className="h-24 w-24">
                           <AvatarImage src={profile?.avatar_url} alt={profile?.full_name} />
-                          <AvatarFallback className="bg-teal-100 text-teal-600 text-2xl">
+                          <AvatarFallback className="bg-primary/10 text-primary text-2xl">
                             {profile?.full_name?.split(' ').map(n => n[0]).join('') || 'T'}
                           </AvatarFallback>
                         </Avatar>

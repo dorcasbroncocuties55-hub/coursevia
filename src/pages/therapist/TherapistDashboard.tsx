@@ -287,7 +287,7 @@ const TherapistDashboard = () => {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg font-semibold">Today's Books</CardTitle>
-                  <Link to="/therapist/books" className="text-teal-600 text-sm hover:underline">
+                  <Link to="/therapist/books" className="text-primary text-sm hover:underline">
                     View Full Schedule
                   </Link>
                 </CardHeader>

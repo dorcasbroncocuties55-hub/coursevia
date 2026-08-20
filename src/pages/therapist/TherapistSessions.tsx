@@ -406,7 +406,7 @@ const TherapistSessions = () => {
                     {/* Session Notes List */}
                     {isLoading ? (
                         <div className="text-center py-12">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
                             <p className="text-gray-500 mt-4">Loading session notes...</p>
                         </div>
                     ) : filteredNotes.length === 0 ? (
@@ -420,6 +420,7 @@ const TherapistSessions = () => {
                             </p>
                         </div>
                     ) : (
+
                         <div className="space-y-4">
                             {filteredNotes.map((note) => (
                                 <Card key={note.id} className="hover:shadow-md transition-shadow">
@@ -510,7 +511,7 @@ const TherapistSessions = () => {
                                             <X className="h-4 w-4 mr-2" />
                                             Cancel
                                         </Button>
-                                        <Button size="sm" onClick={handleSaveNote} className="bg-teal-600 hover:bg-teal-700">
+                                        <Button size="sm" onClick={handleSaveNote} className="bg-primary hover:bg-primary/90">
                                             <Save className="h-4 w-4 mr-2" />
                                             Save
                                         </Button>

@@ -347,7 +347,7 @@ const TherapistClients = () => {
                     {/* Patients Grid */}
                     {isLoading ? (
                         <div className="text-center py-12">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
                             <p className="text-gray-500 mt-4">Loading patients...</p>
                         </div>
                     ) : filteredPatients.length === 0 ? (
@@ -422,7 +422,7 @@ const TherapistClients = () => {
                                             {patient.next_session && (
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-sm text-gray-500">Next Session</span>
-                                                    <span className="text-sm font-medium text-teal-600">{formatDate(patient.next_session)}</span>
+                                                    <span className="text-sm font-medium text-primary">{formatDate(patient.next_session)}</span>
                                                 </div>
                                             )}
 

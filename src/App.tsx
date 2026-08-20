@@ -84,6 +84,8 @@ const TherapistSessions = lazy(() => import("./pages/therapist/TherapistSessions
 const TherapistContent = lazy(() => import("./pages/therapist/TherapistContent"));
 const TherapistRefunds = lazy(() => import("./pages/therapist/TherapistRefunds"));
 const TherapistUploadVideo = lazy(() => import("./pages/therapist/TherapistUploadVideo"));
+const TherapistPayout = lazy(() => import("./pages/therapist/TherapistPayout"));
+const TherapistSettings = lazy(() => import("./pages/therapist/TherapistSettings"));
 
 // Shared dashboard pages
 const LearnerWallet = lazy(() => import("./pages/dashboard/WalletPage").then(m => ({ default: m.LearnerWallet })));
@@ -683,6 +685,22 @@ const App = () => {
                       element={
                         <ProtectedRoute requiredRole="therapist">
                           <TherapistRefunds />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/therapist/payout"
+                      element={
+                        <ProtectedRoute requiredRole="therapist">
+                          <TherapistPayout />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/therapist/settings"
+                      element={
+                        <ProtectedRoute requiredRole="therapist">
+                          <TherapistSettings />
                         </ProtectedRoute>
                       }
                     />
