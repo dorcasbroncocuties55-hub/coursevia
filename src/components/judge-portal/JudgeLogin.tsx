@@ -47,10 +47,10 @@ const JudgeLogin = () => {
       }
 
       toast.success(`Welcome, ${judgeData.full_name}!`);
-      
+
       // Redirect to judge dashboard
       navigate('/judge-portal/dashboard');
-      
+
     } catch (err: any) {
       setError(err.message || 'Login failed. Please try again.');
       toast.error(err.message || 'Login failed');
@@ -75,7 +75,7 @@ const JudgeLogin = () => {
             Access the CourseVia Judge Portal
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent>
           {error && (
             <Alert className="mb-4 border-red-200 bg-red-50">
@@ -84,7 +84,7 @@ const JudgeLogin = () => {
               </AlertDescription>
             </Alert>
           )}
-          
+
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -101,7 +101,7 @@ const JudgeLogin = () => {
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
@@ -117,21 +117,31 @@ const JudgeLogin = () => {
                 />
               </div>
             </div>
-            
-            <Button 
-              type="submit" 
+
+            <Button
+              type="submit"
               className="w-full bg-purple-600 hover:bg-purple-700"
               disabled={isLoading}
             >
               {isLoading ? 'Signing In...' : 'Sign In to Portal'}
             </Button>
           </form>
-          
+
           <div className="mt-6 text-center text-sm text-gray-500">
             <p>Authorized judicial personnel only</p>
             <p className="mt-1">Need help? Contact IT Support</p>
           </div>
-          
+
+          <div className="mt-4 text-center">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/judge-portal/signup')}
+              className="text-purple-600 border-purple-200 hover:bg-purple-50"
+            >
+              Apply for Judge Portal Access
+            </Button>
+          </div>
+
           <div className="mt-4 p-3 bg-gray-50 rounded-lg">
             <p className="text-xs text-gray-600 text-center">
               🔒 Secure judicial access portal

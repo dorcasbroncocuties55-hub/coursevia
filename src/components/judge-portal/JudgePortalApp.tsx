@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import JudgeLogin from './JudgeLogin';
+import JudgeSignup from './JudgeSignup';
 import JudgeDashboard from './JudgeDashboard';
 import JudgeRankings from './JudgeRankings';
 import JudgeProfile from './JudgeProfile';
@@ -79,6 +80,7 @@ const JudgePortalApp = () => {
     return (
       <Routes>
         <Route path="/login" element={<JudgeLogin />} />
+        <Route path="/signup" element={<JudgeSignup />} />
         <Route path="*" element={<Navigate to="/judge-portal/login" replace />} />
       </Routes>
     );
