@@ -31,11 +31,20 @@ const collection = raw.collection || raw;
 
 // ── Shared variables ──────────────────────────────────────────────────────────
 
+// Seed from collection.variable array so new variables (judge_id, case_id, etc.)
+// are automatically picked up without editing this runner.
 const collectionVars = {
   base_url: "http://localhost:5000",
   user_id: "test-user-id",
   email: "test@example.com",
 };
+if (Array.isArray(collection.variable)) {
+  collection.variable.forEach(v => {
+    if (v.key && v.value !== undefined) collectionVars[v.key] = v.value;
+  });
+}
+// Allow CLI override:  BASE_URL=https://... node run-postman-tests.cjs
+if (process.env.BASE_URL) collectionVars.base_url = process.env.BASE_URL;
 
 // ── Helper: resolve {{variable}} placeholders ─────────────────────────────────
 

@@ -536,13 +536,156 @@ export const courtRoomRoutes = (app, supabaseAdmin) => {
     }
   });
 
-  // Check provider access restrictions
+  // ── Judge grants temporary portal access to provider for evidence gathering ──
+  app.post("/api/court/case/:caseId/grant-access", async (req, res) => {
+    try {
+      const { caseId } = req.params;
+      const { durationMinutes = 60, reason } = req.body;
+      const judgeId = req.headers['x-judge-id'];
+
+      if (!judgeId) {
+        return res.status(401).json({ message: "Judge authentication required" });
+      }
+      if (!reason?.trim()) {
+        return res.status(400).json({ message: "Reason for granting access is required" });
+      }
+      const allowed = [30, 60, 120];
+      if (!allowed.includes(Number(durationMinutes))) {
+        return res.status(400).json({ message: "Duration must be 30, 60 or 120 minutes" });
+      }
+
+      // Verify judge is assigned to this case
+      const { data: courtCase, error: caseError } = await supabaseAdmin
+        .from('court_cases')
+        .select('id, case_number, provider_id, status')
+        .eq('id', caseId)
+        .eq('assigned_judge_id', judgeId)
+        .single();
+
+      if (caseError || !courtCase) {
+        return res.status(404).json({ message: "Case not found or not assigned to you" });
+      }
+      if (courtCase.status === 'resolved' || courtCase.status === 'closed') {
+        return res.status(400).json({ message: "Cannot grant access on a resolved case" });
+      }
+
+      // Deactivate any existing judge-granted access for this case first
+      await supabaseAdmin
+        .from('provider_restrictions')
+        .update({ is_active: false, deactivated_at: new Date().toISOString() })
+        .eq('court_case_id', caseId)
+        .eq('restriction_type', 'judge_granted_access');
+
+      // Create new judge-granted access window
+      const expiresAt = new Date(Date.now() + Number(durationMinutes) * 60 * 1000).toISOString();
+
+      const { data: accessRecord, error: insertError } = await supabaseAdmin
+        .from('provider_restrictions')
+        .insert({
+          provider_id: courtCase.provider_id,
+          court_case_id: caseId,
+          restriction_type: 'judge_granted_access',
+          is_active: true,
+          mercy_rule_enabled: false,
+          mercy_window_minutes: Number(durationMinutes),
+          restriction_metadata: {
+            judge_id: judgeId,
+            reason: reason.trim(),
+            granted_at: new Date().toISOString(),
+            expires_at: expiresAt,
+            duration_minutes: Number(durationMinutes)
+          }
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Post a system message in the court room
+      await supabaseAdmin.from('case_messages').insert({
+        case_id: caseId,
+        sender_type: 'system',
+        message_type: 'system_update',
+        content: `⚖️ Judge has granted the provider temporary portal access for ${durationMinutes} minutes to gather evidence.\n\nReason: ${reason.trim()}\n\nAccess expires at: ${new Date(expiresAt).toLocaleString()}`,
+        visible_to: ['learner', 'provider', 'judge']
+      });
+
+      // Log judge activity
+      await logJudgeActivity(judgeId, caseId, 'access_granted',
+        `Judge granted provider ${durationMinutes}-min portal access for evidence gathering`,
+        { reason: reason.trim(), expires_at: expiresAt, duration_minutes: durationMinutes }
+      );
+
+      // Send email to provider
+      const { data: providerProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('email, full_name')
+        .eq('user_id', courtCase.provider_id)
+        .maybeSingle();
+
+      if (providerProfile?.email) {
+        await courtRoomEmailService.sendEmail({
+          to: providerProfile.email,
+          subject: `✅ Temporary Portal Access Granted — Case ${courtCase.case_number}`,
+          html: `
+            <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+              <h2 style="color:#0b7e84">Temporary Portal Access Granted</h2>
+              <p>Dear ${providerProfile.full_name || 'Provider'},</p>
+              <p>The presiding judge has granted you <strong>temporary access to your portal</strong> for <strong>${durationMinutes} minutes</strong> to gather evidence for your case.</p>
+              <table style="border-collapse:collapse;width:100%;margin:16px 0">
+                <tr><td style="padding:8px;color:#666">Case Number</td><td style="padding:8px;font-weight:bold">${courtCase.case_number}</td></tr>
+                <tr><td style="padding:8px;color:#666">Access Duration</td><td style="padding:8px;font-weight:bold">${durationMinutes} minutes</td></tr>
+                <tr><td style="padding:8px;color:#666">Expires At</td><td style="padding:8px;font-weight:bold">${new Date(expiresAt).toLocaleString()}</td></tr>
+                <tr><td style="padding:8px;color:#666">Reason</td><td style="padding:8px">${reason.trim()}</td></tr>
+              </table>
+              <p style="color:#e65c00"><strong>Important:</strong> Your portal access will be automatically revoked when the timer expires. Please gather your evidence and upload it to the court room before the deadline.</p>
+              <p>Log in to your portal now: <a href="${process.env.APP_URL}/login" style="color:#0b7e84">${process.env.APP_URL}/login</a></p>
+              <hr style="margin:24px 0;border:none;border-top:1px solid #eee"/>
+              <p style="color:#999;font-size:12px">Coursevia Court Administration</p>
+            </div>
+          `
+        });
+      }
+
+      res.json({
+        success: true,
+        message: `Portal access granted for ${durationMinutes} minutes`,
+        access: {
+          providerId: courtCase.provider_id,
+          expiresAt,
+          durationMinutes: Number(durationMinutes),
+          reason: reason.trim()
+        }
+      });
+
+    } catch (error) {
+      console.error("[court/case/grant-access] error:", error);
+      res.status(500).json({ message: "Failed to grant access" });
+    }
+  });
+
+  // Check provider access restrictions — now also returns judge-granted access
   app.get("/api/court/provider/restrictions/:providerId", async (req, res) => {
     try {
       const { providerId } = req.params;
 
       const restrictions = await checkProviderRestrictions(providerId);
       const mercyAccess = await checkMercyWindowAccess(providerId);
+
+      // Check for active judge-granted access
+      const now = new Date().toISOString();
+      const { data: judgeGranted } = await supabaseAdmin
+        .from('provider_restrictions')
+        .select('restriction_metadata')
+        .eq('provider_id', providerId)
+        .eq('restriction_type', 'judge_granted_access')
+        .eq('is_active', true)
+        .gt('restriction_metadata->>expires_at', now)
+        .maybeSingle();
+
+      const judgeGrantedActive = !!judgeGranted;
+      const judgeGrantedExpiresAt = judgeGranted?.restriction_metadata?.expires_at || null;
+      const judgeGrantedReason = judgeGranted?.restriction_metadata?.reason || null;
 
       res.json({
         success: true,
@@ -553,6 +696,11 @@ export const courtRoomRoutes = (app, supabaseAdmin) => {
           activeBooking: mercyAccess.activeBooking,
           accessStart: mercyAccess.mercyStart,
           accessEnd: mercyAccess.mercyEnd
+        },
+        judgeGrantedAccess: {
+          hasAccess: judgeGrantedActive,
+          expiresAt: judgeGrantedExpiresAt,
+          reason: judgeGrantedReason
         }
       });
 
