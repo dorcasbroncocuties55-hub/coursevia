@@ -65,14 +65,14 @@ CREATE TABLE IF NOT EXISTS courses (
 );
 
 -- Indexes
-CREATE INDEX idx_courses_creator_id ON courses(creator_id);
-CREATE INDEX idx_courses_status ON courses(status);
-CREATE INDEX idx_courses_category ON courses(category);
-CREATE INDEX idx_courses_slug ON courses(slug);
-CREATE INDEX idx_courses_created_at ON courses(created_at DESC);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_courses_creator_id ON courses(creator_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_courses_status ON courses(status);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_courses_category ON courses(category);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_courses_slug ON courses(slug);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_courses_created_at ON courses(created_at DESC);
 
 -- Full-text search
-CREATE INDEX idx_courses_search ON courses USING gin(to_tsvector('english', title || ' ' || COALESCE(description, '')));
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_courses_search ON courses USING gin(to_tsvector('english', title || ' ' || COALESCE(description, '')));
 
 -- ============================================================================
 -- 2. COURSE SECTIONS TABLE
@@ -94,8 +94,8 @@ CREATE TABLE IF NOT EXISTS course_sections (
 );
 
 -- Indexes
-CREATE INDEX idx_course_sections_course_id ON course_sections(course_id);
-CREATE INDEX idx_course_sections_order ON course_sections(course_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_course_sections_course_id ON course_sections(course_id);
+CREATE INDEX IF NOT EXISTS idx_course_sections_order ON course_sections(course_id, order_index);
 
 -- ============================================================================
 -- 3. LESSONS TABLE
@@ -137,9 +137,9 @@ CREATE TABLE IF NOT EXISTS lessons (
 );
 
 -- Indexes
-CREATE INDEX idx_lessons_course_id ON lessons(course_id);
-CREATE INDEX idx_lessons_section_id ON lessons(section_id);
-CREATE INDEX idx_lessons_order ON lessons(course_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_lessons_course_id ON lessons(course_id);
+CREATE INDEX IF NOT EXISTS idx_lessons_section_id ON lessons(section_id);
+CREATE INDEX IF NOT EXISTS idx_lessons_order ON lessons(course_id, order_index);
 
 -- ============================================================================
 -- 4. ENROLLMENTS TABLE
@@ -178,10 +178,10 @@ CREATE TABLE IF NOT EXISTS course_enrollments (
 );
 
 -- Indexes
-CREATE INDEX idx_enrollments_course_id ON course_enrollments(course_id);
-CREATE INDEX idx_enrollments_student_id ON course_enrollments(student_id);
-CREATE INDEX idx_enrollments_status ON course_enrollments(status);
-CREATE INDEX idx_enrollments_enrolled_at ON course_enrollments(enrolled_at DESC);
+CREATE INDEX IF NOT EXISTS idx_enrollments_course_id ON course_enrollments(course_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_student_id ON course_enrollments(student_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_status ON course_enrollments(status);
+CREATE INDEX IF NOT EXISTS idx_enrollments_enrolled_at ON course_enrollments(enrolled_at DESC);
 
 -- ============================================================================
 -- 5. LESSON PROGRESS TABLE
@@ -216,10 +216,10 @@ CREATE TABLE IF NOT EXISTS lesson_progress (
 );
 
 -- Indexes
-CREATE INDEX idx_lesson_progress_enrollment_id ON lesson_progress(enrollment_id);
-CREATE INDEX idx_lesson_progress_student_id ON lesson_progress(student_id);
-CREATE INDEX idx_lesson_progress_lesson_id ON lesson_progress(lesson_id);
-CREATE INDEX idx_lesson_progress_status ON lesson_progress(status);
+CREATE INDEX IF NOT EXISTS idx_lesson_progress_enrollment_id ON lesson_progress(enrollment_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_progress_student_id ON lesson_progress(student_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_progress_lesson_id ON lesson_progress(lesson_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_progress_status ON lesson_progress(status);
 
 -- ============================================================================
 -- 6. COURSE REVIEWS TABLE
@@ -254,10 +254,10 @@ CREATE TABLE IF NOT EXISTS course_reviews (
 );
 
 -- Indexes
-CREATE INDEX idx_reviews_course_id ON course_reviews(course_id);
-CREATE INDEX idx_reviews_student_id ON course_reviews(student_id);
-CREATE INDEX idx_reviews_rating ON course_reviews(rating);
-CREATE INDEX idx_reviews_created_at ON course_reviews(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reviews_course_id ON course_reviews(course_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_student_id ON course_reviews(student_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_rating ON course_reviews(rating);
+CREATE INDEX IF NOT EXISTS idx_reviews_created_at ON course_reviews(created_at DESC);
 
 -- ============================================================================
 -- 7. COURSE MESSAGES TABLE (Student-Creator Communication)
@@ -286,12 +286,12 @@ CREATE TABLE IF NOT EXISTS course_messages (
 );
 
 -- Indexes
-CREATE INDEX idx_messages_conversation_id ON course_messages(conversation_id);
-CREATE INDEX idx_messages_sender_id ON course_messages(sender_id);
-CREATE INDEX idx_messages_recipient_id ON course_messages(recipient_id);
-CREATE INDEX idx_messages_course_id ON course_messages(course_id);
-CREATE INDEX idx_messages_created_at ON course_messages(created_at DESC);
-CREATE INDEX idx_messages_is_read ON course_messages(is_read) WHERE is_read = false;
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON course_messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON course_messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_recipient_id ON course_messages(recipient_id);
+CREATE INDEX IF NOT EXISTS idx_messages_course_id ON course_messages(course_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON course_messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_is_read ON course_messages(is_read) WHERE is_read = false;
 
 -- ============================================================================
 -- 8. COURSE ANALYTICS TABLE
@@ -331,8 +331,8 @@ CREATE TABLE IF NOT EXISTS course_analytics (
 );
 
 -- Indexes
-CREATE INDEX idx_analytics_course_id ON course_analytics(course_id);
-CREATE INDEX idx_analytics_date ON course_analytics(date DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_course_id ON course_analytics(course_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_date ON course_analytics(date DESC);
 
 -- ============================================================================
 -- 9. NOTIFICATIONS TABLE
@@ -367,10 +367,10 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 -- Indexes
-CREATE INDEX idx_notifications_user_id ON notifications(user_id);
-CREATE INDEX idx_notifications_is_read ON notifications(is_read) WHERE is_read = false;
-CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
-CREATE INDEX idx_notifications_type ON notifications(type);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read) WHERE is_read = false;
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type);
 
 -- ============================================================================
 -- 10. CERTIFICATES TABLE
@@ -400,9 +400,9 @@ CREATE TABLE IF NOT EXISTS certificates (
 );
 
 -- Indexes
-CREATE INDEX idx_certificates_student_id ON certificates(student_id);
-CREATE INDEX idx_certificates_course_id ON certificates(course_id);
-CREATE INDEX idx_certificates_verification_code ON certificates(verification_code);
+CREATE INDEX IF NOT EXISTS idx_certificates_student_id ON certificates(student_id);
+CREATE INDEX IF NOT EXISTS idx_certificates_course_id ON certificates(course_id);
+CREATE INDEX IF NOT EXISTS idx_certificates_verification_code ON certificates(verification_code);
 
 -- ============================================================================
 -- FUNCTIONS & TRIGGERS
@@ -622,8 +622,8 @@ CREATE POLICY "Creators can view analytics for their courses" ON course_analytic
 -- ============================================================================
 
 -- Create GIN index for JSONB columns
-CREATE INDEX idx_lessons_attachments ON lessons USING gin(attachments);
-CREATE INDEX idx_messages_attachments ON course_messages USING gin(attachments);
+CREATE INDEX IF NOT EXISTS idx_lessons_attachments ON lessons USING gin(attachments);
+CREATE INDEX IF NOT EXISTS idx_messages_attachments ON course_messages USING gin(attachments);
 
 COMMENT ON TABLE courses IS 'Main courses table storing all course information';
 COMMENT ON TABLE course_sections IS 'Course sections for organizing lessons';

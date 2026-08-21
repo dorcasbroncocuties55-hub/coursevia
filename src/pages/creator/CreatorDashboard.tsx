@@ -1,4 +1,9 @@
+import { useState, useEffect } from "react";
 import { BookOpen, Users, DollarSign, TrendingUp, Clock, Star } from "lucide-react";
+import { getCreatorDashboardStats } from "@/lib/api/analyticsService";
+import { getEnrollmentStats } from "@/lib/api/enrollmentService";
+import { getCourses } from "@/lib/api/courseService";
+import { formatNotificationTime } from "@/lib/api/notificationService";
 
 // ── Figma-exact Creator Portal design tokens (Indigo theme) ──────────────────
 const S = {
@@ -13,40 +18,117 @@ const S = {
   warning: "#F59E0B",      // amber-500
 };
 
-// Mock data - will be replaced with real Supabase queries
-const STATS = [
-  { label: "Total Courses", value: "12", change: "+2 this month", icon: BookOpen, color: S.accent },
-  { label: "Total Students", value: "1,847", change: "+127 this week", icon: Users, color: S.success },
-  { label: "Revenue", value: "$24,580", change: "+12% from last month", icon: DollarSign, color: S.warning },
-  { label: "Avg. Rating", value: "4.8", change: "From 342 reviews", icon: Star, color: "#F59E0B" },
-];
-
-const RECENT_ENROLLMENTS = [
-  { student: "Sarah Johnson", course: "Advanced React Patterns", time: "2 hours ago", avatar: "SJ" },
-  { student: "Michael Chen", course: "TypeScript Masterclass", time: "5 hours ago", avatar: "MC" },
-  { student: "Emily Davis", course: "Node.js Backend Dev", time: "1 day ago", avatar: "ED" },
-  { student: "James Wilson", course: "Advanced React Patterns", time: "1 day ago", avatar: "JW" },
-  { student: "Lisa Anderson", course: "Full Stack Development", time: "2 days ago", avatar: "LA" },
-];
-
-const TOP_COURSES = [
-  { title: "Advanced React Patterns", students: 342, revenue: "$8,550", rating: 4.9 },
-  { title: "TypeScript Masterclass", students: 289, revenue: "$7,225", rating: 4.8 },
-  { title: "Node.js Backend Dev", students: 256, revenue: "$6,400", rating: 4.7 },
-  { title: "Full Stack Development", students: 234, revenue: "$5,850", rating: 4.8 },
-];
-
 export default function CreatorDashboard() {
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<any>(null);
+  const [recentEnrollments, setRecentEnrollments] = useState<any[]>([]);
+  const [topCourses, setTopCourses] = useState<any[]>([]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+
+    // Load all dashboard data
+    const [dashboardData, enrollmentData, coursesData] = await Promise.all([
+      getCreatorDashboardStats('30d'),
+      getEnrollmentStats('30d'),
+      getCourses({ status: 'published', limit: 4, sortBy: 'enrollments' }),
+    ]);
+
+    if (dashboardData.data) {
+      setStats(dashboardData.data);
+    }
+
+    if (enrollmentData.data) {
+      setRecentEnrollments(enrollmentData.data.recentEnrollments.slice(0, 5));
+    }
+
+    if (coursesData.data) {
+      setTopCourses(coursesData.data);
+    }
+
+    setLoading(false);
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const formatNumber = (num: number) => {
+    return new Intl.NumberFormat('en-US').format(num);
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  if (loading) {
+    return (
+      <div style={{
+        fontFamily: "Inter,sans-serif",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "400px",
+      }}>
+        <div style={{ fontSize: 16, color: S.dim }}>Loading dashboard...</div>
+      </div>
+    );
+  }
+
+  const STATS = [
+    {
+      label: "Total Courses",
+      value: stats?.totalCourses || 0,
+      change: `${stats?.publishedCourses || 0} published`,
+      icon: BookOpen,
+      color: S.accent
+    },
+    {
+      label: "Total Students",
+      value: formatNumber(stats?.totalStudents || 0),
+      change: `${stats?.activeStudents || 0} active`,
+      icon: Users,
+      color: S.success
+    },
+    {
+      label: "Revenue",
+      value: formatCurrency(stats?.totalRevenue || 0),
+      change: `${stats?.revenueGrowth > 0 ? '+' : ''}${stats?.revenueGrowth || 0}% growth`,
+      icon: DollarSign,
+      color: S.warning
+    },
+    {
+      label: "Avg. Rating",
+      value: stats?.avgCourseRating?.toFixed(1) || "0.0",
+      change: `${stats?.completionRate || 0}% completion`,
+      icon: Star,
+      color: "#F59E0B"
+    },
+  ];
+
   return (
     <div style={{ fontFamily: "Inter,sans-serif" }}>
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
-        <h1 style={{ 
-          fontSize: 28, 
-          fontWeight: 700, 
-          color: S.full, 
-          margin: 0, 
-          marginBottom: 8 
+        <h1 style={{
+          fontSize: 28,
+          fontWeight: 700,
+          color: S.full,
+          margin: 0,
+          marginBottom: 8
         }}>
           Dashboard
         </h1>
@@ -56,14 +138,14 @@ export default function CreatorDashboard() {
       </div>
 
       {/* Stats grid — Figma 4-column layout */}
-      <div style={{ 
-        display: "grid", 
+      <div style={{
+        display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-        gap: 20, 
-        marginBottom: 32 
+        gap: 20,
+        marginBottom: 32
       }}>
         {STATS.map(({ label, value, change, icon: Icon, color }) => (
-          <div 
+          <div
             key={label}
             style={{
               background: S.card,
@@ -93,12 +175,12 @@ export default function CreatorDashboard() {
               <div style={{ fontSize: 32, fontWeight: 700, color: S.full, marginBottom: 4 }}>
                 {value}
               </div>
-              <div style={{ 
-                fontSize: 13, 
-                color: S.dim, 
-                display: "flex", 
-                alignItems: "center", 
-                gap: 4 
+              <div style={{
+                fontSize: 13,
+                color: S.dim,
+                display: "flex",
+                alignItems: "center",
+                gap: 4
               }}>
                 <TrendingUp size={14} />
                 {change}
@@ -116,8 +198,8 @@ export default function CreatorDashboard() {
           border: `1px solid ${S.border}`,
           overflow: "hidden",
         }}>
-          <div style={{ 
-            padding: "20px 24px", 
+          <div style={{
+            padding: "20px 24px",
             borderBottom: `1px solid ${S.border}`,
             display: "flex",
             alignItems: "center",
@@ -139,58 +221,69 @@ export default function CreatorDashboard() {
             </button>
           </div>
           <div style={{ padding: 0 }}>
-            {RECENT_ENROLLMENTS.map((item, i) => (
-              <div 
-                key={i}
-                style={{
-                  padding: "16px 24px",
-                  borderBottom: i < RECENT_ENROLLMENTS.length - 1 ? `1px solid ${S.border}` : "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 16,
-                }}
-              >
-                <div style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "50%",
-                  background: S.accentLight,
-                  color: S.accent,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  flexShrink: 0,
-                }}>
-                  {item.avatar}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ 
-                    fontSize: 15, 
-                    fontWeight: 600, 
-                    color: S.full, 
-                    marginBottom: 2 
+            {recentEnrollments.length > 0 ? (
+              recentEnrollments.map((enrollment, i) => (
+                <div
+                  key={enrollment.id}
+                  style={{
+                    padding: "16px 24px",
+                    borderBottom: i < recentEnrollments.length - 1 ? `1px solid ${S.border}` : "none",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 16,
+                  }}
+                >
+                  <div style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    background: S.accentLight,
+                    color: S.accent,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 600,
+                    fontSize: 14,
+                    flexShrink: 0,
                   }}>
-                    {item.student}
+                    {getInitials(enrollment.student?.full_name || 'Student')}
                   </div>
-                  <div style={{ fontSize: 13, color: S.dim }}>
-                    Enrolled in {item.course}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: S.full,
+                      marginBottom: 2
+                    }}>
+                      {enrollment.student?.full_name || 'Anonymous Student'}
+                    </div>
+                    <div style={{ fontSize: 13, color: S.dim }}>
+                      Enrolled in {enrollment.course?.title || 'Unknown Course'}
+                    </div>
+                  </div>
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 13,
+                    color: S.dim,
+                    flexShrink: 0,
+                  }}>
+                    <Clock size={14} />
+                    {formatNotificationTime(enrollment.enrolled_at)}
                   </div>
                 </div>
-                <div style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: 6, 
-                  fontSize: 13, 
-                  color: S.dim,
-                  flexShrink: 0,
-                }}>
-                  <Clock size={14} />
-                  {item.time}
-                </div>
+              ))
+            ) : (
+              <div style={{
+                padding: "32px 24px",
+                textAlign: "center",
+                color: S.dim,
+                fontSize: 14,
+              }}>
+                No recent enrollments
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -201,8 +294,8 @@ export default function CreatorDashboard() {
           border: `1px solid ${S.border}`,
           overflow: "hidden",
         }}>
-          <div style={{ 
-            padding: "20px 24px", 
+          <div style={{
+            padding: "20px 24px",
             borderBottom: `1px solid ${S.border}`,
           }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: S.full, margin: 0 }}>
@@ -210,65 +303,76 @@ export default function CreatorDashboard() {
             </h2>
           </div>
           <div style={{ padding: 0 }}>
-            {TOP_COURSES.map((course, i) => (
-              <div 
-                key={i}
-                style={{
-                  padding: "16px 24px",
-                  borderBottom: i < TOP_COURSES.length - 1 ? `1px solid ${S.border}` : "none",
-                  display: "grid",
-                  gridTemplateColumns: "1fr auto auto auto",
-                  gap: 24,
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <div style={{ 
-                    fontSize: 15, 
-                    fontWeight: 600, 
-                    color: S.full, 
-                    marginBottom: 2 
+            {topCourses.length > 0 ? (
+              topCourses.map((course, i) => (
+                <div
+                  key={course.id}
+                  style={{
+                    padding: "16px 24px",
+                    borderBottom: i < topCourses.length - 1 ? `1px solid ${S.border}` : "none",
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto auto auto",
+                    gap: 24,
+                    alignItems: "center",
+                  }}
+                >
+                  <div>
+                    <div style={{
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: S.full,
+                      marginBottom: 2
+                    }}>
+                      {course.title}
+                    </div>
+                    <div style={{ fontSize: 13, color: S.dim }}>
+                      {course.total_enrollments || 0} students
+                    </div>
+                  </div>
+                  <div style={{
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: S.full,
+                    textAlign: "right",
                   }}>
-                    {course.title}
+                    {formatCurrency((course.total_enrollments || 0) * (course.price || 0))}
                   </div>
-                  <div style={{ fontSize: 13, color: S.dim }}>
-                    {course.students} students
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: S.warning,
+                  }}>
+                    <Star size={16} fill={S.warning} />
+                    {course.average_rating?.toFixed(1) || '0.0'}
                   </div>
+                  <button style={{
+                    padding: "6px 14px",
+                    borderRadius: 6,
+                    border: `1px solid ${S.border}`,
+                    background: S.card,
+                    color: S.full,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}>
+                    View
+                  </button>
                 </div>
-                <div style={{ 
-                  fontSize: 16, 
-                  fontWeight: 600, 
-                  color: S.full,
-                  textAlign: "right",
-                }}>
-                  {course.revenue}
-                </div>
-                <div style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: 4,
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: S.warning,
-                }}>
-                  <Star size={16} fill={S.warning} />
-                  {course.rating}
-                </div>
-                <button style={{
-                  padding: "6px 14px",
-                  borderRadius: 6,
-                  border: `1px solid ${S.border}`,
-                  background: S.card,
-                  color: S.full,
-                  fontSize: 13,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}>
-                  View
-                </button>
+              ))
+            ) : (
+              <div style={{
+                padding: "32px 24px",
+                textAlign: "center",
+                color: S.dim,
+                fontSize: 14,
+              }}>
+                No courses yet
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
