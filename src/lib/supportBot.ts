@@ -20,7 +20,7 @@ export const getIntelligentReply = async (
   // ── Greetings ──────────────────────────────────────────────────────────────
   if (/^(hi|hello|hey|good\s*(morning|afternoon|evening)|howdy|sup|yo)\b/.test(lower)) {
     const name = ctx.userName?.split(" ")[0] || "";
-    const greeting = ["morning","afternoon","evening"].find(t => lower.includes(t));
+    const greeting = ["morning", "afternoon", "evening"].find(t => lower.includes(t));
     return {
       text: `Good ${greeting || "day"}${name ? `, ${name}` : ""}! 👋 I'm Coursevia's AI assistant.\n\nI can:\n✅ Look up your payments, bookings & account\n✅ Cancel subscriptions instantly\n✅ Submit refund requests on your behalf\n✅ Fix access issues\n✅ Answer any question about the platform\n\nWhat can I help you with today?`,
     };
@@ -29,7 +29,7 @@ export const getIntelligentReply = async (
   // ── What can you do / capabilities ────────────────────────────────────────
   if (lower.includes("what can you do") || lower.includes("what do you do") || lower.includes("help me") || lower.includes("capabilities")) {
     return {
-      text: `Here's everything I can do for you:\n\n💳 **Billing** — Check payments, invoices, charges\n💰 **Refunds** — Submit refund requests, check eligibility\n🔐 **Account** — Password reset, profile issues, access problems\n📚 **Courses** — Access issues, purchase verification\n📅 **Bookings** — View sessions, check status\n💼 **Wallet** — Check balance, explain pending funds\n🔄 **Subscriptions** — Check plan, cancel, upgrade info\n🎓 **KYC** — Verification status, resubmission guide\n📤 **Uploads** — Creator upload troubleshooting\n\nJust describe your problem in plain English and I'll handle it!`,
+      text: `Here's everything I can do for you:\n\n💳 **Billing** — Check payments, invoices, charges\n💰 **Refunds** — Submit refund requests, check eligibility\n🔐 **Account** — Password reset, profile issues, access problems\n📚 **Courses** — Access issues, purchase verification\n📅 **Bookings** — View sessions, check status\n💼 **Wallet** — Check balance, explain pending funds\n🔄 **Subscriptions** — Check plan, cancel, upgrade info\n📤 **Uploads** — Creator upload troubleshooting\n\nJust describe your problem in plain English and I'll handle it!`,
     };
   }
 
@@ -44,7 +44,7 @@ export const getIntelligentReply = async (
           resolved: true,
         };
       }
-    } catch {}
+    } catch { }
   }
 
   // ── Payment history ────────────────────────────────────────────────────────
@@ -57,7 +57,7 @@ export const getIntelligentReply = async (
       } else {
         return { text: "I don't see any payments on your account yet. If you believe you were charged, please describe the issue and I'll investigate.", resolved: true };
       }
-    } catch {}
+    } catch { }
   }
 
   // ── Refund ─────────────────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ export const getIntelligentReply = async (
         } else {
           return { text: "I don't see any completed payments on your account to refund. If you believe you were charged, please share the payment reference or amount and I'll look into it." };
         }
-      } catch {}
+      } catch { }
     }
     return { text: "To request a refund, go to **Dashboard → Payments** and click 'Request Refund'. Refunds are reviewed within 24–48 hours.\n\nAre you signed in? If so, I can look up your payments directly and check eligibility." };
   }
@@ -100,7 +100,7 @@ export const getIntelligentReply = async (
         } else {
           return { text: "I don't see an active subscription on your account. If you believe you're being charged, please share the details and I'll investigate.", resolved: true };
         }
-      } catch {}
+      } catch { }
     }
     return { text: "To cancel your subscription, go to **Dashboard → Subscription** and click 'Cancel subscription'. Access continues until the end of your billing period." };
   }
@@ -119,7 +119,7 @@ export const getIntelligentReply = async (
         } else {
           return { text: "You don't have an active subscription. Visit **Pricing** to see available plans and unlock member benefits.", resolved: true };
         }
-      } catch {}
+      } catch { }
     }
     return { text: "Manage your subscription at **Dashboard → Subscription**. You can cancel anytime — access continues until the billing period ends." };
   }
@@ -154,7 +154,7 @@ export const getIntelligentReply = async (
           }
           return { text: `I don't see any completed course purchases on your account. If you believe you were charged, please share the payment amount or reference and I'll investigate immediately.` };
         }
-      } catch {}
+      } catch { }
     }
     return { text: "To access your courses, go to **Dashboard → My Courses**. If a purchased course isn't showing, try logging out and back in. Still having issues? I can connect you with our Technical team." };
   }
@@ -174,7 +174,7 @@ export const getIntelligentReply = async (
         } else {
           return { text: "I don't see any bookings on your account. To book a session, browse coaches or therapists and click 'Book Session' on their profile.", resolved: true };
         }
-      } catch {}
+      } catch { }
     }
     return { text: "For booking issues, go to **Dashboard → Bookings**. You can view, manage, and join sessions from there. Need more help?" };
   }
@@ -191,32 +191,32 @@ export const getIntelligentReply = async (
             resolved: true,
           };
         }
-      } catch {}
+      } catch { }
     }
     return { text: "To check your wallet, go to **Dashboard → Wallet**. To withdraw, go to **Dashboard → Withdrawals** (you'll need a bank account added first)." };
   }
 
-  // ── KYC / verification ─────────────────────────────────────────────────────
-  if (lower.includes("kyc") || lower.includes("verification") || lower.includes("verify") || lower.includes("identity") || lower.includes("not verified") || lower.includes("rejected")) {
+  // ── Verification status ────────────────────────────────────────────────────
+  if (lower.includes("verification") || lower.includes("verify") || lower.includes("identity") || lower.includes("not verified") || lower.includes("rejected")) {
     if (uid) {
       try {
-        const { data: kyc } = await supabase.from("verification_requests").select("status,provider,created_at,updated_at").eq("user_id", uid).order("created_at", { ascending: false }).limit(1).maybeSingle();
-        if (kyc) {
-          const k = kyc as any;
+        const { data: verif } = await supabase.from("verification_requests").select("status,created_at,updated_at").eq("user_id", uid).order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (verif) {
+          const k = verif as any;
           const statusMsg: Record<string, string> = {
             approved: "✅ Your identity is verified! You can receive payouts.",
             rejected: "❌ Your verification was rejected. You can resubmit with clearer documents.",
             pending: "⏳ Your verification is under review (1–3 business days).",
           };
           return {
-            text: `KYC Status: ${statusMsg[k.status] || `Status: ${k.status}`}\n\nLast updated: ${dateStr(k.updated_at || k.created_at)}\n\n${k.status === "rejected" ? "To resubmit: **Dashboard → KYC Verification** → upload clearer ID documents." : k.status === "pending" ? "No action needed — we'll notify you when it's done." : ""}`,
+            text: `Verification Status: ${statusMsg[k.status] || `Status: ${k.status}`}\n\nLast updated: ${dateStr(k.updated_at || k.created_at)}\n\n${k.status === "rejected" ? "To resubmit, contact support with clearer ID documents." : k.status === "pending" ? "No action needed — we'll notify you when it's done." : ""}`,
             resolved: k.status === "approved",
           };
         }
-      } catch {}
+      } catch { }
     }
     return {
-      text: `KYC (identity verification) is required for coaches, therapists, and creators to receive payouts.\n\nTo complete verification:\n1. Go to **Dashboard → KYC Verification**\n2. Submit your government-issued ID\n3. Wait 1–3 business days for approval\n\nIf rejected, resubmit with clearer, well-lit photos of your ID.`,
+      text: `Identity verification is required for coaches, therapists, and creators to receive payouts.\n\nTo complete verification:\n1. Go to your **Dashboard → Profile Settings**\n2. Submit your government-issued ID\n3. Wait 1–3 business days for approval\n\nIf rejected, resubmit with clearer, well-lit photos of your ID.`,
     };
   }
 
@@ -334,11 +334,11 @@ export const getIntelligentReply = async (
 };
 
 export const DEPARTMENTS = [
-  { id: "billing",   label: "💳 Billing",    keywords: ["payment","pay","charge","invoice","billing","subscription","plan","cancel","refund","money","price","cost","fee"] },
-  { id: "technical", label: "🔧 Technical",  keywords: ["error","bug","crash","not working","broken","loading","blank","slow","video","playback","upload","fail"] },
-  { id: "refunds",   label: "💰 Refunds",    keywords: ["refund","money back","return","reimburse","chargeback"] },
-  { id: "account",   label: "👤 Account",    keywords: ["account","login","password","email","profile","delete","banned","locked","access","sign in","sign up"] },
-  { id: "general",   label: "💬 General",    keywords: [] },
+  { id: "billing", label: "💳 Billing", keywords: ["payment", "pay", "charge", "invoice", "billing", "subscription", "plan", "cancel", "refund", "money", "price", "cost", "fee"] },
+  { id: "technical", label: "🔧 Technical", keywords: ["error", "bug", "crash", "not working", "broken", "loading", "blank", "slow", "video", "playback", "upload", "fail"] },
+  { id: "refunds", label: "💰 Refunds", keywords: ["refund", "money back", "return", "reimburse", "chargeback"] },
+  { id: "account", label: "👤 Account", keywords: ["account", "login", "password", "email", "profile", "delete", "banned", "locked", "access", "sign in", "sign up"] },
+  { id: "general", label: "💬 General", keywords: [] },
 ];
 
 export const detectDepartment = (text: string): string => {

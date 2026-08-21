@@ -73,18 +73,14 @@ const CoachContent = lazy(() => import("./pages/coach/CoachContent"));
 const CoachRefunds = lazy(() => import("./pages/coach/CoachRefunds"));
 const CoachUploadVideo = lazy(() => import("./pages/coach/CoachUploadVideo"));
 
-// Therapist dashboard
+// Therapist portal pages (Figma redesign)
 const TherapistDashboard = lazy(() => import("./pages/therapist/TherapistDashboard"));
-const TherapistProfile = lazy(() => import("./pages/therapist/TherapistProfile"));
-const TherapistServices = lazy(() => import("./pages/therapist/TherapistServices"));
-const TherapistCalendar = lazy(() => import("./pages/therapist/TherapistCalendar"));
-const TherapistBookings = lazy(() => import("./pages/therapist/TherapistBookings"));
 const TherapistClients = lazy(() => import("./pages/therapist/TherapistClients"));
+const TherapistServicesManager = lazy(() => import("./pages/therapist/TherapistServicesManager"));
+const AddNewService = lazy(() => import("./pages/therapist/AddNewService"));
+const TherapistBookings = lazy(() => import("./pages/therapist/TherapistBookings"));
 const TherapistSessions = lazy(() => import("./pages/therapist/TherapistSessions"));
-const TherapistContent = lazy(() => import("./pages/therapist/TherapistContent"));
-const TherapistRefunds = lazy(() => import("./pages/therapist/TherapistRefunds"));
-const TherapistUploadVideo = lazy(() => import("./pages/therapist/TherapistUploadVideo"));
-const TherapistPayout = lazy(() => import("./pages/therapist/TherapistPayout"));
+const TherapistMessages = lazy(() => import("./pages/therapist/TherapistMessages"));
 const TherapistSettings = lazy(() => import("./pages/therapist/TherapistSettings"));
 
 // Shared dashboard pages
@@ -95,6 +91,7 @@ const TherapistWallet = lazy(() => import("./pages/dashboard/WalletPage").then(m
 const CoachWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage").then(m => ({ default: m.CoachWithdrawals })));
 const CreatorWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage").then(m => ({ default: m.CreatorWithdrawals })));
 const TherapistWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage").then(m => ({ default: m.TherapistWithdrawals })));
+
 const BookingMeetingRoom = lazy(() => import("./pages/dashboard/BookingMeetingRoom"));
 const ProfessionalProfileSettings = lazy(() => import("./pages/dashboard/ProfessionalProfileSettings"));
 const BankAccountsPage = lazy(() => import("./pages/dashboard/BankAccountsPage"));
@@ -571,26 +568,18 @@ const App = () => {
                       }
                     />
                     <Route
-                      path="/therapist/profile"
-                      element={
-                        <ProtectedRoute requiredRole="therapist">
-                          <PortalRestrictionGuard role="therapist"><TherapistProfile /></PortalRestrictionGuard>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
                       path="/therapist/services"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <PortalRestrictionGuard role="therapist"><TherapistServices /></PortalRestrictionGuard>
+                          <PortalRestrictionGuard role="therapist"><TherapistServicesManager /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
                     <Route
-                      path="/therapist/calendar"
+                      path="/therapist/services/new"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <PortalRestrictionGuard role="therapist"><TherapistCalendar /></PortalRestrictionGuard>
+                          <PortalRestrictionGuard role="therapist"><AddNewService /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -619,22 +608,6 @@ const App = () => {
                       }
                     />
                     <Route
-                      path="/therapist/content"
-                      element={
-                        <ProtectedRoute requiredRole="therapist">
-                          <PortalRestrictionGuard role="therapist"><TherapistContent /></PortalRestrictionGuard>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/therapist/upload-video"
-                      element={
-                        <ProtectedRoute requiredRole="therapist">
-                          <PortalRestrictionGuard role="therapist"><TherapistUploadVideo /></PortalRestrictionGuard>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
                       path="/therapist/messages"
                       element={
                         <ProtectedRoute requiredRole="therapist">
@@ -659,42 +632,10 @@ const App = () => {
                       }
                     />
                     <Route
-                      path="/therapist/profile-settings"
-                      element={
-                        <ProtectedRoute requiredRole="therapist">
-                          <PortalRestrictionGuard role="therapist"><ProfessionalProfileSettings role="therapist" /></PortalRestrictionGuard>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/therapist/invite"
-                      element={
-                        <ProtectedRoute requiredRole="therapist">
-                          <PortalRestrictionGuard role="therapist"><TherapistInvitePage /></PortalRestrictionGuard>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
                       path="/therapist/bank-accounts"
                       element={
                         <ProtectedRoute requiredRole="therapist">
                           <PortalRestrictionGuard role="therapist"><BankAccountsPage role="therapist" /></PortalRestrictionGuard>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/therapist/refunds"
-                      element={
-                        <ProtectedRoute requiredRole="therapist">
-                          <PortalRestrictionGuard role="therapist"><TherapistRefunds /></PortalRestrictionGuard>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/therapist/payout"
-                      element={
-                        <ProtectedRoute requiredRole="therapist">
-                          <PortalRestrictionGuard role="therapist"><TherapistPayout /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />

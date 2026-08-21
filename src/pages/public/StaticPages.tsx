@@ -56,7 +56,7 @@ export const Terms = () => (
           ))}
         </ul>
         <p className="mt-3"><strong className="text-foreground">Anyone can create a free account</strong> to browse courses, coaches, therapists, and creators. No subscription is required to sign up.</p>
-        <p className="mt-2">Coaches, therapists, and creators who wish to receive payments must complete KYC (identity verification) and must be 18 years or older.</p>
+        <p className="mt-2">Coaches, therapists, and creators who wish to receive payments must complete identity verification and must be 18 years or older.</p>
         <p className="mt-2">We reserve the right to suspend or terminate accounts that violate these conditions or provide false information.</p>
       </PolicyCard>
 
@@ -240,7 +240,7 @@ export const Privacy = () => (
         <p>Payments on Coursevia are processed through secure third-party providers (e.g., Stripe, Paystack). We do not store your full payment details — all card data is tokenized.</p>
         <p className="mt-2">Third-party services we use may include:</p>
         <ul className="space-y-1.5 mt-1">
-          {["Payment processors", "Analytics tools", "Email delivery systems", "Identity verification (KYC) providers"].map((item) => (
+          {["Payment processors", "Analytics tools", "Email delivery systems", "Identity verification providers"].map((item) => (
             <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
           ))}
         </ul>

@@ -1,0 +1,101 @@
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Coursevia API — Test Run
+ Collection : Coursevia Backend API
+ Target     : https://coursevia-backend.onrender.com
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  📁 Subscriptions
+  ✅ [200] Subscriptions / Get Subscription Plans  (2/2 assertions)
+  ✅ [200] Subscriptions / Get Current Subscription  (2/2 assertions)
+  ✅ [400] Subscriptions / Get Current Subscription - Missing user_id  (2/2 assertions)
+  ✅ [500] Subscriptions / Initialize Subscription  (2/2 assertions)
+  ✅ [400] Subscriptions / Initialize Subscription - Invalid Plan  (2/2 assertions)
+  ✅ [500] Subscriptions / Cancel Subscription  (2/2 assertions)
+
+  📁 Checkout
+  ✅ [200] Checkout / Initialize Checkout  (2/2 assertions)
+  ✅ [400] Checkout / Initialize Checkout - Missing Fields  (2/2 assertions)
+  ✅ [409] Checkout / Verify Checkout  (2/2 assertions)
+  ✅ [400] Checkout / Verify Checkout - Missing Reference  (2/2 assertions)
+
+  📁 Payouts
+  ❌ [404] Payouts / Get Payout Accounts  (0/2 assertions)
+       ↳ FAIL: Status 200 — Expected status 200 but got 404
+       ↳ FAIL: Returns accounts array — Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+  ❌ [404] Payouts / Get Payout Accounts - Missing user_id  (0/2 assertions)
+       ↳ FAIL: Status 400 when user_id missing — Expected status 400 but got 404
+       ↳ FAIL: Returns error — Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+  ❌ [404] Payouts / Get Withdrawals  (0/2 assertions)
+       ↳ FAIL: Status 200 — Expected status 200 but got 404
+       ↳ FAIL: Returns withdrawals array — Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+  ❌ [404] Payouts / Get Payout Capabilities  (0/2 assertions)
+       ↳ FAIL: Status 200 — Expected status 200 but got 404
+       ↳ FAIL: Returns capability object — Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+  ❌ [404] Payouts / Get Banks  (0/2 assertions)
+       ↳ FAIL: Status 200 — Expected status 200 but got 404
+       ↳ FAIL: Returns banks array — Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+  ❌ [404] Payouts / Resolve Beneficiary  (0/2 assertions)
+       ↳ FAIL: Status 200 — Expected status 200 but got 404
+       ↳ FAIL: Returns account_name — Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+  ❌ [404] Payouts / Send Verification (Add Bank Account)  (0/2 assertions)
+       ↳ FAIL: Status 200 — Expected status 200 but got 404
+       ↳ FAIL: Returns account with verification_required — Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+  ❌ [404] Payouts / Verify Beneficiary  (0/2 assertions)
+       ↳ FAIL: Status 200 — Expected status 200 but got 404
+       ↳ FAIL: Returns success true — Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+  ❌ [404] Payouts / Delete Payout Account  (0/2 assertions)
+       ↳ FAIL: Status 200 — Expected status 200 but got 404
+       ↳ FAIL: Returns success true — Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+  ❌ [404] Payouts / Withdraw  (0/2 assertions)
+       ↳ FAIL: Status 200 — Expected status 200 but got 404
+       ↳ FAIL: Returns withdrawal object — Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+  ❌ [404] Payouts / Withdraw - Invalid Amount  (0/2 assertions)
+       ↳ FAIL: Status 400 for invalid amount — Expected status 400 but got 404
+       ↳ FAIL: Returns error — Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+
+  📁 Wallet
+  ✅ [200] Wallet / Get Wallet  (2/2 assertions)
+  ✅ [200] Wallet / Wallet Withdraw  (2/2 assertions)
+  ✅ [400] Wallet / Wallet Withdraw - Invalid Amount  (2/2 assertions)
+
+  📁 Transactions
+  ✅ [200] Transactions / Get Transactions  (2/2 assertions)
+
+  📁 Escrow
+  ✅ [200] Escrow / Get Escrow  (2/2 assertions)
+
+  📁 Checkout Config & Charge
+  ✅ [200] Checkout Config & Charge / Get Checkout Config  (2/2 assertions)
+  ✅ [400] Checkout Config & Charge / Charge Card Token  (2/2 assertions)
+  ✅ [400] Checkout Config & Charge / Charge Card Token - Missing Fields  (2/2 assertions)
+
+  📁 Refunds
+  ✅ [404] Refunds / Request Refund  (2/2 assertions)
+  ✅ [400] Refunds / Request Refund - Missing Fields  (2/2 assertions)
+  ✅ [404] Refunds / Approve Refund  (2/2 assertions)
+  ✅ [400] Refunds / Approve Refund - Missing refund_id  (2/2 assertions)
+
+  📁 Reports
+  ✅ [500] Reports / Submit Report  (2/2 assertions)
+  ✅ [400] Reports / Submit Report - Missing Fields  (2/2 assertions)
+
+  📁 Court Room
+  ✅ [200] Court Room / Get Provider Restrictions  (2/2 assertions)
+  ✅ [404] Court Room / Grant Provider Access (Judge)  (2/2 assertions)
+  ✅ [400] Court Room / Grant Provider Access - Missing Reason  (2/2 assertions)
+  ✅ [401] Court Room / Grant Provider Access - No Judge Auth  (2/2 assertions)
+  ✅ [400] Court Room / Grant Provider Access - Invalid Duration  (2/2 assertions)
+
+  📁 Admin
+  ✅ [500] Admin / Create Admin Account  (2/2 assertions)
+  ✅ [400] Admin / Create Admin Account - Missing Fields  (2/2 assertions)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ RESULTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Requests   : 42  (✅ 31 passed, ❌ 11 failed)
+ Assertions : 84  (✅ 62 passed, ❌ 22 failed)
+
+ ❌  11 request(s) had failing tests.
+

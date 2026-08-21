@@ -219,24 +219,19 @@ export async function processRefund({
 }) {
     const validAmount = assertValidAmount(amount);
 
+    // Insert only columns that actually exist on the refunds table
     const { data: refund, error: refundError } = await supabase
         .from("refunds")
         .insert({
-            payment_id: paymentId,
-            booking_id: bookingId,
-            content_id: contentId,
-            learner_id: learnerId,
-            provider_id: providerId,
-            provider_role: providerRole,
+            payment_id: paymentId || null,
+            user_id: learnerId,          // refund recipient — maps to real user_id column
             amount: validAmount,
-            reason,
-            refund_type: refundType,
-            requested_by: requestedBy,
-            status: "processing",
+            reason: reason || null,
+            status: "pending",
         })
         .select()
         .single();
-    if (refundError) throw new Error("Failed to create refund record");
+    if (refundError) throw new Error(`Failed to create refund record: ${refundError.message}`);
 
     try {
         // Deduct from provider first — this is where "insufficient balance"

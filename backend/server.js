@@ -21,10 +21,31 @@ import {
 // Compatibility shim so all existing StripeConnect.* calls in this file
 // keep working without rewriting every call site
 const StripeConnect = {
-  setupProviderAccount: async ({ userId, email, country, roles }) =>
-    createConnectAccount({ userId, email, country: country || "US", role: (roles || ["creator"])[0] }),
+  setupProviderAccount: async ({ userId, email, country, roles }) => {
+    const result = await createConnectAccount({
+      userId,
+      email,
+      country: country || "US",
+      role: (roles || ["creator"])[0],
+    });
+    // Derive needsOnboarding from isExisting — new accounts always need onboarding,
+    // existing ones may still need it if not yet verified
+    let onboardingUrl = null;
+    if (!result.isExisting) {
+      const linkResult = await generateOnboardingLink(result.accountId, userId, (roles || ["creator"])[0]);
+      onboardingUrl = linkResult.url || linkResult;
+    }
+    const status = await getAccountStatus(result.accountId);
+    const payoutsEnabled = status?.status?.payouts_enabled || status?.payouts_enabled || false;
+    return {
+      ...result,
+      needsOnboarding: !payoutsEnabled,
+      payoutsEnabled,
+      onboardingUrl,
+    };
+  },
   createOnboardingLink: (accountId, userId) =>
-    generateOnboardingLink(accountId, userId, "creator").then(r => r.url),
+    generateOnboardingLink(accountId, userId, "creator").then(r => r.url || r),
   getWithdrawalStatus,
   requestWithdrawal,
   getWithdrawalHistory,
@@ -50,8 +71,9 @@ const CURRENCY = process.env.CURRENCY || "usd";
 const MONTHLY_PLAN_PRICE = Number(process.env.MONTHLY_PLAN_PRICE || 10);
 const YEARLY_PLAN_PRICE = Number(process.env.YEARLY_PLAN_PRICE || 120);
 const NUBAN_API_KEY = process.env.NUBAN_API_KEY || "";
+// Didit KYC and Persona KYC have been removed
 
-const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2024-04-10" }) : null;
+const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2026-07-29" }) : null;
 
 const supabaseAdmin = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY && !SUPABASE_SERVICE_ROLE_KEY.startsWith("replace_")
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
@@ -1062,7 +1084,44 @@ app.post("/api/refunds/request-payment", async (req, res) => {
     }).select("*").single();
     if (error) throw new Error(error.message);
 
-    return res.json({ success: true, refund, message: "Refund request submitted. Admin will review within 24-48 hours." });
+    // Auto-escalate to Court Room — any refund triggers provider ban
+    try {
+      // Find provider_id from content if available
+      let providerId = null;
+      if (payment.admin_notes?.includes("content_id:")) {
+        const contentId = payment.admin_notes.match(/content_id:([^\s,]+)/)?.[1];
+        if (contentId) {
+          const { data: booking } = await supabaseAdmin.from("bookings").select("coach_id").eq("id", contentId).maybeSingle();
+          if (booking?.coach_id) providerId = booking.coach_id;
+          if (!providerId) {
+            const { data: ci } = await supabaseAdmin.from("content_items").select("owner_id").eq("id", contentId).maybeSingle();
+            if (ci?.owner_id) providerId = ci.owner_id;
+          }
+        }
+      }
+
+      if (providerId) {
+        const escalationResult = await autoEscalateToCourtRoom({
+          booking_id: null,
+          learner_id: user_id,
+          provider_id: providerId,
+          amount,
+          reason: reason.trim(),
+          refund_type: "payment_dispute",
+        });
+        if (escalationResult.escalated) {
+          await supabaseAdmin.from("refunds").update({
+            court_case_id: escalationResult.courtCase?.id || null,
+            status: "escalated_to_court",
+          }).eq("id", refund.id);
+          console.log(`Payment refund auto-escalated: ${escalationResult.courtCase?.case_number}`);
+        }
+      }
+    } catch (escalationError) {
+      console.error("Court room escalation failed for payment refund:", escalationError);
+    }
+
+    return res.json({ success: true, refund, message: "Refund request submitted and escalated to dispute resolution. You will receive further instructions via email." });
   } catch (error) {
     return res.status(500).json({ message: error instanceof Error ? error.message : "Could not submit refund request." });
   }
@@ -1114,10 +1173,11 @@ app.post("/api/refunds/request", async (req, res) => {
 
     // Auto-escalate to Court Room (as per user requirement: 1a - any refund triggers court room)
     try {
+      // bookings uses coach_id as the provider field
       const escalationResult = await autoEscalateToCourtRoom({
         booking_id,
         learner_id: user_id,
-        provider_id: booking.provider_id,
+        provider_id: booking.coach_id,   // ← correct field name in bookings table
         amount,
         reason: reason.trim() || "",
         refund_type: 'dispute'
@@ -1126,11 +1186,11 @@ app.post("/api/refunds/request", async (req, res) => {
       if (escalationResult.escalated) {
         // Update refund record with court case reference
         await supabaseAdmin.from("refunds").update({
-          court_case_id: escalationResult.courtCase.id,
+          court_case_id: escalationResult.courtCase?.id || null,
           status: "escalated_to_court"
         }).eq("id", refund.id);
 
-        console.log(`Refund auto-escalated to court room: ${escalationResult.courtCase.case_number}`);
+        console.log(`Refund auto-escalated to court room: ${escalationResult.courtCase?.case_number}`);
       }
     } catch (escalationError) {
       console.error('Court room escalation failed:', escalationError);

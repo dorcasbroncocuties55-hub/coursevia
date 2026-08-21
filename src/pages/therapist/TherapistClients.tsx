@@ -1,458 +1,199 @@
-import { useEffect, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import {
-    CalendarDays,
-    Wallet,
-    Users,
-    MessageSquare,
-    HeartHandshake,
-    Settings,
-    User,
-    Shield,
-    Video,
-    Home,
-    BookOpen,
-    FileText,
-    CreditCard,
-    Bell,
-    Search,
-    LogOut,
-    Plus,
-    Mail,
-    Phone,
-    Calendar,
-    MoreVertical,
-    Filter,
-    Download
-} from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
+import TherapistLayout from "@/components/layouts/TherapistLayout";
+import { useProviderBookings, fmtDate, fmtTime, getInitials, bookingStatusBadge, isToday, fmt } from "@/lib/portalEngine";
+import { Loader2, Search, MoreHorizontal, FileText, CalendarCheck } from "lucide-react";
 
-interface Patient {
-    id: string;
-    full_name: string;
-    email: string;
-    avatar_url?: string;
-    phone?: string;
-    total_sessions: number;
-    last_session: string | null;
-    next_session: string | null;
-    status: 'active' | 'inactive' | 'pending';
-    created_at: string;
-}
+const A = "#2D9E6B"; const D = "#0F3D2E"; const B = "#EAE6E2"; const TM = "#1A1A1A"; const TS = "#6B7280";
 
-const TherapistClients = () => {
-    const { user, profile } = useAuth();
-    const [patients, setPatients] = useState<Patient[]>([]);
-    const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState("all");
+const Avatar = ({ name, url, size = 36 }: { name: string | null; url?: string | null; size?: number }) => (
+  <div style={{
+    width: size, height: size, borderRadius: "50%", background: "#E5E7EB", flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden"
+  }}>
+    {url ? <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      : <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: size * 0.33, color: TS }}>{getInitials(name)}</span>}
+  </div>
+);
 
-    useEffect(() => {
-        if (user) {
-            loadPatients();
-        }
-    }, [user]);
+const FILTERS = ["All Patients", "Active", "New Request", "Inactive"];
 
-    useEffect(() => {
-        filterPatients();
-    }, [searchTerm, statusFilter, patients]);
+export default function TherapistClients() {
+  const { user } = useAuth();
+  const { data: bookings, loading } = useProviderBookings(user?.id);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-    const loadPatients = async () => {
-        try {
-            // Get therapist profile
-            const { data: therapistProfile } = await supabase
-                .from('therapist_profiles')
-                .select('id')
-                .eq('user_id', user?.id)
-                .single();
+  // Dedupe patients from bookings
+  const patientMap = new Map<string, {
+    learnerId: string;
+    name: string | null;
+    email: string | null;
+    avatar: string | null;
+    lastBooking: typeof bookings extends (infer T)[] | null ? T : never;
+    nextBooking: typeof bookings extends (infer T)[] | null ? T : never;
+    totalSessions: number;
+    status: string;
+  }>();
 
-            if (therapistProfile) {
-                // Get unique patients from bookings
-                const { data: bookingsData } = await supabase
-                    .from('bookings')
-                    .select(`
-            learner_id,
-            created_at,
-            scheduled_at,
-            status,
-            profiles!bookings_learner_id_fkey(
-              id,
-              full_name,
-              email,
-              avatar_url,
-              phone
-            )
-          `)
-                    .eq('therapist_id', therapistProfile.id)
-                    .order('created_at', { ascending: false });
-
-                if (bookingsData) {
-                    // Group bookings by patient
-                    const patientMap = new Map();
-
-                    bookingsData.forEach(booking => {
-                        const patientId = booking.learner_id;
-                        const profile = booking.profiles as any;
-
-                        if (!patientMap.has(patientId) && profile) {
-                            patientMap.set(patientId, {
-                                id: patientId,
-                                full_name: profile.full_name || 'Unknown Patient',
-                                email: profile.email || '',
-                                avatar_url: profile.avatar_url,
-                                phone: profile.phone,
-                                total_sessions: 0,
-                                last_session: null,
-                                next_session: null,
-                                status: 'active' as const,
-                                created_at: booking.created_at,
-                                sessions: []
-                            });
-                        }
-
-                        if (patientMap.has(patientId)) {
-                            const patient = patientMap.get(patientId);
-                            patient.sessions.push(booking);
-
-                            if (booking.status === 'completed') {
-                                patient.total_sessions++;
-                            }
-
-                            // Find last completed session
-                            if (booking.status === 'completed' && booking.scheduled_at) {
-                                if (!patient.last_session || new Date(booking.scheduled_at) > new Date(patient.last_session)) {
-                                    patient.last_session = booking.scheduled_at;
-                                }
-                            }
-
-                            // Find next upcoming session
-                            if (booking.status === 'confirmed' && booking.scheduled_at) {
-                                const sessionDate = new Date(booking.scheduled_at);
-                                const now = new Date();
-                                if (sessionDate > now) {
-                                    if (!patient.next_session || sessionDate < new Date(patient.next_session)) {
-                                        patient.next_session = booking.scheduled_at;
-                                    }
-                                }
-                            }
-                        }
-                    });
-
-                    // Convert to array and determine status
-                    const patientsArray: Patient[] = Array.from(patientMap.values()).map(patient => {
-                        // Determine status based on recent activity
-                        const hasUpcoming = patient.next_session !== null;
-                        const lastSessionDate = patient.last_session ? new Date(patient.last_session) : null;
-                        const daysSinceLastSession = lastSessionDate
-                            ? Math.floor((new Date().getTime() - lastSessionDate.getTime()) / (1000 * 60 * 60 * 24))
-                            : null;
-
-                        let status: 'active' | 'inactive' | 'pending' = 'pending';
-                        if (patient.total_sessions > 0) {
-                            status = hasUpcoming || (daysSinceLastSession !== null && daysSinceLastSession <= 30) ? 'active' : 'inactive';
-                        }
-
-                        return {
-                            ...patient,
-                            status
-                        };
-                    });
-
-                    setPatients(patientsArray);
-                }
-            }
-        } catch (error) {
-            console.error('Error loading patients:', error);
-            toast.error('Failed to load patients');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const filterPatients = () => {
-        let filtered = patients;
-
-        // Apply search filter
-        if (searchTerm) {
-            filtered = filtered.filter(patient =>
-                patient.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                patient.email.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-        }
-
-        // Apply status filter
-        if (statusFilter !== "all") {
-            filtered = filtered.filter(patient => patient.status === statusFilter);
-        }
-
-        setFilteredPatients(filtered);
-    };
-
-    const handleSignOut = async () => {
-        await supabase.auth.signOut();
-        toast.success('Signed out successfully');
-    };
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'active': return 'bg-green-100 text-green-800';
-            case 'inactive': return 'bg-gray-100 text-gray-800';
-            case 'pending': return 'bg-yellow-100 text-yellow-800';
-            default: return 'bg-gray-100 text-gray-800';
-        }
-    };
-
-    const formatDate = (dateString: string | null) => {
-        if (!dateString) return 'Never';
-        return new Date(dateString).toLocaleDateString();
-    };
-
-    if (!user) {
-        return <Navigate to="/auth" replace />;
+  (bookings || []).forEach(b => {
+    const existing = patientMap.get(b.learner_id);
+    const bDate = new Date(b.scheduled_at);
+    const now = new Date();
+    if (!existing) {
+      patientMap.set(b.learner_id, {
+        learnerId: b.learner_id,
+        name: b.learner?.full_name ?? null,
+        email: b.learner?.email ?? null,
+        avatar: b.learner?.avatar_url ?? null,
+        lastBooking: bDate < now ? b : null as any,
+        nextBooking: bDate >= now ? b : null as any,
+        totalSessions: 1,
+        status: b.status === "pending" ? "New Request" : "Active",
+      });
+    } else {
+      existing.totalSessions++;
+      if (bDate < now && (!existing.lastBooking || bDate > new Date(existing.lastBooking.scheduled_at))) existing.lastBooking = b;
+      if (bDate >= now && (!existing.nextBooking || bDate < new Date(existing.nextBooking.scheduled_at))) existing.nextBooking = b;
     }
+  });
 
-    return (
-        <div className="min-h-screen bg-gray-50 flex">
-            {/* Sidebar - 260px */}
-            <div className="w-[260px] bg-white shadow-lg flex-shrink-0">
-                {/* Sidebar Header */}
-                <div className="p-6 border-b border-gray-200">
-                    <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                            <HeartHandshake className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                            <h1 className="text-lg font-bold text-gray-900">mindwell</h1>
-                            <p className="text-xs text-gray-500">portal</p>
-                        </div>
-                    </div>
-                </div>
+  const patients = Array.from(patientMap.values());
+  const filtered = patients.filter(p => {
+    const q = search.toLowerCase();
+    const matchQ = !q || (p.name?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q));
+    const matchF = filter === 0 || (filter === 1 && p.status === "Active") || (filter === 2 && p.status === "New Request") || (filter === 3 && p.status === "Inactive");
+    return matchQ && matchF;
+  });
 
-                {/* Navigation */}
-                <nav className="mt-6 px-4">
-                    <div className="space-y-1">
-                        <Link to="/therapist/dashboard" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-                            <Home className="h-5 w-5 mr-3" />
-                            Dashboard
-                        </Link>
-                        <Link to="/therapist/clients" className="flex items-center px-4 py-3 text-sm font-medium text-primary bg-primary/10 rounded-lg">
-                            <Users className="h-5 w-5 mr-3" />
-                            Patients
-                        </Link>
-                        <Link to="/therapist/books" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-                            <BookOpen className="h-5 w-5 mr-3" />
-                            Books
-                        </Link>
-                        <Link to="/therapist/session-notes" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-                            <FileText className="h-5 w-5 mr-3" />
-                            Session Notes
-                        </Link>
-                        <Link to="/therapist/messages" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-                            <MessageSquare className="h-5 w-5 mr-3" />
-                            Messages
-                        </Link>
-                        <Link to="/therapist/wallet" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-                            <Wallet className="h-5 w-5 mr-3" />
-                            Wallet
-                        </Link>
-                        <Link to="/therapist/payout" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-                            <CreditCard className="h-5 w-5 mr-3" />
-                            Payout
-                        </Link>
-                        <Link to="/therapist/settings" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-                            <Settings className="h-5 w-5 mr-3" />
-                            Settings
-                        </Link>
-                    </div>
-                </nav>
-            </div>
+  const selected = selectedId ? patients.find(p => p.learnerId === selectedId) : filtered[0];
 
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col">
-                {/* Header */}
-                <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        {/* Page Title */}
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Patients</h1>
-                            <p className="text-gray-600">Manage your patient directory and track treatment progress</p>
-                        </div>
-
-                        {/* Header Actions */}
-                        <div className="flex items-center space-x-4">
-                            <Button variant="ghost" size="sm">
-                                <Bell className="h-4 w-4" />
-                            </Button>
-                            <Button variant="outline" className="text-gray-600">
-                                <Download className="h-4 w-4 mr-2" />
-                                Export
-                            </Button>
-
-                            {/* User Profile */}
-                            <div className="flex items-center space-x-3">
-                                <Avatar>
-                                    <AvatarImage src={profile?.avatar_url} alt={profile?.full_name} />
-                                    <AvatarFallback className="bg-primary/10 text-primary">
-                                        {profile?.full_name?.split(' ').map(n => n[0]).join('') || 'T'}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <Button variant="outline" onClick={handleSignOut}>
-                                    <LogOut className="h-4 w-4 mr-2" />
-                                    Sign Out
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </header>
-
-                {/* Page Content */}
-                <main className="flex-1 p-6">
-                    {/* Filters and Search */}
-                    <div className="mb-6 flex flex-col sm:flex-row gap-4">
-                        <div className="flex-1">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <Input
-                                    placeholder="Search patients by name or email..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="pl-10"
-                                />
-                            </div>
-                        </div>
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-48">
-                                <Filter className="h-4 w-4 mr-2" />
-                                <SelectValue placeholder="Filter by status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Status</SelectItem>
-                                <SelectItem value="active">Active</SelectItem>
-                                <SelectItem value="inactive">Inactive</SelectItem>
-                                <SelectItem value="pending">Pending</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    {/* Patients Grid */}
-                    {isLoading ? (
-                        <div className="text-center py-12">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                            <p className="text-gray-500 mt-4">Loading patients...</p>
-                        </div>
-                    ) : filteredPatients.length === 0 ? (
-                        <div className="text-center py-12">
-                            <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                            <p className="text-gray-500">
-                                {searchTerm || statusFilter !== "all"
-                                    ? "No patients match your search criteria"
-                                    : "No patients found. Start by booking sessions with learners."
-                                }
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                            {filteredPatients.map((patient) => (
-                                <Card key={patient.id} className="hover:shadow-md transition-shadow">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-start justify-between mb-4">
-                                            <div className="flex items-center space-x-3">
-                                                <Avatar className="h-12 w-12">
-                                                    <AvatarImage src={patient.avatar_url} alt={patient.full_name} />
-                                                    <AvatarFallback className="bg-primary/10 text-primary">
-                                                        {patient.full_name.split(' ').map(n => n[0]).join('')}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                    <h3 className="font-semibold text-gray-900">{patient.full_name}</h3>
-                                                    <p className="text-sm text-gray-500">{patient.email}</p>
-                                                </div>
-                                            </div>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="sm">
-                                                        <MoreVertical className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem>
-                                                        <User className="h-4 w-4 mr-2" />
-                                                        View Profile
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem>
-                                                        <Calendar className="h-4 w-4 mr-2" />
-                                                        Schedule Session
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem>
-                                                        <MessageSquare className="h-4 w-4 mr-2" />
-                                                        Send Message
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </div>
-
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-gray-500">Status</span>
-                                                <Badge className={getStatusColor(patient.status)}>
-                                                    {patient.status.charAt(0).toUpperCase() + patient.status.slice(1)}
-                                                </Badge>
-                                            </div>
-
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-gray-500">Total Sessions</span>
-                                                <span className="text-sm font-medium">{patient.total_sessions}</span>
-                                            </div>
-
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-gray-500">Last Session</span>
-                                                <span className="text-sm font-medium">{formatDate(patient.last_session)}</span>
-                                            </div>
-
-                                            {patient.next_session && (
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-sm text-gray-500">Next Session</span>
-                                                    <span className="text-sm font-medium text-primary">{formatDate(patient.next_session)}</span>
-                                                </div>
-                                            )}
-
-                                            {patient.phone && (
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-sm text-gray-500">Phone</span>
-                                                    <span className="text-sm font-medium">{patient.phone}</span>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="mt-4 pt-4 border-t border-gray-200 flex space-x-2">
-                                            <Button size="sm" className="flex-1 bg-primary hover:bg-primary/90">
-                                                <Calendar className="h-4 w-4 mr-2" />
-                                                Schedule
-                                            </Button>
-                                            <Button size="sm" variant="outline" className="flex-1">
-                                                <MessageSquare className="h-4 w-4 mr-2" />
-                                                Message
-                                            </Button>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    )}
-                </main>
-            </div>
+  return (
+    <TherapistLayout>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 28, color: D, margin: 0 }}>Patient Directory</h1>
+          <p style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: TS, marginTop: 4 }}>Manage therapy records, treatment logs, and clinical intake.</p>
         </div>
-    );
-};
+        <Link to="/therapist/bookings" style={{ padding: "9px 16px", borderRadius: 8, border: `1.5px solid ${A}`, background: "#fff", fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 13, color: A, textDecoration: "none" }}>
+          + New Booking
+        </Link>
+      </div>
 
-export default TherapistClients;
+      {/* Search + Filters */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: "#F9F8F6", border: `1px solid ${B}`, borderRadius: 10, flex: "1 1 200px", maxWidth: 320 }}>
+          <Search size={15} color={TS} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search patients…"
+            style={{ border: "none", background: "transparent", fontFamily: "Inter,sans-serif", fontSize: 13, color: TM, outline: "none", flex: 1 }} />
+        </div>
+        {FILTERS.map((f, i) => (
+          <button key={f} onClick={() => setFilter(i)}
+            style={{
+              padding: "5px 14px", borderRadius: 999, border: `1px solid ${i === filter ? A : B}`,
+              background: i === filter ? "#F0FDF6" : "#fff", fontFamily: "Inter,sans-serif", fontWeight: 500, fontSize: 12,
+              color: i === filter ? D : TS, cursor: "pointer"
+            }}>
+            {f}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: 60 }}><Loader2 size={28} className="animate-spin" style={{ color: A }} /></div>
+      ) : (
+        <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+
+          {/* Table */}
+          <div style={{ flex: "1 1 480px", background: "#fff", border: `1px solid ${B}`, borderRadius: 16, overflow: "hidden" }}>
+            <div style={{ display: "flex", gap: 12, padding: "13px 16px", background: "#FBFBF9", borderBottom: `1px solid ${B}` }}>
+              {[["Patient Name", 3], ["Next Session", 2], ["Sessions", 1], ["Status", 1.5]].map(([h, f]) => (
+                <span key={h as string} style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 11, color: TS, flex: f as number, textTransform: "uppercase" }}>{h}</span>
+              ))}
+            </div>
+            {filtered.length === 0
+              ? <p style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: TS, textAlign: "center", padding: 32 }}>No patients found</p>
+              : filtered.map((p, i) => {
+                const isSelected = (selectedId ?? filtered[0]?.learnerId) === p.learnerId;
+                return (
+                  <div key={p.learnerId} onClick={() => setSelectedId(p.learnerId)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12, padding: "13px 16px",
+                      borderBottom: `1px solid ${B}`, background: isSelected ? "#F0FDF6" : "#fff", cursor: "pointer"
+                    }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 3 }}>
+                      <Avatar name={p.name} url={p.avatar} />
+                      <div>
+                        <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 13, color: TM, margin: 0 }}>{p.name || "Patient"}</p>
+                        <p style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS, margin: 0 }}>{p.email || ""}</p>
+                      </div>
+                    </div>
+                    <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: p.nextBooking ? A : TS, flex: 2 }}>
+                      {p.nextBooking ? (isToday(p.nextBooking.scheduled_at) ? `Today, ${fmtTime(p.nextBooking.scheduled_at)}` : fmtDate(p.nextBooking.scheduled_at)) : "—"}
+                    </span>
+                    <span style={{ fontFamily: "Inter,sans-serif", fontSize: 12, color: TM, flex: 1 }}>{p.totalSessions}</span>
+                    <div style={{ flex: 1.5 }}>
+                      <span style={{
+                        padding: "3px 8px", borderRadius: 6,
+                        background: p.status === "Active" ? "#F0FDF4" : p.status === "New Request" ? "#EFF6FF" : "#F3F4F6",
+                        fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 10,
+                        color: p.status === "Active" ? "#166534" : p.status === "New Request" ? "#1E40AF" : TS,
+                        textTransform: "uppercase"
+                      }}>
+                        {p.status}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+
+          {/* Clinical summary panel */}
+          {selected && (
+            <div style={{ width: 340, flexShrink: 0, background: "#fff", border: `1px solid ${B}`, borderRadius: 16, padding: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <h3 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 18, color: D, margin: 0 }}>Clinical Summary</h3>
+                <MoreHorizontal size={16} color={TS} style={{ cursor: "pointer" }} />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+                <Avatar name={selected.name} url={selected.avatar} size={56} />
+                <div>
+                  <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 17, color: TM, margin: 0 }}>{selected.name || "Patient"}</p>
+                  <p style={{ fontFamily: "Inter,sans-serif", fontSize: 12, color: TS, margin: 0 }}>{selected.totalSessions} sessions · {selected.status}</p>
+                </div>
+              </div>
+              <hr style={{ border: "none", borderTop: `1px solid ${B}`, margin: "0 0 16px" }} />
+
+              {[
+                { label: "Last Session", value: selected.lastBooking ? fmtDate(selected.lastBooking.scheduled_at) : "No past sessions" },
+                { label: "Next Session", value: selected.nextBooking ? (isToday(selected.nextBooking.scheduled_at) ? `Today, ${fmtTime(selected.nextBooking.scheduled_at)}` : fmtDate(selected.nextBooking.scheduled_at)) : "Not scheduled" },
+                { label: "Total Sessions", value: String(selected.totalSessions) },
+              ].map(row => (
+                <div key={row.label} style={{ marginBottom: 12 }}>
+                  <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 10, color: TS, textTransform: "uppercase", margin: "0 0 3px" }}>{row.label}</p>
+                  <p style={{ fontFamily: "Inter,sans-serif", fontSize: 13, color: TM, margin: 0 }}>{row.value}</p>
+                </div>
+              ))}
+
+              <hr style={{ border: "none", borderTop: `1px solid ${B}`, margin: "16px 0" }} />
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <Link to="/therapist/sessions" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: "#F9F8F6", textDecoration: "none" }}>
+                  <FileText size={14} color={A} />
+                  <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: D }}>View Session Notes</span>
+                </Link>
+                <Link to="/therapist/bookings" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: "#F9F8F6", textDecoration: "none" }}>
+                  <CalendarCheck size={14} color={A} />
+                  <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: D }}>Schedule Next Session</span>
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </TherapistLayout>
+  );
+}

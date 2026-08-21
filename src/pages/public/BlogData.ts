@@ -31,12 +31,12 @@ export const CATEGORIES = [
 // Platform   → bg-gray-100   text-gray-700    border-gray-200
 
 export const CATEGORY_STYLE: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-  Learning:      { bg: "bg-blue-50",    text: "text-blue-700",    border: "border-blue-100",    dot: "bg-blue-400" },
-  Coaching:      { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-100", dot: "bg-emerald-500" },
-  Therapy:       { bg: "bg-violet-50",  text: "text-violet-700",  border: "border-violet-100",  dot: "bg-violet-500" },
-  "Creator Tips":{ bg: "bg-amber-50",   text: "text-amber-700",   border: "border-amber-100",   dot: "bg-amber-400" },
-  Wellness:      { bg: "bg-teal-50",    text: "text-teal-700",    border: "border-teal-100",    dot: "bg-teal-500" },
-  Platform:      { bg: "bg-gray-100",   text: "text-gray-600",    border: "border-gray-200",    dot: "bg-gray-400" },
+  Learning: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-100", dot: "bg-blue-400" },
+  Coaching: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-100", dot: "bg-emerald-500" },
+  Therapy: { bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-100", dot: "bg-violet-500" },
+  "Creator Tips": { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-100", dot: "bg-amber-400" },
+  Wellness: { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-100", dot: "bg-teal-500" },
+  Platform: { bg: "bg-gray-100", text: "text-gray-600", border: "border-gray-200", dot: "bg-gray-400" },
 };
 
 export const posts: Post[] = [
@@ -244,7 +244,7 @@ A good therapist will tell you honestly which approach fits your situation.`,
   {
     slug: "coursevia-platform-update-q2",
     title: "What's New on Coursevia: Q2 2026 Platform Update",
-    excerpt: "New booking flows, wallet improvements, KYC upgrades, and the AI voice assistant — everything we shipped this quarter and what's coming next.",
+    excerpt: "New booking flows, wallet improvements, and the AI voice assistant — everything we shipped this quarter and what's coming next.",
     category: "Platform",
     readTime: "4 min read",
     date: "Mar 28, 2026",
@@ -261,9 +261,9 @@ The old booking flow had too many steps and too many points of failure. We rebui
 
 Providers can now see a real-time breakdown of pending, available, and total balance. Withdrawal requests process faster, and we added bank account management directly in the dashboard.
 
-## KYC upgrades
+## Platform upgrades
 
-Identity verification is now handled through our integrated KYC provider with a significantly faster turnaround. Most verifications complete within 2 hours instead of 24.
+We shipped significant improvements to our booking flows, wallet dashboard, and AI voice assistant this quarter.
 
 ## AI voice assistant
 

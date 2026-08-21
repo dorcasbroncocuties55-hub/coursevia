@@ -159,7 +159,7 @@ const About = () => (
         <div className="grid sm:grid-cols-2 gap-3 mt-3">
           {[
             { icon: Lock, label: "Secure Payments", desc: "PCI-DSS compliant, escrow-protected transactions" },
-            { icon: ShieldCheck, label: "Verified Providers", desc: "KYC identity checks before any provider goes live" },
+            { icon: ShieldCheck, label: "Verified Providers", desc: "Identity checks before any provider goes live" },
             { icon: BadgeCheck, label: "Reliable Data Handling", desc: "GDPR-compliant, encrypted at rest and in transit" },
             { icon: Globe, label: "Scalable Infrastructure", desc: "Built to grow with creators and users worldwide" },
           ].map(({ icon: Icon, label, desc }) => (

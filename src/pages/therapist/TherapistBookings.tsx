@@ -1,487 +1,169 @@
-import { useEffect, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import {
-    CalendarDays,
-    Wallet,
-    Users,
-    MessageSquare,
-    HeartHandshake,
-    Settings,
-    User,
-    Shield,
-    Video,
-    Home,
-    BookOpen,
-    FileText,
-    CreditCard,
-    Bell,
-    Search,
-    LogOut,
-    Plus,
-    Clock,
-    MapPin,
-    ChevronLeft,
-    ChevronRight,
-    Filter,
-    Calendar,
-    Eye,
-    Edit,
-    X
-} from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
+import TherapistLayout from "@/components/layouts/TherapistLayout";
+import { useProviderBookings, fmtDate, fmtTime, getInitials, bookingStatusBadge, isToday } from "@/lib/portalEngine";
+import { Loader2, ChevronLeft, ChevronRight, Video, MapPin, ExternalLink } from "lucide-react";
 
-interface BookingSession {
-    id: string;
-    scheduled_at: string;
-    status: 'confirmed' | 'pending' | 'completed' | 'cancelled';
-    service_delivery_mode: 'online' | 'in_person';
-    duration: number;
-    patient_name: string;
-    patient_avatar?: string;
-    service_name: string;
-    price: number;
-    notes?: string;
-    created_at: string;
-}
+const A = "#2D9E6B", D = "#0F3D2E", B = "#EAE6E2", TM = "#1A1A1A", TS = "#6B7280";
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+const STATUS_FILTERS = ["All", "Pending", "Confirmed", "Completed", "Cancelled"];
 
-const TherapistBookings = () => {
-    const { user, profile } = useAuth();
-    const [bookings, setBookings] = useState<BookingSession[]>([]);
-    const [filteredBookings, setFilteredBookings] = useState<BookingSession[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [statusFilter, setStatusFilter] = useState("all");
-    const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
-    const [currentDate, setCurrentDate] = useState(new Date());
+const Av = ({ name, url, size = 34 }: { name: string | null; url?: string | null; size?: number }) => (
+  <div style={{ width: size, height: size, borderRadius: "50%", background: "#E5E7EB", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+    {url ? <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      : <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: size * 0.33, color: TS }}>{getInitials(name)}</span>}
+  </div>
+);
 
-    useEffect(() => {
-        if (user) {
-            loadBookings();
-        }
-    }, [user]);
+export default function TherapistBookings() {
+  const { user } = useAuth();
+  const { data: bookings, loading } = useProviderBookings(user?.id);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [statusFilter, setStatusFilter] = useState(0);
 
-    useEffect(() => {
-        filterBookings();
-    }, [statusFilter, bookings]);
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7) + weekOffset * 7);
 
-    const loadBookings = async () => {
-        try {
-            // Get therapist profile
-            const { data: therapistProfile } = await supabase
-                .from('therapist_profiles')
-                .select('id')
-                .eq('user_id', user?.id)
-                .single();
+  const weekDays = DAYS.map((d, i) => {
+    const date = new Date(monday); date.setDate(monday.getDate() + i);
+    const count = (bookings || []).filter(b => new Date(b.scheduled_at).toDateString() === date.toDateString()).length;
+    return { day: d, date: date.getDate(), fullDate: date, count, isCurrentDay: date.toDateString() === now.toDateString() };
+  });
 
-            if (therapistProfile) {
-                // Get all bookings for this therapist
-                const { data: bookingsData } = await supabase
-                    .from('bookings')
-                    .select(`
-            id,
-            scheduled_at,
-            status,
-            service_delivery_mode,
-            duration,
-            price,
-            notes,
-            created_at,
-            learner_id,
-            service_id,
-            profiles!bookings_learner_id_fkey(
-              full_name,
-              avatar_url
-            ),
-            therapist_services!bookings_service_id_fkey(
-              service_name
-            )
-          `)
-                    .eq('therapist_id', therapistProfile.id)
-                    .order('scheduled_at', { ascending: true });
+  const weekStart = weekDays[0].fullDate;
+  const weekEnd = new Date(weekDays[4].fullDate.getTime() + 86399999);
+  const weekLabel = `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
-                if (bookingsData) {
-                    const formattedBookings: BookingSession[] = bookingsData.map(booking => ({
-                        id: booking.id,
-                        scheduled_at: booking.scheduled_at,
-                        status: booking.status as any,
-                        service_delivery_mode: booking.service_delivery_mode as any,
-                        duration: booking.duration || 60,
-                        patient_name: (booking.profiles as any)?.full_name || 'Unknown Patient',
-                        patient_avatar: (booking.profiles as any)?.avatar_url,
-                        service_name: (booking.therapist_services as any)?.service_name || 'Therapy Session',
-                        price: booking.price || 0,
-                        notes: booking.notes,
-                        created_at: booking.created_at
-                    }));
+  const visibleBookings = (bookings || [])
+    .filter(b => {
+      const bd = new Date(b.scheduled_at);
+      const inWeek = bd >= weekStart && bd <= weekEnd;
+      const matchStatus = statusFilter === 0 || b.status?.toLowerCase() === STATUS_FILTERS[statusFilter].toLowerCase();
+      return inWeek && matchStatus;
+    })
+    .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
 
-                    setBookings(formattedBookings);
-                }
-            }
-        } catch (error) {
-            console.error('Error loading bookings:', error);
-            toast.error('Failed to load bookings');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+  const pendingRequests = (bookings || []).filter(b => b.status === "pending").slice(0, 3);
 
-    const filterBookings = () => {
-        let filtered = bookings;
-
-        if (statusFilter !== "all") {
-            filtered = filtered.filter(booking => booking.status === statusFilter);
-        }
-
-        setFilteredBookings(filtered);
-    };
-
-    const handleSignOut = async () => {
-        await supabase.auth.signOut();
-        toast.success('Signed out successfully');
-    };
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'confirmed': return 'bg-green-100 text-green-800';
-            case 'pending': return 'bg-yellow-100 text-yellow-800';
-            case 'completed': return 'bg-blue-100 text-blue-800';
-            case 'cancelled': return 'bg-red-100 text-red-800';
-            default: return 'bg-gray-100 text-gray-800';
-        }
-    };
-
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return {
-            date: date.toLocaleDateString(),
-            time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-    };
-
-    const getTodayBookings = () => {
-        const today = new Date().toDateString();
-        return filteredBookings.filter(booking =>
-            new Date(booking.scheduled_at).toDateString() === today
-        );
-    };
-
-    const getUpcomingBookings = () => {
-        const now = new Date();
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        return filteredBookings.filter(booking => {
-            const bookingDate = new Date(booking.scheduled_at);
-            return bookingDate >= tomorrow;
-        });
-    };
-
-    if (!user) {
-        return <Navigate to="/auth" replace />;
-    }
-
-    const todayBookings = getTodayBookings();
-    const upcomingBookings = getUpcomingBookings();
-
-    return (
-        <div className="min-h-screen bg-gray-50 flex">
-            {/* Sidebar - 260px */}
-            <div className="w-[260px] bg-white shadow-lg flex-shrink-0">
-                {/* Sidebar Header */}
-                <div className="p-6 border-b border-gray-200">
-                    <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                            <HeartHandshake className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                            <h1 className="text-lg font-bold text-gray-900">mindwell</h1>
-                            <p className="text-xs text-gray-500">portal</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Navigation */}
-                <nav className="mt-6 px-4">
-                    <div className="space-y-1">
-                        <Link to="/therapist/dashboard" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-                            <Home className="h-5 w-5 mr-3" />
-                            Dashboard
-                        </Link>
-                        <Link to="/therapist/clients" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-                            <Users className="h-5 w-5 mr-3" />
-                            Patients
-                        </Link>
-                        <Link to="/therapist/bookings" className="flex items-center px-4 py-3 text-sm font-medium text-primary bg-primary/10 rounded-lg">
-                            <BookOpen className="h-5 w-5 mr-3" />
-                            Books
-                        </Link>
-                        <Link to="/therapist/session-notes" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-                            <FileText className="h-5 w-5 mr-3" />
-                            Session Notes
-                        </Link>
-                        <Link to="/therapist/messages" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-                            <MessageSquare className="h-5 w-5 mr-3" />
-                            Messages
-                        </Link>
-                        <Link to="/therapist/wallet" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-                            <Wallet className="h-5 w-5 mr-3" />
-                            Wallet
-                        </Link>
-                        <Link to="/therapist/payout" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-                            <CreditCard className="h-5 w-5 mr-3" />
-                            Payout
-                        </Link>
-                        <Link to="/therapist/settings" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
-                            <Settings className="h-5 w-5 mr-3" />
-                            Settings
-                        </Link>
-                    </div>
-                </nav>
-            </div>
-
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col">
-                {/* Header */}
-                <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        {/* Page Title */}
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Books</h1>
-                            <p className="text-gray-600">Manage your appointments and session schedule</p>
-                        </div>
-
-                        {/* Header Actions */}
-                        <div className="flex items-center space-x-4">
-                            <Button variant="ghost" size="sm">
-                                <Bell className="h-4 w-4" />
-                            </Button>
-                            <Button className="bg-primary hover:bg-primary/90 text-white">
-                                <Plus className="h-4 w-4 mr-2" />
-                                Block Time
-                            </Button>
-
-                            {/* User Profile */}
-                            <div className="flex items-center space-x-3">
-                                <Avatar>
-                                    <AvatarImage src={profile?.avatar_url} alt={profile?.full_name} />
-                                    <AvatarFallback className="bg-primary/10 text-primary">
-                                        {profile?.full_name?.split(' ').map(n => n[0]).join('') || 'T'}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <Button variant="outline" onClick={handleSignOut}>
-                                    <LogOut className="h-4 w-4 mr-2" />
-                                    Sign Out
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </header>
-
-                {/* Page Content */}
-                <main className="flex-1 p-6">
-                    {/* View Controls */}
-                    <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between">
-                        <div className="flex items-center space-x-4">
-                            <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                <SelectTrigger className="w-48">
-                                    <Filter className="h-4 w-4 mr-2" />
-                                    <SelectValue placeholder="Filter by status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Bookings</SelectItem>
-                                    <SelectItem value="pending">Pending</SelectItem>
-                                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                                    <SelectItem value="completed">Completed</SelectItem>
-                                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
-                            <Button
-                                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                                size="sm"
-                                onClick={() => setViewMode('list')}
-                                className={viewMode === 'list' ? 'bg-white shadow-sm' : ''}
-                            >
-                                List View
-                            </Button>
-                            <Button
-                                variant={viewMode === 'calendar' ? 'default' : 'ghost'}
-                                size="sm"
-                                onClick={() => setViewMode('calendar')}
-                                className={viewMode === 'calendar' ? 'bg-white shadow-sm' : ''}
-                            >
-                                <Calendar className="h-4 w-4 mr-2" />
-                                Calendar
-                            </Button>
-                        </div>
-                    </div>
-
-                    {isLoading ? (
-                        <div className="text-center py-12">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                            <p className="text-gray-500 mt-4">Loading bookings...</p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                            {/* Today's Sessions */}
-                            <Card className="xl:col-span-2">
-                                <CardHeader>
-                                    <CardTitle className="text-lg font-semibold">Today's Sessions</CardTitle>
-                                    <CardDescription>
-                                        {todayBookings.length} session{todayBookings.length !== 1 ? 's' : ''} scheduled
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {todayBookings.length === 0 ? (
-                                            <div className="text-center py-8">
-                                                <CalendarDays className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                                                <p className="text-gray-500">No sessions scheduled for today</p>
-                                            </div>
-                                        ) : (
-                                            todayBookings.map((booking) => {
-                                                const { date, time } = formatDate(booking.scheduled_at);
-                                                return (
-                                                    <div key={booking.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
-                                                        <div className="flex items-center space-x-4">
-                                                            <div className="text-sm font-medium text-gray-900 w-16">{time}</div>
-                                                            <Avatar className="h-10 w-10">
-                                                                <AvatarImage src={booking.patient_avatar} alt={booking.patient_name} />
-                                                                <AvatarFallback className="bg-gray-100 text-gray-600 text-sm">
-                                                                    {booking.patient_name.split(' ').map(n => n[0]).join('')}
-                                                                </AvatarFallback>
-                                                            </Avatar>
-                                                            <div>
-                                                                <div className="text-sm font-medium text-gray-900">{booking.patient_name}</div>
-                                                                <div className="text-xs text-gray-500">{booking.service_name}</div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center space-x-3">
-                                                            <Badge
-                                                                variant="secondary"
-                                                                className={booking.service_delivery_mode === 'online' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}
-                                                            >
-                                                                {booking.service_delivery_mode === 'online' ? 'VIRTUAL' : 'IN-PERSON'}
-                                                            </Badge>
-                                                            <Badge className={getStatusColor(booking.status)}>
-                                                                {booking.status.toUpperCase()}
-                                                            </Badge>
-                                                            <Button size="sm" variant="outline">
-                                                                <Eye className="h-4 w-4 mr-2" />
-                                                                View
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })
-                                        )}
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Upcoming Sessions */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg font-semibold">Upcoming Sessions</CardTitle>
-                                    <CardDescription>Next 7 days</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-3">
-                                        {upcomingBookings.slice(0, 5).map((booking) => {
-                                            const { date, time } = formatDate(booking.scheduled_at);
-                                            return (
-                                                <div key={booking.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                                                    <div>
-                                                        <div className="text-sm font-medium text-gray-900">{booking.patient_name}</div>
-                                                        <div className="text-xs text-gray-500">{date} at {time}</div>
-                                                    </div>
-                                                    <Badge className={getStatusColor(booking.status)} variant="secondary">
-                                                        {booking.status}
-                                                    </Badge>
-                                                </div>
-                                            );
-                                        })}
-                                        {upcomingBookings.length === 0 && (
-                                            <div className="text-center py-8">
-                                                <Clock className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                                                <p className="text-sm text-gray-500">No upcoming sessions</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
-
-                    {/* All Sessions List */}
-                    {!isLoading && filteredBookings.length > 0 && (
-                        <Card className="mt-6">
-                            <CardHeader>
-                                <CardTitle className="text-lg font-semibold">All Sessions</CardTitle>
-                                <CardDescription>
-                                    {filteredBookings.length} session{filteredBookings.length !== 1 ? 's' : ''} found
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-4">
-                                    {filteredBookings.map((booking) => {
-                                        const { date, time } = formatDate(booking.scheduled_at);
-                                        return (
-                                            <div key={booking.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
-                                                <div className="flex items-center space-x-4">
-                                                    <div className="text-sm font-medium text-gray-900 w-24">
-                                                        <div>{date}</div>
-                                                        <div className="text-primary">{time}</div>
-                                                    </div>
-                                                    <Avatar className="h-10 w-10">
-                                                        <AvatarImage src={booking.patient_avatar} alt={booking.patient_name} />
-                                                        <AvatarFallback className="bg-gray-100 text-gray-600 text-sm">
-                                                            {booking.patient_name.split(' ').map(n => n[0]).join('')}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <div className="flex-1">
-                                                        <div className="text-sm font-medium text-gray-900">{booking.patient_name}</div>
-                                                        <div className="text-xs text-gray-500">{booking.service_name} • {booking.duration} minutes</div>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center space-x-3">
-                                                    <div className="text-right">
-                                                        <div className="text-sm font-medium text-gray-900">${booking.price}</div>
-                                                        <Badge
-                                                            variant="secondary"
-                                                            className={booking.service_delivery_mode === 'online' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}
-                                                        >
-                                                            {booking.service_delivery_mode === 'online' ? 'Virtual' : 'In-Person'}
-                                                        </Badge>
-                                                    </div>
-                                                    <Badge className={getStatusColor(booking.status)}>
-                                                        {booking.status}
-                                                    </Badge>
-                                                    <Button size="sm" variant="outline">
-                                                        <Edit className="h-4 w-4 mr-2" />
-                                                        Edit
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
-                </main>
-            </div>
+  return (
+    <TherapistLayout>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 28, color: D, margin: 0 }}>Scheduler & Books</h1>
+          <p style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: TS, marginTop: 4 }}>Manage your calendar, patient bookings, and telehealth sessions.</p>
         </div>
-    );
-};
+      </div>
 
-export default TherapistBookings;
+      <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+        {/* Weekly grid + list */}
+        <div style={{ flex: "1 1 480px", background: "#fff", border: `1px solid ${B}`, borderRadius: 16, padding: 24 }}>
+          {/* Week nav */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <h2 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 20, color: D, margin: 0 }}>Weekly Grid ({weekLabel})</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button onClick={() => setWeekOffset(w => w - 1)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><ChevronLeft size={15} color={TS} /></button>
+              <button onClick={() => setWeekOffset(0)} style={{ padding: "3px 10px", borderRadius: 6, border: `1px solid ${B}`, background: "#fff", fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 11, color: TM, cursor: "pointer" }}>Today</button>
+              <button onClick={() => setWeekOffset(w => w + 1)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><ChevronRight size={15} color={TS} /></button>
+            </div>
+          </div>
+
+          {/* Day columns */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+            {weekDays.map(d => (
+              <div key={d.day} style={{ flex: 1, background: d.isCurrentDay ? "#F0FDF6" : "#fff", border: `1px solid ${d.isCurrentDay ? "rgba(45,158,107,0.25)" : B}`, borderRadius: 10, padding: "10px 6px", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 10, textTransform: "uppercase", color: d.isCurrentDay ? A : TS }}>{d.day}</span>
+                <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 16, color: d.isCurrentDay ? D : TM }}>{d.date}</span>
+                {d.count > 0
+                  ? <span style={{ padding: "2px 6px", borderRadius: 4, background: D, fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 9, color: "#fff" }}>{d.count}</span>
+                  : <span style={{ fontFamily: "Inter,sans-serif", fontSize: 9, color: TS }}>Off</span>}
+              </div>
+            ))}
+          </div>
+
+          <hr style={{ border: "none", borderTop: `1px solid ${B}`, marginBottom: 14 }} />
+
+          {/* Status filter */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+            {STATUS_FILTERS.map((f, i) => (
+              <button key={f} onClick={() => setStatusFilter(i)} style={{ padding: "4px 12px", borderRadius: 999, border: `1px solid ${i === statusFilter ? A : B}`, background: i === statusFilter ? "#F0FDF6" : "#fff", fontFamily: "Inter,sans-serif", fontWeight: 500, fontSize: 11, color: i === statusFilter ? D : TS, cursor: "pointer" }}>{f}</button>
+            ))}
+          </div>
+
+          {loading
+            ? <div style={{ display: "flex", justifyContent: "center", padding: 32 }}><Loader2 size={24} className="animate-spin" style={{ color: A }} /></div>
+            : visibleBookings.length === 0
+              ? <p style={{ fontFamily: "Inter,sans-serif", fontSize: 13, color: TS, textAlign: "center", padding: 24 }}>No bookings this week</p>
+              : visibleBookings.map(b => {
+                const badge = bookingStatusBadge(b.status);
+                const isVirtual = !!b.meeting_url;
+                return (
+                  <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, background: "#FBFBF9", borderRadius: 10, marginBottom: 8 }}>
+                    <div style={{ width: 74, flexShrink: 0 }}>
+                      <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: D, margin: 0 }}>{isToday(b.scheduled_at) ? "Today" : fmtDate(b.scheduled_at)}</p>
+                      <p style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS, margin: 0 }}>{fmtTime(b.scheduled_at)}</p>
+                    </div>
+                    <Av name={b.learner?.full_name ?? null} url={b.learner?.avatar_url} />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 13, color: TM, margin: 0 }}>{b.learner?.full_name || "Patient"}</p>
+                      <p style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS, margin: 0, display: "flex", alignItems: "center", gap: 4 }}>
+                        {isVirtual ? <Video size={9} /> : <MapPin size={9} />}
+                        {b.service?.title || "Session"} · {b.duration_minutes}m
+                      </p>
+                    </div>
+                    <span style={{ padding: "3px 8px", borderRadius: 6, background: badge.bg, fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 10, color: badge.text, textTransform: "uppercase", flexShrink: 0 }}>{badge.label}</span>
+                    {b.meeting_url && b.status !== "cancelled" && (
+                      <a href={`/session/${b.id}`} style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 6, border: "none", background: A, fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 11, color: "#fff", textDecoration: "none", flexShrink: 0 }}>
+                        <ExternalLink size={10} /> Start
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+        </div>
+
+        {/* Right panel */}
+        <div style={{ width: 300, flexShrink: 0, display: "flex", flexDirection: "column", gap: 18 }}>
+          {/* Booking requests */}
+          <div style={{ background: "#fff", border: `1px solid ${B}`, borderRadius: 16, padding: 20 }}>
+            <h3 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 16, color: D, margin: "0 0 14px" }}>Booking Requests Queue</h3>
+            {pendingRequests.length === 0
+              ? <p style={{ fontFamily: "Inter,sans-serif", fontSize: 13, color: TS }}>No pending requests</p>
+              : pendingRequests.map(b => (
+                <div key={b.id} style={{ background: "#F9F8F6", borderRadius: 8, padding: 12, marginBottom: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: TM }}>{b.learner?.full_name || "Patient"}</span>
+                    <span style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS }}>New</span>
+                  </div>
+                  <p style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS, margin: "0 0 8px" }}>
+                    {b.service?.title || "Session"} on {fmtDate(b.scheduled_at)} at {fmtTime(b.scheduled_at)}
+                  </p>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: "#FEE2E2", fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 11, color: "#991B1B", cursor: "pointer" }}>Decline</button>
+                    <button style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: "#F0FDF4", fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 11, color: "#166534", cursor: "pointer" }}>Confirm</button>
+                  </div>
+                </div>
+              ))}
+          </div>
+
+          {/* This week stats */}
+          <div style={{ background: "#fff", border: `1px solid ${B}`, borderRadius: 16, padding: 20 }}>
+            <h3 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 16, color: D, margin: "0 0 14px" }}>This Week</h3>
+            {[
+              { label: "Total", value: visibleBookings.length },
+              { label: "Confirmed", value: (bookings || []).filter(b => { const d = new Date(b.scheduled_at); return d >= weekStart && d <= weekEnd && b.status === "confirmed"; }).length },
+              { label: "Completed", value: (bookings || []).filter(b => { const d = new Date(b.scheduled_at); return d >= weekStart && d <= weekEnd && b.status === "completed"; }).length },
+              { label: "Pending", value: (bookings || []).filter(b => { const d = new Date(b.scheduled_at); return d >= weekStart && d <= weekEnd && b.status === "pending"; }).length },
+            ].map(s => (
+              <div key={s.label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${B}` }}>
+                <span style={{ fontFamily: "Inter,sans-serif", fontSize: 13, color: TS }}>{s.label}</span>
+                <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 13, color: TM }}>{s.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </TherapistLayout>
+  );
+}

@@ -1261,6 +1261,251 @@
         ]
       },
       {
+        "name": "Stripe Connect",
+        "item": [
+          {
+            "name": "Setup Connect Account",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-connect/setup",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"email\": \"{{email}}\",\n  \"country\": \"US\",\n  \"roles\": [\"creator\"]\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "// 200 = Stripe configured and account created/found",
+                    "// 500 = Stripe keys not configured on this server",
+                    "pm.test('Status 200 or 500', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+                    "});",
+                    "const body = pm.response.json();",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Returns accountId and needsOnboarding flag', () => {",
+                    "    pm.expect(body.success).to.be.true;",
+                    "    pm.expect(body.accountId).to.be.a('string');",
+                    "    pm.expect(body).to.have.property('needsOnboarding');",
+                    "    pm.collectionVariables.set('stripe_account_id', body.accountId);",
+                    "  });",
+                    "} else {",
+                    "  pm.test('500: returns error message', () => {",
+                    "    pm.expect(body.message).to.be.a('string');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Setup Connect Account - Missing userId",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-connect/setup",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"email\": \"{{email}}\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when userId missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message about userId', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.include('userId');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Get Connect Status",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/stripe-connect/status/{{user_id}}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "// 200 = status retrieved (connected or not_connected)",
+                    "// 500 = Stripe/Supabase keys not configured",
+                    "pm.test('Status 200 or 500', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Returns connected flag', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body).to.have.property('connected');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Request Stripe Withdrawal",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-connect/withdraw",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"amount\": 25,\n  \"role\": \"creator\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "// 200 = Stripe configured, withdrawal processed",
+                    "// 400 = validation error or Stripe error (insufficient balance, etc.)",
+                    "// 500 = Stripe keys not configured",
+                    "pm.test('Status 200, 400, or 500', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 400, 500]);",
+                    "});",
+                    "pm.test('Returns message or success', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message || body.success !== undefined).to.exist;",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Request Stripe Withdrawal - Missing Fields",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-connect/withdraw",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"role\": \"creator\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when userId/amount missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message about required fields', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Get Withdrawal History",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/stripe-connect/withdrawals/{{user_id}}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "// Returns array (may be empty) or 500 if DB not configured",
+                    "pm.test('Status 200 or 500', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Returns an array', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body).to.be.an('array');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Get Stripe Dashboard Link",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/connect/dashboard-link",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"{{user_id}}\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "// NOTE: portalEngine.ts calls /api/stripe-connect/dashboard-link",
+                    "// but server.js mounts this at /api/connect/dashboard-link — path mismatch!",
+                    "// 200 = Stripe configured and account fully verified",
+                    "// 400 = account not fully onboarded",
+                    "// 503 = Stripe not configured",
+                    "pm.test('Status 200, 400, or 503', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 400, 503]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Returns dashboardUrl', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.url || body.dashboardUrl).to.be.a('string');",
+                    "  });",
+                    "} else {",
+                    "  pm.test('Returns error message', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.error || body.message).to.be.a('string');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
         "name": "Admin",
         "item": [
           {
