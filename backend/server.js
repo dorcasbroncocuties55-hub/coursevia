@@ -119,6 +119,69 @@ const persistPaymentIntent = async ({ reference, userId, amount, type, contentId
   });
 };
 
+// ── Helper: Create session payment record and provider earnings ─────────────
+const createSessionPaymentAndEarnings = async ({ bookingId, paymentId, grossAmount, providerId, providerType }) => {
+  if (!supabaseAdmin) return;
+
+  const platformFeePercent = 0.15; // 15% platform fee
+  const platformFee = Math.round(safeNumber(grossAmount) * platformFeePercent * 100) / 100;
+  const providerNetAmount = safeNumber(grossAmount) - platformFee;
+
+  // Create session_payment record
+  await supabaseAdmin.from("session_payments").insert({
+    booking_id: bookingId,
+    payment_id: paymentId,
+    gross_amount: grossAmount,
+    platform_fee: platformFee,
+    provider_net_amount: providerNetAmount,
+    provider_id: providerId,
+    provider_type: providerType,
+    status: "completed",
+    currency: CURRENCY,
+  });
+
+  // Create provider_earnings record (pending for 48h)
+  const availableAt = new Date();
+  availableAt.setHours(availableAt.getHours() + 48); // 48-hour hold
+
+  await supabaseAdmin.from("provider_earnings").insert({
+    provider_id: providerId,
+    source_type: "booking",
+    source_id: bookingId,
+    gross_amount: grossAmount,
+    platform_fee: platformFee,
+    net_amount: providerNetAmount,
+    status: "pending",
+    currency: CURRENCY,
+    available_at: availableAt.toISOString(),
+  });
+
+  // Update provider's wallet pending balance
+  await supabaseAdmin.from("wallets").upsert(
+    { user_id: providerId, currency: CURRENCY, balance: 0, pending_balance: 0, available_balance: 0 },
+    { onConflict: "user_id", ignoreDuplicates: true }
+  );
+
+  const { data: wallet } = await supabaseAdmin.from("wallets").select("*").eq("user_id", providerId).maybeSingle();
+  if (wallet) {
+    const newPending = safeNumber(wallet.pending_balance) + providerNetAmount;
+    const newTotal = safeNumber(wallet.total_earnings) + providerNetAmount;
+    await supabaseAdmin.from("wallets").update({
+      pending_balance: newPending,
+      total_earnings: newTotal,
+      updated_at: new Date().toISOString()
+    }).eq("id", wallet.id);
+
+    await supabaseAdmin.from("wallet_ledger").insert({
+      wallet_id: wallet.id,
+      amount: providerNetAmount,
+      type: "credit",
+      description: `Earnings from ${providerType} booking (pending 48h)`,
+      balance_after: newPending
+    });
+  }
+};
+
 const markPaymentVerified = async ({ reference, type, userId, contentId, amount, metadata = {} }) => {
   if (!supabaseAdmin) return;
 
@@ -127,10 +190,25 @@ const markPaymentVerified = async ({ reference, type, userId, contentId, amount,
     .eq("reference_id", reference);
 
   let providerId = null;
+  let providerType = null;
   if (contentId && type !== "subscription") {
     if (type === "booking") {
-      const { data: booking } = await supabaseAdmin.from("bookings").select("provider_id").eq("id", contentId).maybeSingle();
-      providerId = booking?.provider_id || null;
+      const { data: booking } = await supabaseAdmin.from("bookings").select("provider_id, provider_type, therapist_id, coach_id").eq("id", contentId).maybeSingle();
+      providerType = booking?.provider_type || null;
+
+      // Determine provider ID based on provider_type
+      if (providerType === "therapist" && booking?.therapist_id) {
+        // Get therapist's user_id from therapist_profiles
+        const { data: therapist } = await supabaseAdmin.from("therapist_profiles").select("user_id").eq("id", booking.therapist_id).maybeSingle();
+        providerId = therapist?.user_id || null;
+      } else if (providerType === "coach" && booking?.coach_id) {
+        // Get coach's user_id from coach_profiles
+        const { data: coach } = await supabaseAdmin.from("coach_profiles").select("user_id").eq("id", booking.coach_id).maybeSingle();
+        providerId = coach?.user_id || null;
+      } else {
+        // Fallback to generic provider_id
+        providerId = booking?.provider_id || null;
+      }
     } else if (type === "course") {
       const { data: ci } = await supabaseAdmin.from("content_items").select("owner_id").eq("id", contentId).maybeSingle();
       providerId = ci?.owner_id || null;

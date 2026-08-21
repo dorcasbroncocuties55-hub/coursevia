@@ -60,14 +60,22 @@ const LearnerPaymentMethods = lazy(() => import("./pages/dashboard/LearnerPaymen
 const LearnerNotifications = lazy(() => import("./pages/dashboard/LearnerNotifications"));
 const LearnerProfile = lazy(() => import("./pages/dashboard/ProfileSettings").then(m => ({ default: m.LearnerProfile })));
 
-// Coach dashboard
+// Coach dashboard (Figma redesign - mirrors therapist portal)
 const CoachDashboard = lazy(() => import("./pages/coach/CoachDashboard"));
-const CoachProfile = lazy(() => import("./pages/coach/CoachProfile"));
-const CoachServices = lazy(() => import("./pages/coach/CoachServices"));
-const CoachCalendar = lazy(() => import("./pages/coach/CoachCalendar"));
+const CoachServicesManager = lazy(() => import("./pages/coach/CoachServicesManager"));
+const AddNewCoachService = lazy(() => import("./pages/coach/AddNewCoachService"));
 const CoachBookings = lazy(() => import("./pages/coach/CoachBookings"));
 const CoachClients = lazy(() => import("./pages/coach/CoachClients"));
 const CoachSessions = lazy(() => import("./pages/coach/CoachSessions"));
+const CoachMessages = lazy(() => import("./pages/coach/CoachMessages"));
+const CoachWallet = lazy(() => import("./pages/coach/CoachWallet"));
+const CoachPayout = lazy(() => import("./pages/coach/CoachPayout"));
+const CoachSettings = lazy(() => import("./pages/coach/CoachSettings"));
+
+// Legacy coach pages (old dashboard)
+const CoachProfile = lazy(() => import("./pages/coach/CoachProfile"));
+const CoachServices = lazy(() => import("./pages/coach/CoachServices"));
+const CoachCalendar = lazy(() => import("./pages/coach/CoachCalendar"));
 const CoachReviews = lazy(() => import("./pages/coach/CoachReviews"));
 const CoachContent = lazy(() => import("./pages/coach/CoachContent"));
 const CoachRefunds = lazy(() => import("./pages/coach/CoachRefunds"));
@@ -85,10 +93,8 @@ const TherapistSettings = lazy(() => import("./pages/therapist/TherapistSettings
 
 // Shared dashboard pages
 const LearnerWallet = lazy(() => import("./pages/dashboard/WalletPage").then(m => ({ default: m.LearnerWallet })));
-const CoachWallet = lazy(() => import("./pages/dashboard/WalletPage").then(m => ({ default: m.CoachWallet })));
 const CreatorWallet = lazy(() => import("./pages/dashboard/WalletPage").then(m => ({ default: m.CreatorWallet })));
 const TherapistWallet = lazy(() => import("./pages/dashboard/WalletPage").then(m => ({ default: m.TherapistWallet })));
-const CoachWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage").then(m => ({ default: m.CoachWithdrawals })));
 const CreatorWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage").then(m => ({ default: m.CreatorWithdrawals })));
 const TherapistWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage").then(m => ({ default: m.TherapistWithdrawals })));
 
@@ -431,26 +437,18 @@ const App = () => {
                       }
                     />
                     <Route
-                      path="/coach/profile"
-                      element={
-                        <ProtectedRoute requiredRole="coach">
-                          <PortalRestrictionGuard role="coach"><CoachProfile /></PortalRestrictionGuard>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
                       path="/coach/services"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <PortalRestrictionGuard role="coach"><CoachServices /></PortalRestrictionGuard>
+                          <PortalRestrictionGuard role="coach"><CoachServicesManager /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
                     <Route
-                      path="/coach/calendar"
+                      path="/coach/services/new"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <PortalRestrictionGuard role="coach"><CoachCalendar /></PortalRestrictionGuard>
+                          <PortalRestrictionGuard role="coach"><AddNewCoachService /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -498,7 +496,41 @@ const App = () => {
                       path="/coach/withdrawals"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <PortalRestrictionGuard role="coach"><CoachWithdrawals /></PortalRestrictionGuard>
+                          <PortalRestrictionGuard role="coach"><CoachPayout /></PortalRestrictionGuard>
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/coach/settings"
+                      element={
+                        <ProtectedRoute requiredRole="coach">
+                          <PortalRestrictionGuard role="coach"><CoachSettings /></PortalRestrictionGuard>
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/coach/bank-accounts"
+                      element={
+                        <ProtectedRoute requiredRole="coach">
+                          <PortalRestrictionGuard role="coach"><BankAccountsPage role="coach" /></PortalRestrictionGuard>
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Legacy coach routes (old dashboard) */}
+                    <Route
+                      path="/coach/profile"
+                      element={
+                        <ProtectedRoute requiredRole="coach">
+                          <PortalRestrictionGuard role="coach"><CoachProfile /></PortalRestrictionGuard>
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/coach/calendar"
+                      element={
+                        <ProtectedRoute requiredRole="coach">
+                          <PortalRestrictionGuard role="coach"><CoachCalendar /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -539,14 +571,6 @@ const App = () => {
                       element={
                         <ProtectedRoute requiredRole="coach">
                           <PortalRestrictionGuard role="coach"><CoachInvitePage /></PortalRestrictionGuard>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/coach/bank-accounts"
-                      element={
-                        <ProtectedRoute requiredRole="coach">
-                          <PortalRestrictionGuard role="coach"><BankAccountsPage role="coach" /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
