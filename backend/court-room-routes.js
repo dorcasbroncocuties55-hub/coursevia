@@ -1,6 +1,14 @@
 import crypto from "crypto";
-import { supabase } from "../src/integrations/supabase/client.js";
+import crypto from "crypto";
+import { createClient } from "@supabase/supabase-js";
 import { courtRoomEmailService } from "./court-room-email-service.js";
+
+// Backend-only Supabase admin client — never import the frontend browser client here
+const _url = process.env.SUPABASE_URL || "";
+const _key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabaseAdmin = _url && _key
+  ? createClient(_url, _key, { auth: { persistSession: false, autoRefreshToken: false } })
+  : null;
 
 // Court Room API Routes for Dispute Resolution System
 // Integrates with existing Coursevia backend

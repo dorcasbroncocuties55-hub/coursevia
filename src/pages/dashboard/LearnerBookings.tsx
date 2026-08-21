@@ -9,13 +9,14 @@ import { toast } from "sonner";
 import { Video, MapPin, Clock, CheckCircle2, AlertTriangle, Flag, RefreshCw } from "lucide-react";
 import { buildBackendUrl } from "@/lib/backendApi";
 import { PageLoading } from "@/components/LoadingSpinner";
+import LearnerCourtRoom from "@/components/court-room/LearnerCourtRoom";
 
 const statusTone: Record<string, string> = {
-  pending:           "bg-amber-50 text-amber-700 border-amber-200",
-  confirmed:         "bg-blue-50 text-blue-700 border-blue-200",
-  completed:         "bg-emerald-50 text-emerald-700 border-emerald-200",
-  learner_approved:  "bg-green-50 text-green-700 border-green-200",
-  cancelled:         "bg-slate-50 text-slate-500 border-slate-200",
+  pending: "bg-amber-50 text-amber-700 border-amber-200",
+  confirmed: "bg-blue-50 text-blue-700 border-blue-200",
+  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  learner_approved: "bg-green-50 text-green-700 border-green-200",
+  cancelled: "bg-slate-50 text-slate-500 border-slate-200",
 };
 
 type Booking = {
@@ -174,174 +175,177 @@ const LearnerBookings = () => {
   }
 
   return (
-    <DashboardLayout role="learner">
-      <h1 className="mb-6 text-2xl font-bold text-foreground">My Bookings</h1>
+    <>
+      {user && <LearnerCourtRoom userId={user.id} />}
+      <DashboardLayout role="learner">
+        <h1 className="mb-6 text-2xl font-bold text-foreground">My Bookings</h1>
 
-      {bookings.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-10 text-center">
-          <p className="text-muted-foreground">No bookings yet.</p>
-          <a href="/coaches" className="mt-2 inline-block text-sm text-primary hover:underline">Find a coach</a>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {bookings.map((b) => {
-            const providerName = (b as any).coach_profiles?.profiles?.full_name || "Provider";
-            const status = b.status || "pending";
-            const canApprove = ["completed", "session_finished", "awaiting_learner_approval"].includes(status);
-            const isOnline = b.service_delivery_mode !== "in_person";
-            const sessionJoinable = canJoinSession(b);
-            const refundEligible = isRefundEligible(b);
-            const cancellable = ["pending", "confirmed"].includes(status);
+        {bookings.length === 0 ? (
+          <div className="rounded-2xl border border-border bg-card p-10 text-center">
+            <p className="text-muted-foreground">No bookings yet.</p>
+            <a href="/coaches" className="mt-2 inline-block text-sm text-primary hover:underline">Find a coach</a>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {bookings.map((b) => {
+              const providerName = (b as any).coach_profiles?.profiles?.full_name || "Provider";
+              const status = b.status || "pending";
+              const canApprove = ["completed", "session_finished", "awaiting_learner_approval"].includes(status);
+              const isOnline = b.service_delivery_mode !== "in_person";
+              const sessionJoinable = canJoinSession(b);
+              const refundEligible = isRefundEligible(b);
+              const cancellable = ["pending", "confirmed"].includes(status);
 
-            return (
-              <div key={b.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-foreground">{providerName}</p>
-                      <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${statusTone[status] || "bg-slate-50 text-slate-700 border-slate-200"}`}>
-                        {status.replaceAll("_", " ")}
-                      </span>
+              return (
+                <div key={b.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-foreground">{providerName}</p>
+                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${statusTone[status] || "bg-slate-50 text-slate-700 border-slate-200"}`}>
+                          {status.replaceAll("_", " ")}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Clock size={13} />
+                          {b.scheduled_at ? format(new Date(b.scheduled_at), "PPP p") : "Schedule pending"}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          {isOnline ? <Video size={13} /> : <MapPin size={13} />}
+                          {isOnline ? "Online" : "In-person"}
+                        </span>
+                        {b.price ? <span className="font-medium text-foreground">${Number(b.price).toFixed(2)}</span> : null}
+                      </div>
+                      {b.notes && <p className="text-sm text-muted-foreground">{b.notes}</p>}
                     </div>
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Clock size={13} />
-                        {b.scheduled_at ? format(new Date(b.scheduled_at), "PPP p") : "Schedule pending"}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        {isOnline ? <Video size={13} /> : <MapPin size={13} />}
-                        {isOnline ? "Online" : "In-person"}
-                      </span>
-                      {b.price ? <span className="font-medium text-foreground">${Number(b.price).toFixed(2)}</span> : null}
-                    </div>
-                    {b.notes && <p className="text-sm text-muted-foreground">{b.notes}</p>}
-                  </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    {sessionJoinable && isOnline && (
-                      <a href={`/session/${b.id}`} target="_blank" rel="noreferrer">
-                        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
-                          <Video size={13} /> Join session
+                    <div className="flex flex-wrap items-center gap-2">
+                      {sessionJoinable && isOnline && (
+                        <a href={`/session/${b.id}`} target="_blank" rel="noreferrer">
+                          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+                            <Video size={13} /> Join session
+                          </Button>
+                        </a>
+                      )}
+
+                      {canApprove && (
+                        <Button size="sm" onClick={() => handleApproveCompletion(b.id)} disabled={approvingId === b.id}
+                          className="gap-1.5">
+                          <CheckCircle2 size={13} />
+                          {approvingId === b.id ? "Approving…" : "Approve session"}
                         </Button>
-                      </a>
-                    )}
+                      )}
 
-                    {canApprove && (
-                      <Button size="sm" onClick={() => handleApproveCompletion(b.id)} disabled={approvingId === b.id}
-                        className="gap-1.5">
-                        <CheckCircle2 size={13} />
-                        {approvingId === b.id ? "Approving…" : "Approve session"}
+                      {refundEligible && (
+                        <Button size="sm" variant="outline" onClick={() => setRefundModal({ bookingId: b.id, amount: Number(b.price || 0) })}
+                          className="gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50">
+                          <RefreshCw size={13} /> Request refund
+                        </Button>
+                      )}
+
+                      {cancellable && (
+                        <Button size="sm" variant="outline" onClick={() => handleCancel(b.id)} disabled={cancellingId === b.id}
+                          className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50">
+                          {cancellingId === b.id ? "Cancelling…" : "Cancel"}
+                        </Button>
+                      )}
+
+                      <Button size="sm" variant="ghost" onClick={() => setReportModal({ bookingId: b.id, providerId: (b as any).coach_profiles?.user_id })}
+                        className="gap-1.5 text-muted-foreground hover:text-red-600">
+                        <Flag size={13} /> Report
                       </Button>
-                    )}
-
-                    {refundEligible && (
-                      <Button size="sm" variant="outline" onClick={() => setRefundModal({ bookingId: b.id, amount: Number(b.price || 0) })}
-                        className="gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50">
-                        <RefreshCw size={13} /> Request refund
-                      </Button>
-                    )}
-
-                    {cancellable && (
-                      <Button size="sm" variant="outline" onClick={() => handleCancel(b.id)} disabled={cancellingId === b.id}
-                        className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50">
-                        {cancellingId === b.id ? "Cancelling…" : "Cancel"}
-                      </Button>
-                    )}
-
-                    <Button size="sm" variant="ghost" onClick={() => setReportModal({ bookingId: b.id, providerId: (b as any).coach_profiles?.user_id })}
-                      className="gap-1.5 text-muted-foreground hover:text-red-600">
-                      <Flag size={13} /> Report
-                    </Button>
+                    </div>
                   </div>
+
+                  {status === "learner_approved" && (
+                    <p className="mt-3 text-xs text-muted-foreground border-t border-border pt-3">
+                      Session approved. Provider earnings are in the 8-day pending window before payout.
+                    </p>
+                  )}
                 </div>
+              );
+            })}
+          </div>
+        )}
 
-                {status === "learner_approved" && (
-                  <p className="mt-3 text-xs text-muted-foreground border-t border-border pt-3">
-                    Session approved. Provider earnings are in the 8-day pending window before payout.
-                  </p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Refund modal */}
-      {refundModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-slate-900 mb-1">Request a refund</h2>
-            <p className="text-sm text-slate-500 mb-4">
-              Amount: <strong>${refundModal.amount.toFixed(2)}</strong>. Your request will be reviewed by our team within 24–48 hours. If approved, the amount is credited to your wallet.
-            </p>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Reason <span className="text-red-500">*</span></label>
-                <textarea
-                  value={refundReason}
-                  onChange={(e) => setRefundReason(e.target.value)}
-                  rows={3}
-                  placeholder="Describe why you're requesting a refund…"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#0b7e84] resize-none"
-                />
-              </div>
-              <div className="flex gap-2 pt-1">
-                <Button onClick={handleRefundSubmit} disabled={submitting} className="flex-1">
-                  {submitting ? "Submitting…" : "Submit request"}
-                </Button>
-                <Button variant="outline" onClick={() => { setRefundModal(null); setRefundReason(""); }}>Cancel</Button>
+        {/* Refund modal */}
+        {refundModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+              <h2 className="text-lg font-bold text-slate-900 mb-1">Request a refund</h2>
+              <p className="text-sm text-slate-500 mb-4">
+                Amount: <strong>${refundModal.amount.toFixed(2)}</strong>. Your request will be reviewed by our team within 24–48 hours. If approved, the amount is credited to your wallet.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Reason <span className="text-red-500">*</span></label>
+                  <textarea
+                    value={refundReason}
+                    onChange={(e) => setRefundReason(e.target.value)}
+                    rows={3}
+                    placeholder="Describe why you're requesting a refund…"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#0b7e84] resize-none"
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button onClick={handleRefundSubmit} disabled={submitting} className="flex-1">
+                    {submitting ? "Submitting…" : "Submit request"}
+                  </Button>
+                  <Button variant="outline" onClick={() => { setRefundModal(null); setRefundReason(""); }}>Cancel</Button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Report modal */}
-      {reportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-center gap-2 mb-1">
-              <AlertTriangle size={18} className="text-red-500" />
-              <h2 className="text-lg font-bold text-slate-900">Report an issue</h2>
-            </div>
-            <p className="text-sm text-slate-500 mb-4">Our team will review your report and take appropriate action.</p>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Reason <span className="text-red-500">*</span></label>
-                <select
-                  value={reportReason}
-                  onChange={(e) => setReportReason(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#0b7e84]"
-                >
-                  <option value="">Select a reason</option>
-                  <option value="no_show">Provider did not show up</option>
-                  <option value="inappropriate_behaviour">Inappropriate behaviour</option>
-                  <option value="wrong_service">Service not as described</option>
-                  <option value="technical_issue">Technical issue during session</option>
-                  <option value="other">Other</option>
-                </select>
+        {/* Report modal */}
+        {reportModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+              <div className="flex items-center gap-2 mb-1">
+                <AlertTriangle size={18} className="text-red-500" />
+                <h2 className="text-lg font-bold text-slate-900">Report an issue</h2>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Details (optional)</label>
-                <textarea
-                  value={reportDesc}
-                  onChange={(e) => setReportDesc(e.target.value)}
-                  rows={3}
-                  placeholder="Provide any additional details…"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#0b7e84] resize-none"
-                />
-              </div>
-              <div className="flex gap-2 pt-1">
-                <Button onClick={handleReportSubmit} disabled={submitting} className="flex-1 bg-red-600 hover:bg-red-700 text-white">
-                  {submitting ? "Submitting…" : "Submit report"}
-                </Button>
-                <Button variant="outline" onClick={() => { setReportModal(null); setReportReason(""); setReportDesc(""); }}>Cancel</Button>
+              <p className="text-sm text-slate-500 mb-4">Our team will review your report and take appropriate action.</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Reason <span className="text-red-500">*</span></label>
+                  <select
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#0b7e84]"
+                  >
+                    <option value="">Select a reason</option>
+                    <option value="no_show">Provider did not show up</option>
+                    <option value="inappropriate_behaviour">Inappropriate behaviour</option>
+                    <option value="wrong_service">Service not as described</option>
+                    <option value="technical_issue">Technical issue during session</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Details (optional)</label>
+                  <textarea
+                    value={reportDesc}
+                    onChange={(e) => setReportDesc(e.target.value)}
+                    rows={3}
+                    placeholder="Provide any additional details…"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#0b7e84] resize-none"
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button onClick={handleReportSubmit} disabled={submitting} className="flex-1 bg-red-600 hover:bg-red-700 text-white">
+                    {submitting ? "Submitting…" : "Submit report"}
+                  </Button>
+                  <Button variant="outline" onClick={() => { setReportModal(null); setReportReason(""); setReportDesc(""); }}>Cancel</Button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </DashboardLayout>
+        )}
+      </DashboardLayout>
+    </>
   );
 };
 

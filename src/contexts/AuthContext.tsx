@@ -200,7 +200,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       full_name: fullName,
       avatar_url: avatarUrl,
       onboarding_completed: false,
-      status: "active",
       ...(resolvedRole ? { role: resolvedRole } : {}),
     };
 

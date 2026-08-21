@@ -1,0 +1,32 @@
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+
+<--- Last few GCs --->
+
+[11172:0000018EA5C4A000]    79078 ms: Mark-Compact (reduce) 24.2 (35.4) -> 23.9 (26.9) MB, pooled: 0 MB, 223.43 / 0.00 ms  (+ 21.4 ms in 8 steps since start of marking, biggest step 19.8 ms, walltime since start of marking 556 ms) (average mu = 0.970, cur
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 00007FF6A98B48DF 
+ 2: 00007FF6A84FDCB7 
+ 3: 00007FF6A82FE4F7 
+ 4: 00007FF6A8296AEB 
+ 5: 00007FF6A826E51E 
+ 6: 00007FF6A8300F92 
+ 7: 00007FF6A82FFF47 
+ 8: 00007FF6A8310E82 
+ 9: 00007FF6A83109AB 
+10: 00007FF6A9BE33AD 
+11: 00007FF6A82FBFC0 
+12: 00007FF6A82AC562 
+13: 00007FF6A97FC3D5 
+14: 00007FF6A97FA740 
+15: 00007FF6A8563EEB 
+16: 00007FF6A8563A5F 
+17: 00007FF6A99CAF7F 
+18: 00007FF6A9844266 
+19: 00007FF6A99169C7 
+20: 00007FF6A99CE152 
+21: 00007FF6A9BECAB4 
+22: 00007FF90CAF7374 BaseThreadInitThunk+20
+23: 00007FF90D11CC91 RtlUserThreadStart+33
+FAILED 

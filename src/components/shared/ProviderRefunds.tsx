@@ -1,3 +1,4 @@
+import { type ReactNode } from "react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
@@ -26,11 +27,11 @@ type RefundRow = {
 
 const statusConfig = {
   processed: { icon: CheckCircle2, color: "text-emerald-500", badge: "bg-emerald-50 text-emerald-700 border-emerald-200", label: "Approved" },
-  rejected:  { icon: XCircle,      color: "text-red-500",     badge: "bg-red-50 text-red-600 border-red-200",           label: "Rejected" },
-  pending:   { icon: Clock,        color: "text-amber-500",   badge: "bg-amber-50 text-amber-700 border-amber-200",     label: "Under Review" },
+  rejected: { icon: XCircle, color: "text-red-500", badge: "bg-red-50 text-red-600 border-red-200", label: "Rejected" },
+  pending: { icon: Clock, color: "text-amber-500", badge: "bg-amber-50 text-amber-700 border-amber-200", label: "Under Review" },
 };
 
-export const ProviderRefunds = ({ role }: { role: Role }) => {
+export const ProviderRefunds = ({ role, sidebar }: { role: Role; sidebar?: ReactNode }) => {
   const { user } = useAuth();
   const [refunds, setRefunds] = useState<RefundRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +43,7 @@ export const ProviderRefunds = ({ role }: { role: Role }) => {
 
     // Get provider profile id
     const profileTable = role === "coach" ? "coach_profiles" : "therapist_profiles";
-    const bookingCol   = role === "coach" ? "coach_id" : "therapist_id";
+    const bookingCol = role === "coach" ? "coach_id" : "therapist_id";
 
     const { data: profile } = await supabase
       .from(profileTable as any).select("id").eq("user_id", user.id).maybeSingle();
@@ -77,9 +78,9 @@ export const ProviderRefunds = ({ role }: { role: Role }) => {
 
     setRefunds((refundRows as any[]).map(r => ({
       ...r,
-      learner_name:  profileMap.get(r.user_id)?.full_name || "Client",
+      learner_name: profileMap.get(r.user_id)?.full_name || "Client",
       learner_email: profileMap.get(r.user_id)?.email || "",
-      scheduled_at:  bookingMap.get(r.booking_id)?.scheduled_at || null,
+      scheduled_at: bookingMap.get(r.booking_id)?.scheduled_at || null,
     })));
     setLoading(false);
   };
@@ -90,10 +91,10 @@ export const ProviderRefunds = ({ role }: { role: Role }) => {
   const pending = refunds.filter(r => r.status === "pending").length;
 
   const tabs = [
-    { key: "all",       label: "All" },
-    { key: "pending",   label: `Pending${pending > 0 ? ` (${pending})` : ""}` },
+    { key: "all", label: "All" },
+    { key: "pending", label: `Pending${pending > 0 ? ` (${pending})` : ""}` },
     { key: "processed", label: "Approved" },
-    { key: "rejected",  label: "Rejected" },
+    { key: "rejected", label: "Rejected" },
   ] as const;
 
   return (
@@ -120,7 +121,7 @@ export const ProviderRefunds = ({ role }: { role: Role }) => {
           {[
             { label: "Total Requests", value: refunds.length, color: "text-foreground" },
             { label: "Pending Review", value: refunds.filter(r => r.status === "pending").length, color: "text-amber-600" },
-            { label: "Approved",       value: refunds.filter(r => r.status === "processed").length, color: "text-emerald-600" },
+            { label: "Approved", value: refunds.filter(r => r.status === "processed").length, color: "text-emerald-600" },
           ].map(s => (
             <div key={s.label} className="rounded-2xl border border-border bg-card p-4 text-center">
               <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -133,9 +134,8 @@ export const ProviderRefunds = ({ role }: { role: Role }) => {
         <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
           {tabs.map(t => (
             <button key={t.key} onClick={() => setFilter(t.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === t.key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              }`}>
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === t.key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}>
               {t.label}
             </button>
           ))}

@@ -70,31 +70,31 @@ const roleOptions: {
   title: string;
   description: string;
 }[] = [
-  {
-    value: "learner",
-    title: "Learner",
-    description:
-      "Buy video courses, discover creators, and book sessions with coaches and therapists.",
-  },
-  {
-    value: "coach",
-    title: "Coach",
-    description:
-      "Offer coaching sessions, get discovered in the coach directory, and publish premium content.",
-  },
-  {
-    value: "creator",
-    title: "Creator",
-    description:
-      "Upload and sell premium video courses with categories that match your content niche.",
-  },
-  {
-    value: "therapist",
-    title: "Therapist",
-    description:
-      "Offer therapy sessions, appear in the therapist directory, and accept secure bookings.",
-  },
-];
+    {
+      value: "learner",
+      title: "Learner",
+      description:
+        "Buy video courses, discover creators, and book sessions with coaches and therapists.",
+    },
+    {
+      value: "coach",
+      title: "Coach",
+      description:
+        "Offer coaching sessions, get discovered in the coach directory, and publish premium content.",
+    },
+    {
+      value: "creator",
+      title: "Creator",
+      description:
+        "Upload and sell premium video courses with categories that match your content niche.",
+    },
+    {
+      value: "therapist",
+      title: "Therapist",
+      description:
+        "Offer therapy sessions, appear in the therapist directory, and accept secure bookings.",
+    },
+  ];
 
 const specializationConfig: Partial<Record<RoleOption, SpecializationConfig>> = {
   coach: {
@@ -626,12 +626,12 @@ const Onboarding = () => {
 
     const authName =
       typeof user.user_metadata?.full_name === "string" &&
-      user.user_metadata.full_name.trim()
+        user.user_metadata.full_name.trim()
         ? user.user_metadata.full_name.trim()
         : typeof user.user_metadata?.name === "string" &&
           user.user_metadata.name.trim()
-        ? user.user_metadata.name.trim()
-        : "";
+          ? user.user_metadata.name.trim()
+          : "";
 
     if (authName && !fullName) setFullName(authName);
     if (authName && !displayName) setDisplayName(authName);
@@ -1140,14 +1140,13 @@ const Onboarding = () => {
       // Prepare minimal profile data
       setSaveProgress("Saving profile data...");
       console.log("💾 Preparing profile data...");
-      
+
       const profileData = {
         user_id: authUser.id,
         email: authUser.email || null,
         full_name: fullName.trim() || "User",
         role: finalRole,
         onboarding_completed: true,
-        status: "active",
         account_type: finalRole,
       };
 
@@ -1200,22 +1199,22 @@ const Onboarding = () => {
       // Success!
       setSaveProgress("Redirecting to dashboard...");
       console.log("🎉 All saves completed successfully!");
-      
+
       toast.success("Welcome to Coursevia!");
-      
+
       // Mark as redirecting to prevent interference
       redirectingRef.current = true;
-      
+
       // Clear loading state
       setLoading(false);
       setSaveProgress("");
-      
+
       console.log("🔄 About to redirect...");
-      
+
       // Redirect to dashboard
       const dashboardRoute = getDashboardRoute(finalRole);
       console.log("🎯 Dashboard route:", dashboardRoute);
-      
+
       setTimeout(() => {
         console.log("🚀 Executing redirect...");
         window.location.replace(dashboardRoute);
@@ -1223,10 +1222,10 @@ const Onboarding = () => {
 
     } catch (error: any) {
       console.error("💥 Onboarding completion failed:", error);
-      
+
       const message = error?.message || error?.details || "Failed to complete onboarding. Please try again.";
       toast.error(message);
-      
+
       setLoading(false);
       setSaveProgress("");
     }
@@ -1344,11 +1343,10 @@ const Onboarding = () => {
                   key={option.value}
                   type="button"
                   onClick={() => applyRoleDefaults(option.value)}
-                  className={`rounded-2xl border p-0 text-left transition ${
-                    selectedRole === option.value
+                  className={`rounded-2xl border p-0 text-left transition ${selectedRole === option.value
                       ? "border-primary ring-2 ring-primary/20"
                       : "border-border hover:border-primary/40"
-                  }`}
+                    }`}
                 >
                   <Card className="border-0 bg-transparent shadow-none">
                     <CardContent className="p-6">
@@ -1449,8 +1447,8 @@ const Onboarding = () => {
                 {isCoach
                   ? "Choose coaching type"
                   : isTherapist
-                  ? "Choose therapy type"
-                  : "Choose content niche"}
+                    ? "Choose therapy type"
+                    : "Choose content niche"}
               </h2>
               <p className="text-sm text-muted-foreground">
                 Select the main area that best describes your work on Coursevia.
@@ -1581,8 +1579,8 @@ const Onboarding = () => {
                           {avatarFile
                             ? "Photo selected"
                             : avatarPreview
-                            ? "Photo added"
-                            : "Browse files"}
+                              ? "Photo added"
+                              : "Browse files"}
                         </div>
                       </div>
                     </div>
@@ -1694,8 +1692,8 @@ const Onboarding = () => {
                 {isCoach
                   ? "Build your coach profile"
                   : isTherapist
-                  ? "Build your therapist profile"
-                  : "Build your creator profile"}
+                    ? "Build your therapist profile"
+                    : "Build your creator profile"}
               </h2>
 
               <p className="text-sm leading-6 text-slate-600">
@@ -1709,8 +1707,8 @@ const Onboarding = () => {
                   {isCoach
                     ? "Professional coaching title"
                     : isTherapist
-                    ? "Professional therapist title"
-                    : "Creator title"}
+                      ? "Professional therapist title"
+                      : "Creator title"}
                 </Label>
                 <Input
                   value={profession}
@@ -1719,8 +1717,8 @@ const Onboarding = () => {
                     isCoach
                       ? "Example: Relationship Coach"
                       : isTherapist
-                      ? "Example: Licensed Therapist"
-                      : "Example: Business Educator"
+                        ? "Example: Licensed Therapist"
+                        : "Example: Business Educator"
                   }
                 />
               </div>
@@ -1744,8 +1742,8 @@ const Onboarding = () => {
                   isCoach
                     ? "Short line that tells people what kind of coaching you provide"
                     : isTherapist
-                    ? "Short line that tells people the support you provide"
-                    : "Short line that tells people what your content helps them achieve"
+                      ? "Short line that tells people the support you provide"
+                      : "Short line that tells people what your content helps them achieve"
                 }
               />
             </div>
@@ -1755,8 +1753,8 @@ const Onboarding = () => {
                 {isCoach
                   ? "About your coaching practice"
                   : isTherapist
-                  ? "About your therapy practice"
-                  : "About you and your content"}
+                    ? "About your therapy practice"
+                    : "About you and your content"}
               </Label>
               <Textarea
                 value={bio}
@@ -1765,8 +1763,8 @@ const Onboarding = () => {
                   isCoach
                     ? "Explain who you help, what kind of coaching you offer, and what clients can expect"
                     : isTherapist
-                    ? "Explain who you support, what kind of therapy you offer, and what clients can expect"
-                    : "Explain what you teach, who your videos are for, and what learners can expect"
+                      ? "Explain who you support, what kind of therapy you offer, and what clients can expect"
+                      : "Explain what you teach, who your videos are for, and what learners can expect"
                 }
                 rows={4}
                 className="resize-none"
@@ -1778,8 +1776,8 @@ const Onboarding = () => {
                 {isCoach
                   ? "Coaching approach"
                   : isTherapist
-                  ? "Approach"
-                  : "Content background / teaching approach"}
+                    ? "Approach"
+                    : "Content background / teaching approach"}
               </Label>
               <Textarea
                 value={experience}
@@ -1788,8 +1786,8 @@ const Onboarding = () => {
                   isCoach
                     ? "Describe your coaching method, style, or transformation process"
                     : isTherapist
-                    ? "Describe your therapeutic method, style, or treatment approach"
-                    : "Describe your experience, method, and how you teach through your content"
+                      ? "Describe your therapeutic method, style, or treatment approach"
+                      : "Describe your experience, method, and how you teach through your content"
                 }
                 rows={4}
                 className="resize-none"
@@ -2043,11 +2041,10 @@ const Onboarding = () => {
                       mode.value as "online" | "in_person" | "both"
                     )
                   }
-                  className={`rounded-[24px] border p-5 text-left transition ${
-                    serviceDeliveryMode === mode.value
+                  className={`rounded-[24px] border p-5 text-left transition ${serviceDeliveryMode === mode.value
                       ? "border-emerald-500 bg-emerald-50 shadow-sm ring-2 ring-emerald-100"
                       : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   <div className="space-y-3">
                     <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100">

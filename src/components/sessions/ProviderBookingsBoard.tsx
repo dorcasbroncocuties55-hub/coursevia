@@ -1,3 +1,4 @@
+import { type ReactNode } from "react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useMemo, useState } from "react";
@@ -30,12 +31,12 @@ type BookingRow = {
 };
 
 const statusStyle: Record<string, string> = {
-  pending:          "bg-amber-50 text-amber-700 border-amber-200",
-  confirmed:        "bg-blue-50 text-blue-700 border-blue-200",
-  completed:        "bg-emerald-50 text-emerald-700 border-emerald-200",
+  pending: "bg-amber-50 text-amber-700 border-amber-200",
+  confirmed: "bg-blue-50 text-blue-700 border-blue-200",
+  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
   learner_approved: "bg-green-50 text-green-700 border-green-200",
-  cancelled:        "bg-slate-50 text-slate-500 border-slate-200",
-  in_progress:      "bg-purple-50 text-purple-700 border-purple-200",
+  cancelled: "bg-slate-50 text-slate-500 border-slate-200",
+  in_progress: "bg-purple-50 text-purple-700 border-purple-200",
 };
 
 const dayLabel = (d: Date) => {
@@ -44,14 +45,14 @@ const dayLabel = (d: Date) => {
   return format(d, "EEEE, MMM d");
 };
 
-const ProviderBookingsBoard = ({ role, mode }: { role: Role; mode: Mode }) => {
+const ProviderBookingsBoard = ({ role, mode, sidebar }: { role: Role; mode: Mode; sidebar?: ReactNode }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
 
-  const profileTable  = role === "coach" ? "coach_profiles" : "therapist_profiles";
+  const profileTable = role === "coach" ? "coach_profiles" : "therapist_profiles";
   const bookingColumn = role === "coach" ? "coach_id" : "therapist_id";
 
   const load = async () => {
@@ -161,14 +162,14 @@ const ProviderBookingsBoard = ({ role, mode }: { role: Role; mode: Mode }) => {
     bookings: `${role === "coach" ? "Coach" : "Therapist"} Bookings`,
     sessions: "Live Sessions",
     calendar: "Session Calendar",
-    clients:  "Clients",
+    clients: "Clients",
   }[mode];
 
   const subtitle = {
     bookings: "Manage all booking requests and confirmed sessions.",
     sessions: "Confirmed sessions ready to start.",
     calendar: "All upcoming appointments by date and time.",
-    clients:  "Everyone who has booked with you.",
+    clients: "Everyone who has booked with you.",
   }[mode];
 
   // ── Booking card ───────────────────────────────────────────────────────────
@@ -264,91 +265,107 @@ const ProviderBookingsBoard = ({ role, mode }: { role: Role; mode: Mode }) => {
     return [...map.values()];
   }, [bookings]);
 
-  return (
-    <DashboardLayout role={role}>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
-        </div>
+  const boardContent = (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+      </div>
 
-        {loading ? (
-          <div className="rounded-2xl border border-border bg-card p-8 text-sm text-muted-foreground animate-pulse">Loading…</div>
-        ) : mode === "clients" ? (
-          clientMap.length === 0 ? (
-            <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-              No clients yet. Bookings will appear here.
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {clientMap.map((b) => (
-                <div key={b.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User size={18} className="text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground">{b.learner_name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{b.status || "pending"}</p>
-                    </div>
+      {loading ? (
+        <div className="rounded-2xl border border-border bg-card p-8 text-sm text-muted-foreground animate-pulse">Loading…</div>
+      ) : mode === "clients" ? (
+        clientMap.length === 0 ? (
+          <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+            No clients yet. Bookings will appear here.
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {clientMap.map((b) => (
+              <div key={b.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User size={18} className="text-primary" />
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1" onClick={() => openMessages(b)}>
-                      <MessageSquare size={13} className="mr-1.5" /> Message
-                    </Button>
-                    <Button size="sm" className="flex-1" onClick={() => openSession(b)}>
-                      <Video size={13} className="mr-1.5" /> Session
-                    </Button>
+                  <div>
+                    <p className="font-semibold text-foreground">{b.learner_name}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{b.status || "pending"}</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          )
-        ) : mode === "calendar" ? (
-          // ── Calendar view: grouped by date ──────────────────────────────
-          calendarGroups && calendarGroups.size === 0 ? (
-            <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-              No upcoming appointments scheduled.
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {calendarGroups && [...calendarGroups.entries()].map(([dateKey, dayBookings]) => {
-                const date = dateKey !== "unscheduled" ? new Date(dateKey) : null;
-                const isPassedDay = date ? isPast(date) && !isToday(date) : false;
-                return (
-                  <div key={dateKey}>
-                    <div className={`mb-3 flex items-center gap-3`}>
-                      <div className={`rounded-xl px-3 py-1.5 text-sm font-semibold ${
-                        date && isToday(date) ? "bg-primary text-primary-foreground" :
-                        date && isTomorrow(date) ? "bg-blue-100 text-blue-700" :
-                        isPassedDay ? "bg-slate-100 text-slate-500" :
-                        "bg-secondary text-foreground"
-                      }`}>
-                        {date ? dayLabel(date) : "Unscheduled"}
-                      </div>
-                      <span className="text-xs text-muted-foreground">{dayBookings.length} session{dayBookings.length !== 1 ? "s" : ""}</span>
-                    </div>
-                    <div className="space-y-3 pl-2 border-l-2 border-border ml-2">
-                      {dayBookings.map((b) => <BookingCard key={b.id} b={b} compact />)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => openMessages(b)}>
+                    <MessageSquare size={13} className="mr-1.5" /> Message
+                  </Button>
+                  <Button size="sm" className="flex-1" onClick={() => openSession(b)}>
+                    <Video size={13} className="mr-1.5" /> Session
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : mode === "calendar" ? (
+        // ── Calendar view: grouped by date ──────────────────────────────
+        calendarGroups && calendarGroups.size === 0 ? (
+          <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+            No upcoming appointments scheduled.
+          </div>
         ) : (
-          // ── Bookings / Sessions list ────────────────────────────────────
-          filtered.length === 0 ? (
-            <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-              {mode === "sessions" ? "No confirmed sessions yet." : "No bookings yet."}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filtered.map((b) => <BookingCard key={b.id} b={b} />)}
-            </div>
-          )
-        )}
+          <div className="space-y-6">
+            {calendarGroups && [...calendarGroups.entries()].map(([dateKey, dayBookings]) => {
+              const date = dateKey !== "unscheduled" ? new Date(dateKey) : null;
+              const isPassedDay = date ? isPast(date) && !isToday(date) : false;
+              return (
+                <div key={dateKey}>
+                  <div className={`mb-3 flex items-center gap-3`}>
+                    <div className={`rounded-xl px-3 py-1.5 text-sm font-semibold ${date && isToday(date) ? "bg-primary text-primary-foreground" :
+                      date && isTomorrow(date) ? "bg-blue-100 text-blue-700" :
+                        isPassedDay ? "bg-slate-100 text-slate-500" :
+                          "bg-secondary text-foreground"
+                      }`}>
+                      {date ? dayLabel(date) : "Unscheduled"}
+                    </div>
+                    <span className="text-xs text-muted-foreground">{dayBookings.length} session{dayBookings.length !== 1 ? "s" : ""}</span>
+                  </div>
+                  <div className="space-y-3 pl-2 border-l-2 border-border ml-2">
+                    {dayBookings.map((b) => <BookingCard key={b.id} b={b} compact />)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      ) : (
+        // ── Bookings / Sessions list ────────────────────────────────────
+        filtered.length === 0 ? (
+          <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+            {mode === "sessions" ? "No confirmed sessions yet." : "No bookings yet."}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filtered.map((b) => <BookingCard key={b.id} b={b} />)}
+          </div>
+        )
+      )}
+    </div>
+  );
+
+  if (sidebar) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex">
+        {sidebar}
+        <div className="flex-1 flex flex-col min-w-0">
+          <main className="flex-1 p-4 lg:p-6 pb-20 lg:pb-6 overflow-y-auto">
+            {boardContent}
+          </main>
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <DashboardLayout role={role}>
+      {boardContent}
     </DashboardLayout>
   );
 };

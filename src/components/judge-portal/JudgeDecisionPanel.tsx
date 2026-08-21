@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Gavel, DollarSign, FileText, CheckCircle, XCircle, AlertTriangle, Clock, Scale, Send, Eye, EyeOff } from "lucide-react";
+import { Gavel, DollarSign, FileText, CheckCircle, XCircle, AlertTriangle, Clock, Scale, Send, Eye, EyeOff, Unlock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface DecisionPanelProps {
@@ -52,6 +52,13 @@ export default function JudgeDecisionPanel({ caseId, judgeId, onDecisionMade }: 
   const [submitting, setSubmitting] = useState(false);
   const [precedentCases, setPrecedentCases] = useState<any[]>([]);
 
+  // Judge-granted access state
+  const [showGrantAccess, setShowGrantAccess] = useState(false);
+  const [grantDuration, setGrantDuration] = useState<30 | 60 | 120>(60);
+  const [grantReason, setGrantReason] = useState('');
+  const [granting, setGranting] = useState(false);
+  const [grantSuccess, setGrantSuccess] = useState<string | null>(null);
+
   useEffect(() => {
     if (!caseId || !judgeId) return;
 
@@ -103,6 +110,45 @@ export default function JudgeDecisionPanel({ caseId, judgeId, onDecisionMade }: 
 
     fetchCaseData();
   }, [caseId, judgeId]);
+
+  const handleGrantAccess = async () => {
+    if (!grantReason.trim() || granting) return;
+    setGranting(true);
+    try {
+      const response = await fetch(`/api/court/case/${caseId}/grant-access`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-judge-id': judgeId,
+        },
+        body: JSON.stringify({
+          durationMinutes: grantDuration,
+          reason: grantReason.trim(),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to grant access');
+      const expiresAt = new Date(data.access.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setGrantSuccess(`Access granted for ${grantDuration} minutes — expires at ${expiresAt}. Provider has been emailed.`);
+      setGrantReason('');
+      setShowGrantAccess(false);
+
+      // Log internal note about the grant
+      await supabase.from('case_messages').insert({
+        case_id: caseId,
+        sender_id: judgeId,
+        sender_type: 'judge',
+        message_type: 'text',
+        content: `[JUDGE ACTION] Granted provider temporary portal access for ${grantDuration} minutes.\nReason: ${grantReason.trim()}`,
+        is_internal: true,
+        visible_to: ['judge'],
+      });
+    } catch (err: any) {
+      alert(err.message || 'Could not grant access');
+    } finally {
+      setGranting(false);
+    }
+  };
 
   const handleDecisionSubmit = async () => {
     if (!decision || !reasoning.trim() || submitting) return;
@@ -292,7 +338,7 @@ export default function JudgeDecisionPanel({ caseId, judgeId, onDecisionMade }: 
       {/* Evidence Summary */}
       <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Evidence Summary</h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div className="space-y-2">
             <p className="text-sm text-gray-400">Evidence Count: {evidence.length} items</p>
@@ -308,7 +354,7 @@ export default function JudgeDecisionPanel({ caseId, judgeId, onDecisionMade }: 
               </span>
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <p className="text-sm text-gray-400">Evidence Weight Distribution</p>
             <div className="flex space-x-4 text-sm">
@@ -332,7 +378,7 @@ export default function JudgeDecisionPanel({ caseId, judgeId, onDecisionMade }: 
             <span className="font-medium text-blue-200">AI Recommendation</span>
           </div>
           <p className="text-blue-300 text-sm">
-            Based on evidence analysis: <strong>${recommendedRefund}</strong> refund 
+            Based on evidence analysis: <strong>${recommendedRefund}</strong> refund
             ({Math.round((recommendedRefund / caseDetails.disputed_amount) * 100)}% of disputed amount)
           </p>
         </div>
@@ -347,11 +393,10 @@ export default function JudgeDecisionPanel({ caseId, judgeId, onDecisionMade }: 
               <div key={index} className="flex justify-between items-center bg-gray-700 rounded-lg p-3 text-sm">
                 <span className="text-gray-300">{precedent.case_number}</span>
                 <span className="text-gray-400">${precedent.disputed_amount}</span>
-                <span className={`font-medium ${
-                  precedent.refund_amount > 0 ? 'text-green-400' : 'text-red-400'
-                }`}>
-                  {precedent.refund_amount > 0 
-                    ? `$${precedent.refund_amount} refunded` 
+                <span className={`font-medium ${precedent.refund_amount > 0 ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                  {precedent.refund_amount > 0
+                    ? `$${precedent.refund_amount} refunded`
                     : 'Rejected'
                   }
                 </span>
@@ -374,23 +419,21 @@ export default function JudgeDecisionPanel({ caseId, judgeId, onDecisionMade }: 
           <div className="grid grid-cols-2 gap-4">
             <button
               onClick={() => setDecision('approve')}
-              className={`flex items-center justify-center space-x-2 p-4 border-2 rounded-lg transition ${
-                decision === 'approve' 
-                  ? getDecisionColor('approve')
-                  : 'border-gray-600 text-gray-400 hover:border-green-500 hover:text-green-400'
-              }`}
+              className={`flex items-center justify-center space-x-2 p-4 border-2 rounded-lg transition ${decision === 'approve'
+                ? getDecisionColor('approve')
+                : 'border-gray-600 text-gray-400 hover:border-green-500 hover:text-green-400'
+                }`}
             >
               <CheckCircle size={20} />
               <span className="font-medium">Approve Refund</span>
             </button>
-            
+
             <button
               onClick={() => setDecision('reject')}
-              className={`flex items-center justify-center space-x-2 p-4 border-2 rounded-lg transition ${
-                decision === 'reject' 
-                  ? getDecisionColor('reject')
-                  : 'border-gray-600 text-gray-400 hover:border-red-500 hover:text-red-400'
-              }`}
+              className={`flex items-center justify-center space-x-2 p-4 border-2 rounded-lg transition ${decision === 'reject'
+                ? getDecisionColor('reject')
+                : 'border-gray-600 text-gray-400 hover:border-red-500 hover:text-red-400'
+                }`}
             >
               <XCircle size={20} />
               <span className="font-medium">Reject Refund</span>
@@ -468,7 +511,7 @@ export default function JudgeDecisionPanel({ caseId, judgeId, onDecisionMade }: 
               <span>{showInternalNotes ? 'Hide' : 'Show'} Internal Notes</span>
             </button>
           </div>
-          
+
           {showInternalNotes && (
             <textarea
               value={internalNotes}
@@ -480,13 +523,88 @@ export default function JudgeDecisionPanel({ caseId, judgeId, onDecisionMade }: 
           )}
         </div>
 
+        {/* ── Grant Temporary Access ── */}
+        <div className="mb-6 pt-6 border-t border-gray-600">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <Unlock size={18} className="text-amber-400" />
+              <h4 className="text-sm font-semibold text-white">Grant Provider Temporary Portal Access</h4>
+            </div>
+            <button
+              onClick={() => { setShowGrantAccess(!showGrantAccess); setGrantSuccess(null); }}
+              className="text-xs text-amber-400 hover:text-amber-300 underline"
+            >
+              {showGrantAccess ? 'Cancel' : 'Grant Access'}
+            </button>
+          </div>
+          <p className="text-xs text-gray-400 mb-3">
+            Allow the provider to temporarily access their portal to gather evidence (screenshots, session logs, files).
+            An email will be sent immediately with access details.
+          </p>
+
+          {grantSuccess && (
+            <div className="mb-3 flex items-center gap-2 bg-green-900/60 border border-green-700 rounded-lg px-4 py-3 text-sm text-green-300">
+              <CheckCircle size={16} className="shrink-0" />
+              {grantSuccess}
+            </div>
+          )}
+
+          {showGrantAccess && (
+            <div className="bg-gray-700 border border-amber-700/50 rounded-lg p-4 space-y-4">
+              {/* Duration */}
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-2">Access Duration</label>
+                <div className="flex gap-2">
+                  {([30, 60, 120] as const).map(d => (
+                    <button
+                      key={d}
+                      onClick={() => setGrantDuration(d)}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium border transition ${grantDuration === d
+                          ? 'bg-amber-600 border-amber-500 text-white'
+                          : 'bg-gray-600 border-gray-500 text-gray-300 hover:border-amber-500'
+                        }`}
+                    >
+                      {d} min
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Reason */}
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-2">
+                  Reason for Granting Access *
+                </label>
+                <textarea
+                  value={grantReason}
+                  onChange={e => setGrantReason(e.target.value)}
+                  rows={2}
+                  placeholder="e.g. Provider needs to retrieve session logs and screenshots to support their defense"
+                  className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white placeholder-gray-400 text-sm focus:outline-none focus:border-amber-500 resize-none"
+                />
+              </div>
+
+              <button
+                onClick={handleGrantAccess}
+                disabled={!grantReason.trim() || granting}
+                className="w-full flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-600 text-white py-2.5 rounded-lg text-sm font-medium transition"
+              >
+                {granting
+                  ? <><div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" /> Granting…</>
+                  : <><Unlock size={15} /> Grant {grantDuration} Min Access & Email Provider</>
+                }
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Submit Decision */}
         <div className="flex items-center justify-between pt-4 border-t border-gray-600">
           <div className="text-sm text-gray-400">
             <p>⚠️ This decision is final and will be immediately communicated to all parties.</p>
             <p>Provider restrictions will be lifted and financial transactions will be processed.</p>
           </div>
-          
+
           <button
             onClick={handleDecisionSubmit}
             disabled={!decision || !reasoning.trim() || submitting}

@@ -144,6 +144,8 @@ const BlogArticle = lazy(() => import("./pages/public/BlogArticle"));
 const Contact = lazy(() => import("./pages/public/StaticPages").then(m => ({ default: m.Contact })));
 const HelpCenter = lazy(() => import("./pages/public/StaticPages").then(m => ({ default: m.HelpCenter })));
 
+import PortalRestrictionGuard from "@/components/court-room/PortalRestrictionGuard";
+
 import Preloader from "@/components/Preloader";
 import VoiceAssistant from "@/components/VoiceAssistant";
 
@@ -286,7 +288,7 @@ const App = () => {
                       path="/coach"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachDashboard />
+                          <PortalRestrictionGuard role="coach"><CoachDashboard /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -295,7 +297,7 @@ const App = () => {
                       path="/therapist"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistDashboard />
+                          <PortalRestrictionGuard role="therapist"><TherapistDashboard /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -427,7 +429,7 @@ const App = () => {
                       path="/coach/dashboard"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachDashboard />
+                          <PortalRestrictionGuard role="coach"><CoachDashboard /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -435,7 +437,7 @@ const App = () => {
                       path="/coach/profile"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachProfile />
+                          <PortalRestrictionGuard role="coach"><CoachProfile /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -443,7 +445,7 @@ const App = () => {
                       path="/coach/services"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachServices />
+                          <PortalRestrictionGuard role="coach"><CoachServices /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -451,7 +453,7 @@ const App = () => {
                       path="/coach/calendar"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachCalendar />
+                          <PortalRestrictionGuard role="coach"><CoachCalendar /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -459,7 +461,7 @@ const App = () => {
                       path="/coach/bookings"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachBookings />
+                          <PortalRestrictionGuard role="coach"><CoachBookings /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -467,7 +469,7 @@ const App = () => {
                       path="/coach/clients"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachClients />
+                          <PortalRestrictionGuard role="coach"><CoachClients /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -475,7 +477,7 @@ const App = () => {
                       path="/coach/sessions"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachSessions />
+                          <PortalRestrictionGuard role="coach"><CoachSessions /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -483,7 +485,7 @@ const App = () => {
                       path="/coach/messages"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachMessages />
+                          <PortalRestrictionGuard role="coach"><CoachMessages /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -491,7 +493,7 @@ const App = () => {
                       path="/coach/wallet"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachWallet />
+                          <PortalRestrictionGuard role="coach"><CoachWallet /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -499,7 +501,7 @@ const App = () => {
                       path="/coach/withdrawals"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachWithdrawals />
+                          <PortalRestrictionGuard role="coach"><CoachWithdrawals /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -507,7 +509,7 @@ const App = () => {
                       path="/coach/reviews"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachReviews />
+                          <PortalRestrictionGuard role="coach"><CoachReviews /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -515,7 +517,7 @@ const App = () => {
                       path="/coach/content"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachContent />
+                          <PortalRestrictionGuard role="coach"><CoachContent /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -523,7 +525,7 @@ const App = () => {
                       path="/coach/upload-video"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachUploadVideo />
+                          <PortalRestrictionGuard role="coach"><CoachUploadVideo /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -531,7 +533,7 @@ const App = () => {
                       path="/coach/profile-settings"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <ProfessionalProfileSettings role="coach" />
+                          <PortalRestrictionGuard role="coach"><ProfessionalProfileSettings role="coach" /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -539,7 +541,7 @@ const App = () => {
                       path="/coach/invite"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachInvitePage />
+                          <PortalRestrictionGuard role="coach"><CoachInvitePage /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -547,7 +549,7 @@ const App = () => {
                       path="/coach/bank-accounts"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <BankAccountsPage role="coach" />
+                          <PortalRestrictionGuard role="coach"><BankAccountsPage role="coach" /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -555,7 +557,7 @@ const App = () => {
                       path="/coach/refunds"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <CoachRefunds />
+                          <PortalRestrictionGuard role="coach"><CoachRefunds /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -564,7 +566,7 @@ const App = () => {
                       path="/therapist/dashboard"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistDashboard />
+                          <PortalRestrictionGuard role="therapist"><TherapistDashboard /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -572,7 +574,7 @@ const App = () => {
                       path="/therapist/profile"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistProfile />
+                          <PortalRestrictionGuard role="therapist"><TherapistProfile /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -580,7 +582,7 @@ const App = () => {
                       path="/therapist/services"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistServices />
+                          <PortalRestrictionGuard role="therapist"><TherapistServices /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -588,7 +590,7 @@ const App = () => {
                       path="/therapist/calendar"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistCalendar />
+                          <PortalRestrictionGuard role="therapist"><TherapistCalendar /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -596,7 +598,7 @@ const App = () => {
                       path="/therapist/bookings"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistBookings />
+                          <PortalRestrictionGuard role="therapist"><TherapistBookings /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -604,7 +606,7 @@ const App = () => {
                       path="/therapist/clients"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistClients />
+                          <PortalRestrictionGuard role="therapist"><TherapistClients /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -612,7 +614,7 @@ const App = () => {
                       path="/therapist/sessions"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistSessions />
+                          <PortalRestrictionGuard role="therapist"><TherapistSessions /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -620,7 +622,7 @@ const App = () => {
                       path="/therapist/content"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistContent />
+                          <PortalRestrictionGuard role="therapist"><TherapistContent /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -628,7 +630,7 @@ const App = () => {
                       path="/therapist/upload-video"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistUploadVideo />
+                          <PortalRestrictionGuard role="therapist"><TherapistUploadVideo /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -636,7 +638,7 @@ const App = () => {
                       path="/therapist/messages"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistMessages />
+                          <PortalRestrictionGuard role="therapist"><TherapistMessages /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -644,7 +646,7 @@ const App = () => {
                       path="/therapist/wallet"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistWallet />
+                          <PortalRestrictionGuard role="therapist"><TherapistWallet /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -652,7 +654,7 @@ const App = () => {
                       path="/therapist/withdrawals"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistWithdrawals />
+                          <PortalRestrictionGuard role="therapist"><TherapistWithdrawals /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -660,7 +662,7 @@ const App = () => {
                       path="/therapist/profile-settings"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <ProfessionalProfileSettings role="therapist" />
+                          <PortalRestrictionGuard role="therapist"><ProfessionalProfileSettings role="therapist" /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -668,7 +670,7 @@ const App = () => {
                       path="/therapist/invite"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistInvitePage />
+                          <PortalRestrictionGuard role="therapist"><TherapistInvitePage /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -676,7 +678,7 @@ const App = () => {
                       path="/therapist/bank-accounts"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <BankAccountsPage role="therapist" />
+                          <PortalRestrictionGuard role="therapist"><BankAccountsPage role="therapist" /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -684,7 +686,7 @@ const App = () => {
                       path="/therapist/refunds"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistRefunds />
+                          <PortalRestrictionGuard role="therapist"><TherapistRefunds /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -692,7 +694,7 @@ const App = () => {
                       path="/therapist/payout"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistPayout />
+                          <PortalRestrictionGuard role="therapist"><TherapistPayout /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
@@ -700,7 +702,7 @@ const App = () => {
                       path="/therapist/settings"
                       element={
                         <ProtectedRoute requiredRole="therapist">
-                          <TherapistSettings />
+                          <PortalRestrictionGuard role="therapist"><TherapistSettings /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />

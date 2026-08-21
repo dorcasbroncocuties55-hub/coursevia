@@ -12,6 +12,7 @@ import { QuickActions } from "@/components/dashboard/QuickActions";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { PageLoading } from "@/components/LoadingSpinner";
 import { queryWithRefresh } from "@/hooks/useSupabaseQuery";
+import LearnerCourtRoom from "@/components/court-room/LearnerCourtRoom";
 
 const LearnerDashboard = () => {
   const { user, profile, loading: authLoading } = useAuth();
@@ -112,61 +113,64 @@ const LearnerDashboard = () => {
   ];
 
   return (
-    <DashboardLayout role="learner">
-      <div className="space-y-8">
-        <WelcomeBanner
-          role="learner"
-          userName={firstName}
-          subtitle="Discover videos, book sessions with coaches and therapists, and grow."
-          gradient="blue"
-          primaryAction={{ label: "Find Coaches", href: "/coaches" }}
-          secondaryAction={{ label: "Watch Videos", href: "/videos" }}
-        />
+    <>
+      {user && <LearnerCourtRoom userId={user.id} />}
+      <DashboardLayout role="learner">
+        <div className="space-y-8">
+          <WelcomeBanner
+            role="learner"
+            userName={firstName}
+            subtitle="Discover videos, book sessions with coaches and therapists, and grow."
+            gradient="blue"
+            primaryAction={{ label: "Find Coaches", href: "/coaches" }}
+            secondaryAction={{ label: "Watch Videos", href: "/videos" }}
+          />
 
-        {walletBalance !== null && walletBalance > 0 && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="rounded-lg bg-emerald-100 p-3">
-                  <Wallet className="h-6 w-6 text-emerald-600" />
+          {walletBalance !== null && walletBalance > 0 && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="rounded-lg bg-emerald-100 p-3">
+                    <Wallet className="h-6 w-6 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-emerald-900">Wallet Credit: ${walletBalance.toFixed(2)}</h3>
+                    <p className="text-sm text-emerald-700">Automatically applied at checkout</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-emerald-900">Wallet Credit: ${walletBalance.toFixed(2)}</h3>
-                  <p className="text-sm text-emerald-700">Automatically applied at checkout</p>
-                </div>
+                <a href="/dashboard/wallet" className="text-sm font-medium text-emerald-700 hover:text-emerald-800 underline">View Wallet →</a>
               </div>
-              <a href="/dashboard/wallet" className="text-sm font-medium text-emerald-700 hover:text-emerald-800 underline">View Wallet →</a>
             </div>
+          )}
+
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <DashboardCard title="My Videos" value={stats.videos} description="Purchased videos" icon={<Video className="h-6 w-6" />} href="/dashboard/videos" color="purple" loading={dataLoading} />
+            <DashboardCard title="Bookings" value={stats.bookings} description="Scheduled sessions" icon={<Calendar className="h-6 w-6" />} href="/dashboard/bookings" color="green" loading={dataLoading} />
+            <DashboardCard title="Total Spent" value={`$${stats.totalSpent.toFixed(2)}`} description="All-time investment" icon={<TrendingUp className="h-6 w-6" />} color="orange" loading={dataLoading} />
           </div>
-        )}
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <DashboardCard title="My Videos" value={stats.videos} description="Purchased videos" icon={<Video className="h-6 w-6" />} href="/dashboard/videos" color="purple" loading={dataLoading} />
-          <DashboardCard title="Bookings" value={stats.bookings} description="Scheduled sessions" icon={<Calendar className="h-6 w-6" />} href="/dashboard/bookings" color="green" loading={dataLoading} />
-          <DashboardCard title="Total Spent" value={`$${stats.totalSpent.toFixed(2)}`} description="All-time investment" icon={<TrendingUp className="h-6 w-6" />} color="orange" loading={dataLoading} />
-        </div>
+          <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
+            <RecentActivity title="Recent Activity" items={recentActivity} loading={dataLoading} emptyMessage="No recent activity" viewAllHref="/dashboard/payments" />
+            <QuickActions title="Quick Actions" actions={quickActions} />
+          </div>
 
-        <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
-          <RecentActivity title="Recent Activity" items={recentActivity} loading={dataLoading} emptyMessage="No recent activity" viewAllHref="/dashboard/payments" />
-          <QuickActions title="Quick Actions" actions={quickActions} />
-        </div>
-
-        {stats.notifications > 0 && (
-          <div className="rounded-xl border border-blue-200 bg-blue-50 p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="rounded-lg bg-blue-100 p-3"><Bell className="h-6 w-6 text-blue-600" /></div>
-                <div>
-                  <h3 className="font-semibold text-blue-900">You have {stats.notifications} unread notification{stats.notifications !== 1 ? "s" : ""}</h3>
-                  <p className="text-sm text-blue-700">Stay updated with your sessions and new opportunities</p>
+          {stats.notifications > 0 && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="rounded-lg bg-blue-100 p-3"><Bell className="h-6 w-6 text-blue-600" /></div>
+                  <div>
+                    <h3 className="font-semibold text-blue-900">You have {stats.notifications} unread notification{stats.notifications !== 1 ? "s" : ""}</h3>
+                    <p className="text-sm text-blue-700">Stay updated with your sessions and new opportunities</p>
+                  </div>
                 </div>
+                <a href="/dashboard/notifications" className="text-sm font-medium text-blue-700 hover:text-blue-800 underline">View All →</a>
               </div>
-              <a href="/dashboard/notifications" className="text-sm font-medium text-blue-700 hover:text-blue-800 underline">View All →</a>
             </div>
-          </div>
-        )}
-      </div>
-    </DashboardLayout>
+          )}
+        </div>
+      </DashboardLayout>
+    </>
   );
 };
 

@@ -1,290 +1,240 @@
 /**
- * STRIPE CONNECT - EXPRESS ROUTES
- * Production-ready marketplace integration routes
+ * STRIPE CONNECT - EXPRESS ROUTES (fixed)
+ *
+ * Fixes vs. the original:
+ *  - `supabase` is now actually imported (it was undefined before —
+ *    every route that used it would have thrown).
+ *  - Every route that acts on a specific userId now checks that the
+ *    authenticated caller IS that user (or an admin), verified via
+ *    Supabase Auth — see `requireAuth` / `requireSelfOrAdmin` below.
+ *  - Webhook route now hard-fails if signature verification isn't
+ *    possible, instead of falling back to unauthenticated JSON.parse.
+ *  - Added POST /withdraw, which the original routes file never had.
+ *
+ * HOW AUTH WORKS HERE (Supabase Auth):
+ * The frontend must send the user's Supabase access token on every
+ * request to these routes, as a standard bearer header:
+ *   Authorization: Bearer <supabase_access_token>
+ * That token is what `supabase.auth.getSignInWithPassword` /
+ * `supabase.auth.getSession()` gives you on the client after login —
+ * grab it with `(await supabase.auth.getSession()).data.session.access_token`
+ * on the frontend and attach it to your fetch/axios calls.
  */
 
 import express from "express";
 import {
-  updatePlatformSettings,
-  createConnectAccount,
-  generateOnboardingLink,
-  handleOnboardingSuccess,
-  handleConnectWebhook,
-  getAccountStatus,
-  validateVendorData,
-  createDashboardLink
-} from "./stripe-connect-enhanced.js";
+    createConnectAccount,
+    generateOnboardingLink,
+    createDashboardLink,
+    getAccountStatus,
+    constructWebhookEvent,
+    handleConnectWebhook,
+    validateVendorData,
+    supabase,
+} from "./stripe-connect-core.js";
+import { requestWithdrawal } from "./stripe-connect-payouts.js";
 
 const router = express.Router();
 
-// ═══════════════════════════════════════════════════════════════════════════
-// CONNECT ACCOUNT MANAGEMENT ROUTES
-// ═══════════════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────
+// Verifies the Supabase access token on every request and attaches
+// the real, server-verified user to req.supabaseUser. Never trust a
+// userId that just arrives in the request body/params — that's what
+// requireSelfOrAdmin checks below against this verified identity.
+// ─────────────────────────────────────────────────────────────────
+async function requireAuth(req, res, next) {
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
-/**
- * POST /api/connect/setup
- * Creates Express account and generates onboarding link
- * Body: { email, userId, role, country?, businessInfo? }
- */
-router.post("/setup", async (req, res) => {
-  try {
-    const { email, userId, role, country, businessInfo } = req.body;
-
-    // Validate input data
-    const validation = validateVendorData({ email, userId, role });
-    if (!validation.isValid) {
-      return res.status(400).json({
-        success: false,
-        error: "Validation failed",
-        details: validation.errors
-      });
+    if (!token) {
+        return res.status(401).json({ success: false, error: "Missing bearer token" });
     }
 
-    console.log(`🚀 Setting up Stripe Connect for ${role}: ${email}`);
-
-    // Create or retrieve Connect account
-    const accountResult = await createConnectAccount({
-      email,
-      userId,
-      role,
-      country: country || "GB",
-      businessInfo: businessInfo || {}
-    });
-
-    if (!accountResult.success) {
-      return res.status(500).json({
-        success: false,
-        error: "Account creation failed",
-        details: accountResult.error
-      });
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data?.user) {
+        return res.status(401).json({ success: false, error: "Invalid or expired session" });
     }
 
-    // Generate onboarding link if account is new or needs completion
-    let onboardingLink = null;
-    if (!accountResult.isExisting) {
-      const linkResult = await generateOnboardingLink(
-        accountResult.accountId,
-        userId,
-        role
-      );
+    req.supabaseUser = data.user; // { id, email, ... } — id is the real, verified user_id
+    next();
+}
 
-      if (linkResult.success) {
-        onboardingLink = linkResult.url;
-      }
+// ─────────────────────────────────────────────────────────────────
+// Requires requireAuth to have run first. Confirms the verified user
+// IS the userId the request is acting on (or has role: 'admin' in
+// their profiles row).
+// ─────────────────────────────────────────────────────────────────
+async function requireSelfOrAdmin(req, res, next) {
+    const targetUserId = req.params.userId || req.body.userId;
+    const callerId = req.supabaseUser?.id;
+
+    if (!callerId) {
+        return res.status(401).json({ success: false, error: "Authentication required" });
     }
 
-    res.json({
-      success: true,
-      accountId: accountResult.accountId,
-      isExisting: accountResult.isExisting,
-      onboardingUrl: onboardingLink,
-      message: accountResult.isExisting
-        ? "Account already exists"
-        : "Account created, complete onboarding"
-    });
+    if (callerId === targetUserId) return next();
 
-  } catch (error) {
-    console.error("❌ Setup error:", error.message);
-    res.status(500).json({
-      success: false,
-      error: "Setup failed",
-      message: error.message
-    });
-  }
+    const { data: callerProfile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("user_id", callerId)
+        .single();
+
+    if (callerProfile?.role === "admin") return next();
+
+    return res.status(403).json({ success: false, error: "Not authorized for this account" });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CONNECT ACCOUNT MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════
+
+router.post("/setup", requireAuth, requireSelfOrAdmin, async (req, res) => {
+    try {
+        const { email, userId, role, country, businessInfo } = req.body;
+
+        const validation = validateVendorData({ email, userId, role });
+        if (!validation.isValid) {
+            return res.status(400).json({ success: false, error: "Validation failed", details: validation.errors });
+        }
+
+        const accountResult = await createConnectAccount({
+            email,
+            userId,
+            role,
+            country: country || "GB",
+            businessInfo: businessInfo || {},
+        });
+
+        let onboardingUrl = null;
+        if (!accountResult.isExisting) {
+            const linkResult = await generateOnboardingLink(accountResult.accountId, userId, role);
+            onboardingUrl = linkResult.url;
+        }
+
+        res.json({
+            success: true,
+            accountId: accountResult.accountId,
+            isExisting: accountResult.isExisting,
+            onboardingUrl,
+            message: accountResult.isExisting ? "Account already exists" : "Account created, complete onboarding",
+        });
+    } catch (error) {
+        console.error("Setup error:", error.message);
+        res.status(500).json({ success: false, error: "Setup failed", message: error.message });
+    }
 });
 
-/**
- * GET /api/connect/status/:userId
- * Gets account status for a user
- */
-router.get("/status/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
+router.get("/status/:userId", requireAuth, requireSelfOrAdmin, async (req, res) => {
+    try {
+        const { userId } = req.params;
 
-    // Get account ID from database
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("stripe_account_id, stripe_connect_status, stripe_payouts_enabled")
-      .eq("user_id", userId)
-      .single();
+        const { data: profile } = await supabase
+            .from("profiles")
+            .select("stripe_account_id, stripe_connect_status, stripe_payouts_enabled")
+            .eq("user_id", userId)
+            .single();
 
-    if (!profile?.stripe_account_id) {
-      return res.json({
-        success: true,
-        connected: false,
-        status: "not_connected",
-        message: "No Stripe account found"
-      });
+        if (!profile?.stripe_account_id) {
+            return res.json({ success: true, connected: false, status: "not_connected", message: "No Stripe account found" });
+        }
+
+        const statusResult = await getAccountStatus(profile.stripe_account_id);
+
+        res.json({ success: true, connected: true, accountId: profile.stripe_account_id, ...statusResult.status });
+    } catch (error) {
+        console.error("Status check error:", error.message);
+        res.status(500).json({ success: false, error: "Status check failed", message: error.message });
     }
-
-    // Get live status from Stripe
-    const statusResult = await getAccountStatus(profile.stripe_account_id);
-
-    res.json({
-      success: true,
-      connected: true,
-      accountId: profile.stripe_account_id,
-      ...statusResult.status
-    });
-
-  } catch (error) {
-    console.error("❌ Status check error:", error.message);
-    res.status(500).json({
-      success: false,
-      error: "Status check failed",
-      message: error.message
-    });
-  }
-});
-/**
- * POST /api/connect/refresh-link
- * Generates new onboarding link for existing account
- */
-router.post("/refresh-link", async (req, res) => {
-  try {
-    const { userId, role } = req.body;
-
-    // Get account ID from database
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("stripe_account_id")
-      .eq("user_id", userId)
-      .single();
-
-    if (!profile?.stripe_account_id) {
-      return res.status(404).json({
-        success: false,
-        error: "Account not found",
-        message: "No Stripe account exists for this user"
-      });
-    }
-
-    // Generate fresh onboarding link
-    const linkResult = await generateOnboardingLink(
-      profile.stripe_account_id,
-      userId,
-      role
-    );
-
-    res.json({
-      success: true,
-      onboardingUrl: linkResult.url,
-      expiresAt: linkResult.expires_at
-    });
-
-  } catch (error) {
-    console.error("❌ Refresh link error:", error.message);
-    res.status(500).json({
-      success: false,
-      error: "Link generation failed",
-      message: error.message
-    });
-  }
 });
 
-/**
- * POST /api/connect/dashboard-link
- * Creates Express dashboard link for account management
- */
-router.post("/dashboard-link", async (req, res) => {
-  try {
-    const { userId } = req.body;
+router.post("/refresh-link", requireAuth, requireSelfOrAdmin, async (req, res) => {
+    try {
+        const { userId, role } = req.body;
 
-    // Get account ID from database
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("stripe_account_id, stripe_payouts_enabled")
-      .eq("user_id", userId)
-      .single();
+        const { data: profile } = await supabase
+            .from("profiles")
+            .select("stripe_account_id")
+            .eq("user_id", userId)
+            .single();
 
-    if (!profile?.stripe_account_id) {
-      return res.status(404).json({
-        success: false,
-        error: "Account not found"
-      });
+        if (!profile?.stripe_account_id) {
+            return res.status(404).json({ success: false, error: "Account not found", message: "No Stripe account exists for this user" });
+        }
+
+        const linkResult = await generateOnboardingLink(profile.stripe_account_id, userId, role);
+        res.json({ success: true, onboardingUrl: linkResult.url, expiresAt: linkResult.expires_at });
+    } catch (error) {
+        console.error("Refresh link error:", error.message);
+        res.status(500).json({ success: false, error: "Link generation failed", message: error.message });
     }
-
-    if (!profile.stripe_payouts_enabled) {
-      return res.status(400).json({
-        success: false,
-        error: "Account not fully verified",
-        message: "Complete onboarding first"
-      });
-    }
-
-    // Create dashboard link
-    const linkResult = await createDashboardLink(profile.stripe_account_id);
-
-    res.json({
-      success: true,
-      dashboardUrl: linkResult.url,
-      expiresAt: linkResult.expires_at
-    });
-
-  } catch (error) {
-    console.error("❌ Dashboard link error:", error.message);
-    res.status(500).json({
-      success: false,
-      error: "Dashboard link creation failed",
-      message: error.message
-    });
-  }
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-// WEBHOOK HANDLING
-// ═══════════════════════════════════════════════════════════════════════════
+router.post("/dashboard-link", requireAuth, requireSelfOrAdmin, async (req, res) => {
+    try {
+        const { userId } = req.body;
 
-/**
- * POST /api/connect/webhook
- * Handles Stripe Connect webhook events
- */
+        const { data: profile } = await supabase
+            .from("profiles")
+            .select("stripe_account_id, stripe_payouts_enabled")
+            .eq("user_id", userId)
+            .single();
+
+        if (!profile?.stripe_account_id) {
+            return res.status(404).json({ success: false, error: "Account not found" });
+        }
+        if (!profile.stripe_payouts_enabled) {
+            return res.status(400).json({ success: false, error: "Account not fully verified", message: "Complete onboarding first" });
+        }
+
+        const linkResult = await createDashboardLink(profile.stripe_account_id);
+        res.json({ success: true, dashboardUrl: linkResult.url, expiresAt: linkResult.expires_at });
+    } catch (error) {
+        console.error("Dashboard link error:", error.message);
+        res.status(500).json({ success: false, error: "Dashboard link creation failed", message: error.message });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// WITHDRAWALS
+// ═══════════════════════════════════════════════════════════════════
+
+router.post("/withdraw", requireAuth, requireSelfOrAdmin, async (req, res) => {
+    try {
+        const { userId, amount, role } = req.body;
+        const result = await requestWithdrawal({ userId, amount, role });
+        res.json(result);
+    } catch (error) {
+        console.error("Withdrawal error:", error.message);
+        res.status(400).json({ success: false, error: "Withdrawal failed", message: error.message });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// WEBHOOK
+// Note: `express.raw` MUST run before any app-level express.json() for
+// this path, or the raw bytes Stripe needs for signature verification
+// will already have been consumed/mutated by the JSON parser. If you
+// mount a global `app.use(express.json())`, make sure this router (or
+// at least this route) is registered before that, or is excluded from it.
+// ═══════════════════════════════════════════════════════════════════
+
 router.post("/webhook", express.raw({ type: "application/json" }), async (req, res) => {
-  try {
-    let event;
-    const signature = req.headers["stripe-signature"];
+    try {
+        const event = constructWebhookEvent(req.body, req.headers["stripe-signature"]);
 
-    // Verify webhook signature if secret is configured
-    if (process.env.STRIPE_WEBHOOK_SECRET) {
-      event = stripe.webhooks.constructEvent(
-        req.body,
-        signature,
-        process.env.STRIPE_WEBHOOK_SECRET
-      );
-    } else {
-      // For development - parse JSON directly
-      event = JSON.parse(req.body.toString());
+        if (event.type.startsWith("account.")) {
+            const result = await handleConnectWebhook(event);
+            return res.json({ received: true, processed: result.success, eventType: event.type });
+        }
+
+        res.json({ received: true, processed: false, eventType: event.type });
+    } catch (error) {
+        // Includes signature-verification failures and missing-secret errors —
+        // both should be rejected, not processed.
+        console.error("Webhook error:", error.message);
+        res.status(400).json({ error: "Webhook processing failed", message: error.message });
     }
-
-    console.log(`📡 Received webhook: ${event.type}`);
-
-    // Process Connect-related events
-    if (event.type.startsWith('account.')) {
-      const result = await handleConnectWebhook(event);
-
-      return res.json({
-        received: true,
-        processed: result.success,
-        eventType: event.type
-      });
-    }
-
-    // Log unhandled events
-    console.log(`ℹ️  Unhandled webhook type: ${event.type}`);
-
-    res.json({
-      received: true,
-      processed: false,
-      eventType: event.type
-    });
-
-  } catch (error) {
-    console.error("❌ Webhook error:", error.message);
-    res.status(400).json({
-      error: "Webhook processing failed",
-      message: error.message
-    });
-  }
 });
 
 export default router;

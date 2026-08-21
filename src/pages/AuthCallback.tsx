@@ -52,12 +52,12 @@ const AuthCallback = () => {
 
         setStatus("Setting up your account...");
 
-        const authUser  = session.user;
-        const userId    = authUser.id;
-        const meta      = authUser.user_metadata || {};
-        const fullName  = meta.full_name || meta.name || authUser.email?.split("@")[0] || "User";
+        const authUser = session.user;
+        const userId = authUser.id;
+        const meta = authUser.user_metadata || {};
+        const fullName = meta.full_name || meta.name || authUser.email?.split("@")[0] || "User";
         const avatarUrl = meta.avatar_url || meta.picture || null;
-        const email     = authUser.email || null;
+        const email = authUser.email || null;
 
         // Read (and immediately clear) any role the signup page stored
         const storedRole = parseRole(window.localStorage.getItem(OAUTH_ROLE_KEY));
@@ -81,7 +81,6 @@ const AuthCallback = () => {
             full_name: fullName,
             avatar_url: avatarUrl,
             onboarding_completed: false,
-            status: "active",
           });
           if (insertErr && insertErr.code !== "23505") {
             console.warn("AuthCallback: profile insert error:", insertErr.message);
@@ -112,7 +111,8 @@ const AuthCallback = () => {
           window.location.replace("/onboarding");
         } else {
           window.location.replace(roleToDashboardPath(role as any));
-        }      } catch (err: any) {
+        }
+      } catch (err: any) {
         console.error("AuthCallback error:", err);
         toast.error(err?.message || "Authentication failed. Please try again.");
         window.localStorage.removeItem(OAUTH_ROLE_KEY);

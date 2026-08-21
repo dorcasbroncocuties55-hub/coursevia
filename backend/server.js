@@ -4,9 +4,37 @@ import cors from "cors";
 import crypto from "crypto";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
-import * as StripeConnect from "./stripe-connect.js";
+// Stripe Connect — import from the correctly named modules
+import {
+  createConnectAccount,
+  generateOnboardingLink,
+  getAccountStatus,
+} from "./stripe-connect-core.js";
+import {
+  requestWithdrawal,
+  getWithdrawalHistory,
+  processRefund,
+  getRefundHistory,
+  getWithdrawalStatus,
+} from "./stripe-connect-payouts.js";
+
+// Compatibility shim so all existing StripeConnect.* calls in this file
+// keep working without rewriting every call site
+const StripeConnect = {
+  setupProviderAccount: async ({ userId, email, country, roles }) =>
+    createConnectAccount({ userId, email, country: country || "US", role: (roles || ["creator"])[0] }),
+  createOnboardingLink: (accountId, userId) =>
+    generateOnboardingLink(accountId, userId, "creator").then(r => r.url),
+  getWithdrawalStatus,
+  requestWithdrawal,
+  getWithdrawalHistory,
+  processRefund,
+  getRefundHistory,
+  updateProviderAccountStatus: async (accountId) => getAccountStatus(accountId),
+};
 import { courtRoomRoutes } from "./court-room-routes.js";
 import { autoEscalateToCourtRoom } from "./court-room-integration.js";
+import { courtRoomEmailService } from "./court-room-email-service.js";
 
 const app = express();
 app.use(cors());
@@ -217,10 +245,6 @@ const subscriptionPlans = [
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
-
 app.post("/api/pay", async (req, res) => {
   try {
     const {
@@ -389,10 +413,6 @@ app.post("/api/tts", async (req, res) => {
   } catch (error) {
     return res.status(500).json({ message: error instanceof Error ? error.message : "TTS failed" });
   }
-});
-
-app.get("/", (req, res) => {
-  res.json({ name: "Coursevia API", status: "running", version: "1.0.0" });
 });
 
 app.get("/api/subscription/plans", (req, res) => {
@@ -1465,7 +1485,9 @@ setInterval(releasePendingBalances, 6 * 60 * 60 * 1000);
 
 app.get("/", (req, res) => {
   res.json({
-    status: "ok",
+    name: "Coursevia API",
+    status: "running",
+    version: "1.0.0",
     service: "Coursevia Backend",
     stripe: stripe ? "live" : "demo",
     db: supabaseAdmin ? "connected" : "demo"
@@ -1473,7 +1495,12 @@ app.get("/", (req, res) => {
 });
 
 app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    stripe: stripe ? "live" : "demo",
+    db: supabaseAdmin ? "connected" : "demo"
+  });
 });
 
 // ── Airwallex Virtual Accounts ────────────────────────────────────────────────
@@ -1980,6 +2007,104 @@ app.post("/api/stripe-connect/webhook", express.raw({ type: 'application/json' }
 // ── Court Room Routes ─────────────────────────────────────────────────────────
 // Add Court Room dispute resolution system routes
 courtRoomRoutes(app, supabaseAdmin);
+
+// ── Mercy Window Scheduler ────────────────────────────────────────────────────
+// Every 5 minutes: find restricted providers with a booking starting in 25–35 mins,
+// send them a mercy window email and activate the window exactly 30 mins before.
+// Also deactivate judge-granted access records that have expired.
+const runMercyWindowScheduler = async () => {
+  if (!supabaseAdmin) return;
+  try {
+    const now = new Date();
+    const in25mins = new Date(now.getTime() + 25 * 60 * 1000).toISOString();
+    const in35mins = new Date(now.getTime() + 35 * 60 * 1000).toISOString();
+    const thirtyMinsAgo = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
+
+    // 1. Find active restrictions
+    const { data: restrictions } = await supabaseAdmin
+      .from('provider_restrictions')
+      .select('provider_id, court_case_id, restriction_metadata')
+      .eq('is_active', true)
+      .eq('restriction_type', 'dashboard_access');
+
+    if (!restrictions?.length) return;
+
+    for (const restriction of restrictions) {
+      const providerId = restriction.provider_id;
+      const caseId = restriction.court_case_id;
+
+      // 2. Check if already notified recently (avoid duplicate emails)
+      const alreadyNotifiedKey = `mercy_notified_${providerId}_${caseId}`;
+      if (restriction.restriction_metadata?.[alreadyNotifiedKey]) continue;
+
+      // 3. Find a confirmed booking in the 30-min window
+      const { data: upcomingBooking } = await supabaseAdmin
+        .from('bookings')
+        .select('id, scheduled_at, learner_id, service_title')
+        .or(`provider_id.eq.${providerId},provider_user_id.eq.${providerId}`)
+        .eq('status', 'confirmed')
+        .gte('scheduled_at', in25mins)
+        .lte('scheduled_at', in35mins)
+        .limit(1)
+        .maybeSingle();
+
+      if (!upcomingBooking) continue;
+
+      // 4. Get the court case for email context
+      const { data: courtCase } = await supabaseAdmin
+        .from('court_cases')
+        .select('case_number')
+        .eq('id', caseId)
+        .maybeSingle();
+
+      // 5. Calculate mercy window end (30 mins after booking starts)
+      const bookingStart = new Date(upcomingBooking.scheduled_at);
+      const mercyEnd = new Date(bookingStart.getTime() + 30 * 60 * 1000).toISOString();
+
+      // 6. Send mercy window email
+      await courtRoomEmailService.sendMercyWindowNotice(
+        { provider_id: providerId },
+        {
+          scheduled_at: upcomingBooking.scheduled_at,
+          mercy_end_time: new Date(mercyEnd).toLocaleString(),
+          learner_id: upcomingBooking.learner_id,
+        },
+        { case_number: courtCase?.case_number || 'N/A' }
+      );
+
+      // 7. Mark as notified so we don't send again for this session
+      await supabaseAdmin
+        .from('provider_restrictions')
+        .update({
+          restriction_metadata: {
+            ...restriction.restriction_metadata,
+            [alreadyNotifiedKey]: true,
+            last_mercy_notified_at: now.toISOString(),
+          }
+        })
+        .eq('provider_id', providerId)
+        .eq('court_case_id', caseId)
+        .eq('is_active', true);
+
+      console.log(`[Mercy Scheduler] Sent mercy window email to provider ${providerId} for booking at ${upcomingBooking.scheduled_at}`);
+    }
+
+    // 8. Expire judge-granted access records past their expiry
+    await supabaseAdmin
+      .from('provider_restrictions')
+      .update({ is_active: false, deactivated_at: now.toISOString() })
+      .eq('restriction_type', 'judge_granted_access')
+      .eq('is_active', true)
+      .lt('restriction_metadata->>expires_at', now.toISOString());
+
+  } catch (err) {
+    console.error('[Mercy Scheduler] Error:', err);
+  }
+};
+
+// Run immediately on startup then every 5 minutes
+runMercyWindowScheduler();
+setInterval(runMercyWindowScheduler, 5 * 60 * 1000);
 
 // ─────────────────────────────────────────────────────────────────────────────
 
