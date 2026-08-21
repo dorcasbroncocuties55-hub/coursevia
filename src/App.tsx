@@ -102,9 +102,15 @@ const BankAccountsPage = lazy(() => import("./pages/dashboard/BankAccountsPage")
 
 // Creator dashboard
 const CreatorDashboard = lazy(() => import("./pages/creator/CreatorDashboard"));
+const CreatorCourses = lazy(() => import("./pages/creator/CreatorCourses"));
+const CreateCourse = lazy(() => import("./pages/creator/CreateCourse"));
+const CreatorStudents = lazy(() => import("./pages/creator/CreatorStudents"));
+const CreatorAnalytics = lazy(() => import("./pages/creator/CreatorAnalytics"));
+const CreatorRevenue = lazy(() => import("./pages/creator/CreatorRevenue"));
+const CreatorMessages = lazy(() => import("./pages/creator/CreatorMessages"));
+const CreatorSettings = lazy(() => import("./pages/creator/CreatorSettings"));
 const UploadVideo = lazy(() => import("./pages/creator/UploadVideo"));
 const CreatorContent = lazy(() => import("./pages/creator/CreatorContent"));
-const CreatorAnalytics = lazy(() => import("./pages/creator/CreatorAnalytics"));
 
 // Public profile preview
 const ProfilePreview = lazy(() => import("./pages/public/ProfilePreview"));
@@ -679,18 +685,26 @@ const App = () => {
                       }
                     />
                     <Route
-                      path="/creator/upload-video"
+                      path="/creator/courses"
                       element={
                         <ProtectedRoute requiredRole="creator">
-                          <UploadVideo />
+                          <CreatorCourses />
                         </ProtectedRoute>
                       }
                     />
                     <Route
-                      path="/creator/content"
+                      path="/creator/create-course"
                       element={
                         <ProtectedRoute requiredRole="creator">
-                          <CreatorContent />
+                          <CreateCourse />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/creator/students"
+                      element={
+                        <ProtectedRoute requiredRole="creator">
+                          <CreatorStudents />
                         </ProtectedRoute>
                       }
                     />
@@ -703,10 +717,42 @@ const App = () => {
                       }
                     />
                     <Route
+                      path="/creator/revenue"
+                      element={
+                        <ProtectedRoute requiredRole="creator">
+                          <CreatorRevenue />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
                       path="/creator/messages"
                       element={
                         <ProtectedRoute requiredRole="creator">
                           <CreatorMessages />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/creator/settings"
+                      element={
+                        <ProtectedRoute requiredRole="creator">
+                          <CreatorSettings />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/creator/upload-video"
+                      element={
+                        <ProtectedRoute requiredRole="creator">
+                          <UploadVideo />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/creator/content"
+                      element={
+                        <ProtectedRoute requiredRole="creator">
+                          <CreatorContent />
                         </ProtectedRoute>
                       }
                     />
