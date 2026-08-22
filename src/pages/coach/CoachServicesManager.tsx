@@ -1,7 +1,7 @@
 /**
- * TherapistServicesManager
- * Full CRUD for therapy services with Figma UI
- * Reads from therapist_services table in Supabase
+ * CoachServicesManager
+ * Full CRUD for coaching services with Figma UI
+ * Reads from coach_services table in Supabase
  */
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -74,9 +74,9 @@ export default function CoachServicesManager() {
       }
 
       const { data, error } = await supabase
-        .from("therapist_services")
+        .from("coach_services")
         .select("*")
-        .eq("therapist_id", profile.id)
+        .eq("coach_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;

@@ -69,8 +69,8 @@ export default function AddNewService() {
       }
 
       // Insert service
-      const { error } = await supabase.from("therapist_services").insert({
-        therapist_id: profile.id,
+      const { error } = await supabase.from("coach_services").insert({
+        coach_id: user.id,
         title: serviceName.trim(),
         description: description.trim() || null,
         duration_minutes: parseInt(duration),
@@ -96,7 +96,7 @@ export default function AddNewService() {
   return (
     <CoachLayout>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: 40, gap: 32, background: "#F8FAFC", minHeight: 900 }}>
-        
+
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", maxWidth: 1260 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -112,10 +112,10 @@ export default function AddNewService() {
 
         {/* Split Content */}
         <div style={{ display: "flex", gap: 32, width: "100%", maxWidth: 1260 }}>
-          
+
           {/* Form Card */}
           <div style={{ display: "flex", flexDirection: "column", padding: 32, gap: 24, flex: 1, background: "#fff", border: "1px solid #E2E8F0", borderRadius: 16 }}>
-            
+
             {/* Section Title */}
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <h2 style={{ fontFamily: "Inter", fontWeight: 700, fontSize: 18, color: "#0F172A", margin: 0 }}>Service Details</h2>
@@ -126,7 +126,7 @@ export default function AddNewService() {
 
             {/* Form Fields */}
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              
+
               {/* Service Name */}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <label style={{ fontFamily: "Inter", fontWeight: 600, fontSize: 13, color: "#0F172A" }}>Service Name</label>
@@ -212,7 +212,7 @@ export default function AddNewService() {
 
           {/* Preview Column */}
           <div style={{ display: "flex", flexDirection: "column", gap: 20, width: 380, flexShrink: 0 }}>
-            
+
             {/* Preview Header */}
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <h3 style={{ fontFamily: "Inter", fontWeight: 700, fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#64748B", margin: 0 }}>Live Preview</h3>
@@ -221,7 +221,7 @@ export default function AddNewService() {
 
             {/* Service Card Preview */}
             <div style={{ display: "flex", flexDirection: "column", padding: 24, gap: 16, background: "#fff", border: "1px solid #E2E8F0", borderRadius: 16 }}>
-              
+
               {/* Card Top */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
