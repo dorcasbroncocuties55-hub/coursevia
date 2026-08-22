@@ -42,7 +42,7 @@ export default function CreatorDashboard() {
           console.error('Failed to load enrollment stats:', err);
           return { data: null, error: err };
         }),
-        getCourses({ status: 'published', limit: 4 }).catch(err => {
+        getCourses({ status: 'published' }).catch(err => {
           console.error('Failed to load courses:', err);
           return { data: null, error: err };
         }),
@@ -57,7 +57,7 @@ export default function CreatorDashboard() {
       }
 
       if (coursesData.data) {
-        setTopCourses(coursesData.data);
+        setTopCourses(coursesData.data.slice(0, 4) || []);
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
