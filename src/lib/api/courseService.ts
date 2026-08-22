@@ -621,3 +621,6 @@ export async function getCourseStats(courseId: string): Promise<{
     return { data: null, error: error as Error };
   }
 }
+
+// Alias for backwards compatibility
+export const getCourses = getCreatorCourses;

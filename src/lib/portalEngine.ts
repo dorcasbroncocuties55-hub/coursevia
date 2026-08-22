@@ -18,7 +18,7 @@ interface AsyncState<T> {
   refetch: () => void;
 }
 
-function useAsync<T>(fn: () => Promise<T | null>, deps: any[]): AsyncState<T> {
+export function useAsync<T>(fn: () => Promise<T | null>, deps: any[]): AsyncState<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
