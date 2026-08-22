@@ -267,10 +267,20 @@ CREATE TABLE IF NOT EXISTS public.refunds (
   reason       text,
   status       text        NOT NULL DEFAULT 'pending'
                CHECK (status IN ('pending','approved','rejected','processed')),
+  refund_method text       DEFAULT 'wallet_fallback',
+  stripe_payment_intent_id text,
+  stripe_refund_id text,
   processed_by uuid        REFERENCES auth.users(id) ON DELETE SET NULL,
   processed_at timestamptz,
-  created_at   timestamptz NOT NULL DEFAULT now()
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
 );
+
+-- Add columns if table already exists (for backwards compatibility)
+ALTER TABLE public.refunds ADD COLUMN IF NOT EXISTS refund_method text DEFAULT 'wallet_fallback';
+ALTER TABLE public.refunds ADD COLUMN IF NOT EXISTS stripe_payment_intent_id text;
+ALTER TABLE public.refunds ADD COLUMN IF NOT EXISTS stripe_refund_id text;
+ALTER TABLE public.refunds ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
 ALTER TABLE public.refunds ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users see own refunds" ON public.refunds;
@@ -281,6 +291,9 @@ CREATE POLICY "Admins manage refunds"
   ON public.refunds FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'admin'))
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
+
+-- Drop existing function to allow return type change
+DROP FUNCTION IF EXISTS public.approve_refund(uuid);
 
 CREATE OR REPLACE FUNCTION public.approve_refund(p_refund_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$

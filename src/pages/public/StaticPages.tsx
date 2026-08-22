@@ -12,6 +12,8 @@ const termsSections = [
   { id: "accounts", title: "User Accounts" },
   { id: "services", title: "Platform Services" },
   { id: "payments", title: "Payments & Transactions" },
+  { id: "payment-methods", title: "Payment Methods & Stripe" },
+  { id: "refunds", title: "Refunds & Returns" },
   { id: "creators", title: "Creator Responsibilities" },
   { id: "prohibited", title: "Prohibited Activities" },
   { id: "ip", title: "Intellectual Property" },
@@ -84,15 +86,40 @@ export const Terms = () => (
       </PolicyCard>
 
       <PolicyCard id="payments" title="Payments & Transactions">
-        <p>All payments on Coursevia are processed through secure third-party providers. By making a purchase, you agree:</p>
+        <p>All payments on Coursevia are processed securely through Stripe, our trusted payment partner. By making a purchase, you agree:</p>
         <ul className="space-y-1.5 mt-1">
-          {["Prices are set by creators", "Payments are non-refundable unless stated otherwise", "Coursevia may charge platform or service fees"].map((item) => (
+          {["Payments are made via credit or debit card through Stripe", "You can save payment methods for faster checkout", "Prices are set by creators and displayed before purchase", "All transactions are encrypted and PCI-DSS compliant", "Coursevia may charge platform or service fees", "You can manage saved cards in your account settings"].map((item) => (
             <li key={item} className="flex items-start gap-2">
               <span className="text-primary mt-1">•</span><span>{item}</span>
             </li>
           ))}
         </ul>
-        <p className="mt-2">We are not responsible for payment processing errors caused by third-party providers.</p>
+        <p className="mt-2"><strong className="text-foreground">Refunds:</strong> If a refund is approved, it will be returned to your original payment method (credit/debit card) via Stripe. Refunds are NOT credited to your Coursevia wallet balance. Processing time is typically 5-10 business days depending on your card issuer.</p>
+        <p className="mt-2">We do not store your full card details — Stripe tokenizes all payment information for security.</p>
+      </PolicyCard>
+
+      <PolicyCard id="payment-methods" title="Payment Methods & Stripe">
+        <p>Coursevia uses Stripe as our payment processor for all card transactions. When you make a purchase:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["You can pay with credit or debit cards (Visa, Mastercard, Amex, etc.)", "You may save payment methods to your account for faster checkout", "All card information is securely tokenized by Stripe and never stored on our servers", "Payments are processed in real-time and encrypted with industry-standard security", "You can manage, add, or remove saved payment methods in your account settings"].map((item) => (
+            <li key={item} className="flex items-start gap-2">
+              <span className="text-primary mt-1">•</span><span>{item}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2">Stripe complies with PCI-DSS Level 1 standards, the highest level of payment security certification.</p>
+      </PolicyCard>
+
+      <PolicyCard id="refunds" title="Refunds & Returns">
+        <p>If a refund is approved according to our Refund Policy:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Refunds are processed back to your original payment method (credit/debit card)", "Refunds are NOT credited to your Coursevia wallet balance", "Processing time is typically 5-10 business days depending on your card issuer", "You will receive email confirmation when the refund is initiated", "Refund requests are reviewed by our Court Room system for fairness to both learners and creators"].map((item) => (
+            <li key={item} className="flex items-start gap-2">
+              <span className="text-primary mt-1">•</span><span>{item}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2">Your Coursevia wallet is reserved exclusively for referral bonuses and can be withdrawn to your bank account. It is not used for payments or refunds.</p>
       </PolicyCard>
 
       <PolicyCard id="creators" title="Creator Responsibilities">
@@ -237,14 +264,14 @@ export const Privacy = () => (
       </PolicyCard>
 
       <PolicyCard id="third-party" title="Payments & Third Parties">
-        <p>Payments on Coursevia are processed through secure third-party providers (e.g., Stripe, Paystack). We do not store your full payment details — all card data is tokenized.</p>
-        <p className="mt-2">Third-party services we use may include:</p>
+        <p>Payments on Coursevia are processed through Stripe, our secure payment partner. We do not store your full payment details — all card data is tokenized and encrypted by Stripe.</p>
+        <p className="mt-2"><strong className="text-foreground">Payment Method Security:</strong></p>
         <ul className="space-y-1.5 mt-1">
-          {["Payment processors", "Analytics tools", "Email delivery systems", "Identity verification providers"].map((item) => (
+          {["Your card information is never stored on Coursevia servers", "Stripe tokenizes all payment data with industry-leading encryption", "We only store non-sensitive payment metadata (last 4 digits, card brand, expiry)", "You can save payment methods for convenience without compromising security", "Saved cards can be managed or deleted anytime in your account settings"].map((item) => (
             <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
           ))}
         </ul>
-        <p className="mt-2">These providers have their own privacy policies and are contractually bound to protect your data.</p>
+        <p className="mt-2">Other third-party services we use may include analytics tools, email delivery systems, and identity verification providers. These providers have their own privacy policies and are contractually bound to protect your data.</p>
       </PolicyCard>
 
       <PolicyCard id="sharing" title="Data Sharing">
@@ -332,7 +359,10 @@ const refundSections = [
   { id: "timeframe", title: "Request Timeframe" },
   { id: "how-to", title: "How to Request" },
   { id: "review", title: "Review Process" },
+  { id: "court-room", title: "Court Room Review System" },
   { id: "method", title: "Refund Processing" },
+  { id: "payment-method", title: "Refund to Original Payment Method" },
+  { id: "wallet", title: "Wallet vs Payment Refunds" },
   { id: "creator-protection", title: "Creator Protection" },
   { id: "disputes", title: "Disputes & Chargebacks" },
   { id: "r-changes", title: "Policy Updates" },
@@ -423,6 +453,16 @@ export const RefundPolicy = () => (
         <p className="mt-2">Coursevia reserves the right to approve or deny any request based on these factors.</p>
       </PolicyCard>
 
+      <PolicyCard id="court-room" title="Court Room Review System">
+        <p>Coursevia uses a Court Room system to ensure fair and transparent refund decisions:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Learners submit refund requests with supporting evidence", "Cases are reviewed by independent judges within the platform", "Judges evaluate claims based on our refund policy guidelines", "Both learner and creator perspectives are considered", "Decisions are binding and final once approved or rejected"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+        <p className="mt-2">This system protects both learners and creators by providing an impartial review process.</p>
+      </PolicyCard>
+
       <PolicyCard id="method" title="Refund Processing">
         <p>If approved:</p>
         <ul className="space-y-1.5 mt-1">
@@ -430,6 +470,27 @@ export const RefundPolicy = () => (
             <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
           ))}
         </ul>
+      </PolicyCard>
+
+      <PolicyCard id="payment-method" title="Refund to Original Payment Method">
+        <p><strong className="text-foreground">Important:</strong> All approved refunds are processed back to your original payment method (credit or debit card) through Stripe.</p>
+        <ul className="space-y-1.5 mt-1">
+          {["Once a judge approves your refund in the Court Room, the refund is automatically processed", "The full purchase amount is returned to the card you used for payment", "You will receive an email confirmation when the refund is initiated", "Refunds typically appear in your account within 5-10 business days", "The exact timing depends on your card issuer's processing schedule"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+        <p className="mt-2">You can track your refund status in your Learner Portal under the Payments section.</p>
+      </PolicyCard>
+
+      <PolicyCard id="wallet" title="Wallet vs Payment Refunds">
+        <p><strong className="text-foreground">Refunds are NOT credited to your Coursevia wallet.</strong></p>
+        <p className="mt-2">Your Coursevia wallet serves a different purpose:</p>
+        <ul className="space-y-1.5 mt-1">
+          {["The wallet holds referral bonuses earned by inviting friends", "Wallet funds can be withdrawn to your bank account", "The wallet is NOT used for course purchases or session bookings", "The wallet does NOT receive refunds from purchases"].map((item) => (
+            <li key={item} className="flex items-start gap-2"><span className="text-primary mt-1">•</span><span>{item}</span></li>
+          ))}
+        </ul>
+        <p className="mt-2">All purchase refunds go directly back to your original card payment method to ensure transparency and compliance with payment regulations.</p>
       </PolicyCard>
 
       <PolicyCard id="creator-protection" title="Creator Protection">

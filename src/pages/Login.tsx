@@ -3,15 +3,15 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Clock, Sparkles } from "lucide-react";
 import { roleToDashboardPath } from "@/lib/authRoles";
 
 const GoogleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-    <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
-    <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
-    <path fill="#FBBC05" d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"/>
-    <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z"/>
+    <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" />
+    <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" />
+    <path fill="#FBBC05" d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" />
+    <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" />
   </svg>
 );
 
@@ -26,11 +26,41 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [forceShow, setForceShow] = useState(false);
-  const redirectingRef = useRef(false); // Prevent double redirects
+  const [greeting, setGreeting] = useState('');
+  const [currentTime, setCurrentTime] = useState('');
+  const redirectingRef = useRef(false);
 
   useEffect(() => {
     const t = setTimeout(() => setForceShow(true), 3000);
     return () => clearTimeout(t);
+  }, []);
+
+  // Time-based greeting
+  useEffect(() => {
+    const updateGreeting = () => {
+      const hour = new Date().getHours();
+      const timeStr = new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+
+      setCurrentTime(timeStr);
+
+      if (hour >= 5 && hour < 12) {
+        setGreeting('Good Morning');
+      } else if (hour >= 12 && hour < 17) {
+        setGreeting('Good Afternoon');
+      } else if (hour >= 17 && hour < 21) {
+        setGreeting('Good Evening');
+      } else {
+        setGreeting('Good Night');
+      }
+    };
+
+    updateGreeting();
+    const interval = setInterval(updateGreeting, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   const getDestination = () => {
@@ -40,11 +70,9 @@ const Login = () => {
   };
 
   useEffect(() => {
-    // Don't redirect if we're already in the process of redirecting
     if (redirectingRef.current) return;
     if (authLoading || !user) return;
     if (!profile && roles.length === 0) return;
-    // Hard redirect to avoid ProtectedRoute role-race on first load
     redirectingRef.current = true;
     window.location.replace(getDestination());
   }, [user, roles, primaryRole, profile, authLoading]);
@@ -58,7 +86,6 @@ const Login = () => {
       if (error) {
         const msg = error.message?.toLowerCase() || "";
         if (msg.includes("invalid login credentials")) {
-          // Check if this email was registered via Google OAuth
           try {
             const { data: profile } = await supabase
               .from("profiles")
@@ -66,14 +93,13 @@ const Login = () => {
               .eq("email", email.trim().toLowerCase())
               .maybeSingle();
             if (profile) {
-              // Email exists — likely a Google account with no password
               toast.error(
                 "This account was created with Google. Please use \"Continue with Google\" to sign in.",
                 { duration: 5000 }
               );
               return;
             }
-          } catch {}
+          } catch { }
           toast.error("Wrong email or password. Please check and try again.");
         } else if (msg.includes("email not confirmed")) {
           toast.error("Please confirm your email before signing in. Check your inbox.");
@@ -83,7 +109,7 @@ const Login = () => {
         return;
       }
       if (data.session) {
-        try { await supabase.rpc("ensure_my_profile_and_role"); } catch {}
+        try { await supabase.rpc("ensure_my_profile_and_role"); } catch { }
       }
     } catch (error: any) {
       toast.error(error?.message || "Failed to sign in");
@@ -116,105 +142,173 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      {/* Nav */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-white font-black text-sm leading-none">C</span>
-          </div>
-          <span className="font-bold text-gray-900 text-sm">Coursevia</span>
-        </Link>
-        <p className="text-sm text-gray-500">
-          No account?{" "}
-          <Link to="/signup" state={{ from: location.state?.from, prefillEmail: email }} className="text-primary font-semibold hover:underline">
-            Sign up free
+    <div className="min-h-screen bg-white flex">
+      {/* Left Side - Form */}
+      <div className="w-full lg:w-1/2 flex flex-col">
+        {/* Nav */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-white font-black text-sm leading-none">C</span>
+            </div>
+            <span className="font-bold text-gray-900 text-sm">Coursevia</span>
           </Link>
-        </p>
+          <p className="text-sm text-gray-500 hidden sm:block">
+            No account?{" "}
+            <Link to="/signup" state={{ from: location.state?.from, prefillEmail: email }} className="text-primary font-semibold hover:underline">
+              Sign up free
+            </Link>
+          </p>
+        </div>
+
+        {/* Form */}
+        <div className="flex-1 flex items-center justify-center px-4 py-12">
+          <div className="w-full max-w-[420px]">
+            <h1 className="text-[28px] font-bold text-gray-900 mb-1">Sign in to Coursevia</h1>
+            <p className="text-sm text-gray-500 mb-8">Welcome back — choose how you'd like to sign in</p>
+
+            {/* Google */}
+            <div className="mb-5">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Recommended</p>
+              <button
+                onClick={handleGoogle}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-3 rounded-xl border-2 border-gray-200 bg-white px-4 py-3.5 text-sm font-semibold text-gray-800 hover:border-primary/40 hover:bg-primary/5 transition disabled:opacity-60"
+              >
+                <GoogleIcon />
+                Continue with Google
+                <span className="ml-auto text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Fastest</span>
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs text-gray-400">or sign in with email</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+
+            {/* Email Form */}
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email address</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  autoComplete="email"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label htmlFor="password" className="text-sm font-medium text-gray-700">Password</label>
+                  <Link to="/forgot-password" className="text-xs text-primary hover:underline">Forgot?</Link>
+                </div>
+                <div className="relative">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Your password"
+                    required
+                    autoComplete="current-password"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-11 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition"
+                  />
+                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label={showPassword ? "Hide password" : "Show password"}>
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !email || !password}
+                className="w-full rounded-xl bg-primary px-4 py-3.5 text-sm font-semibold text-white hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loading ? <><Loader2 size={14} className="animate-spin" /> Signing in...</> : "Sign in with email"}
+              </button>
+            </form>
+
+            <p className="text-sm text-gray-500 text-center mt-6 sm:hidden">
+              No account?{" "}
+              <Link to="/signup" state={{ from: location.state?.from }} className="text-primary font-semibold hover:underline">
+                Sign up free
+              </Link>
+            </p>
+
+            <p className="text-[11px] text-gray-400 text-center mt-6">
+              By signing in you agree to our{" "}
+              <Link to="/terms" className="underline">Terms</Link> &amp;{" "}
+              <Link to="/privacy" className="underline">Privacy Policy</Link>
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Form */}
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-[380px]">
+      {/* Right Side - Inspiring Content */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-emerald-600 via-primary to-teal-700 items-center justify-center p-12 relative overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-white rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-1/3 right-1/4 w-96 h-96 bg-emerald-300 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        </div>
 
-          <h1 className="text-[22px] font-bold text-gray-900 mb-1">Sign in to Coursevia</h1>
-          <p className="text-sm text-gray-500 mb-7">Welcome back — choose how you'd like to sign in</p>
-
-          {/* ── Option 1: Google (fastest) ── */}
-          <div className="mb-5">
-            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Recommended</p>
-            <button
-              onClick={handleGoogle}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-3 rounded-xl border-2 border-gray-200 bg-white px-4 py-3.5 text-sm font-semibold text-gray-800 hover:border-primary/40 hover:bg-primary/5 transition disabled:opacity-60"
-            >
-              <GoogleIcon />
-              Continue with Google
-              <span className="ml-auto text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Fastest</span>
-            </button>
+        <div className="relative z-10 max-w-lg text-white">
+          {/* Time and greeting */}
+          <div className="mb-8 space-y-4">
+            <div className="flex items-center gap-3 text-white/80">
+              <Clock className="h-6 w-6" />
+              <span className="text-lg font-light">{currentTime}</span>
+            </div>
+            <h2 className="text-5xl font-bold leading-tight">
+              {greeting}
+            </h2>
+            <p className="text-2xl font-light text-white/90">
+              Welcome back to your space
+            </p>
           </div>
 
-          {/* ── Divider ── */}
-          <div className="flex items-center gap-3 mb-5">
-            <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-xs text-gray-400">or sign in with email</span>
-            <div className="flex-1 h-px bg-gray-200" />
+          {/* Divider */}
+          <div className="w-24 h-1 bg-white/40 rounded-full mb-8"></div>
+
+          {/* Inspiring message */}
+          <div className="space-y-6">
+            <p className="text-xl font-medium flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Please ensure that you make a difference today
+            </p>
+
+            <div className="space-y-4 text-white/90 text-base">
+              <p className="flex items-start gap-3">
+                <span className="text-white font-bold mt-1">•</span>
+                <span>Your learning journey shapes your future</span>
+              </p>
+              <p className="flex items-start gap-3">
+                <span className="text-white font-bold mt-1">•</span>
+                <span>Every course completed is a step towards greatness</span>
+              </p>
+              <p className="flex items-start gap-3">
+                <span className="text-white font-bold mt-1">•</span>
+                <span>Knowledge shared is knowledge multiplied</span>
+              </p>
+            </div>
           </div>
 
-          {/* ── Option 2: Email + Password ── */}
-          <form onSubmit={handleLogin} className="space-y-3.5">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email address</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                autoComplete="email"
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition"
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="password" className="text-sm font-medium text-gray-700">Password</label>
-                <Link to="/forgot-password" className="text-xs text-primary hover:underline">Forgot?</Link>
-              </div>
-              <div className="relative">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Your password"
-                  required
-                  autoComplete="current-password"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-11 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition"
-                />
-                <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label={showPassword ? "Hide password" : "Show password"}>
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || !email || !password}
-              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {loading ? <><Loader2 size={14} className="animate-spin" /> Signing in...</> : "Sign in with email"}
-            </button>
-          </form>
-
-          <p className="text-[11px] text-gray-400 text-center mt-6">
-            By signing in you agree to our{" "}
-            <Link to="/terms" className="underline">Terms</Link> &amp;{" "}
-            <Link to="/privacy" className="underline">Privacy Policy</Link>
-          </p>
+          {/* Quote */}
+          <div className="mt-10 border-l-4 border-white/60 pl-6 py-2">
+            <p className="text-lg italic text-white/95">
+              "Education is the most powerful weapon which you can use to change the world."
+            </p>
+            <p className="text-sm text-white/70 mt-2">— Nelson Mandela</p>
+          </div>
         </div>
       </div>
     </div>

@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { StripeProvider } from "@/contexts/StripeContext";
 import { isJudgePortalDomain, getJudgePortalRedirect } from "@/utils/subdomainRouter";
 
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -57,6 +58,15 @@ const LearnerSubscription = lazy(() => import("./pages/dashboard/LearnerSubscrip
 const LearnerPaymentMethods = lazy(() => import("./pages/dashboard/LearnerPaymentMethods"));
 const LearnerNotifications = lazy(() => import("./pages/dashboard/LearnerNotifications"));
 const LearnerProfile = lazy(() => import("./pages/dashboard/ProfileSettings").then(m => ({ default: m.LearnerProfile })));
+
+// New Learner Portal Pages
+const NewLearnerDashboard = lazy(() => import("./pages/learner/LearnerDashboard"));
+const NewLearnerCourses = lazy(() => import("./pages/learner/LearnerCourses"));
+const NewLearnerBookings = lazy(() => import("./pages/learner/LearnerBookings"));
+const NewLearnerPaymentMethods = lazy(() => import("./pages/learner/LearnerPaymentMethods"));
+const NewLearnerPayments = lazy(() => import("./pages/learner/LearnerPayments"));
+const CourseCheckout = lazy(() => import("./pages/learner/CourseCheckout"));
+const SessionCheckout = lazy(() => import("./pages/learner/SessionCheckout"));
 
 // Coach dashboard (Figma redesign - mirrors therapist portal)
 const CoachDashboard = lazy(() => import("./pages/coach/CoachDashboard"));
@@ -423,6 +433,73 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+
+                    {/* New Learner Portal Routes */}
+                    <Route
+                      path="/learner/dashboard"
+                      element={
+                        <ProtectedRoute requiredRole="learner">
+                          <StripeProvider>
+                            <NewLearnerDashboard />
+                          </StripeProvider>
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/learner/courses"
+                      element={
+                        <ProtectedRoute requiredRole="learner">
+                          <NewLearnerCourses />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/learner/bookings"
+                      element={
+                        <ProtectedRoute requiredRole="learner">
+                          <NewLearnerBookings />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/learner/payment-methods"
+                      element={
+                        <ProtectedRoute requiredRole="learner">
+                          <StripeProvider>
+                            <NewLearnerPaymentMethods />
+                          </StripeProvider>
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/learner/payments"
+                      element={
+                        <ProtectedRoute requiredRole="learner">
+                          <NewLearnerPayments />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/learner/checkout/course"
+                      element={
+                        <ProtectedRoute requiredRole="learner">
+                          <StripeProvider>
+                            <CourseCheckout />
+                          </StripeProvider>
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/learner/checkout/session"
+                      element={
+                        <ProtectedRoute requiredRole="learner">
+                          <StripeProvider>
+                            <SessionCheckout />
+                          </StripeProvider>
+                        </ProtectedRoute>
+                      }
+                    />
+
                     <Route
                       path="/session/:bookingId"
                       element={
