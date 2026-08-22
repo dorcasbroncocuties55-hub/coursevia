@@ -8,25 +8,25 @@ const ROLE_CONFIGS = {
     gradient: "linear-gradient(135deg, #2D9E6B 0%, #1A7A4D 100%)",
     icon: Users,
     message: "Your coaching journey starts now. Inspire and guide others!",
-    emoji: "🎯"
+    image: "/coach.png"
   },
   therapist: {
     gradient: "linear-gradient(135deg, #2D9E6B 0%, #1A7A4D 100%)",
     icon: Heart,
     message: "Your therapy practice is ready. Make a difference in lives!",
-    emoji: "💜"
+    image: "/therapist.png"
   },
   creator: {
     gradient: "linear-gradient(135deg, #2D9E6B 0%, #1A7A4D 100%)",
     icon: BookOpen,
     message: "Your creator studio awaits. Share your knowledge with the world!",
-    emoji: "🚀"
+    image: "/creators.png"
   },
   learner: {
     gradient: "linear-gradient(135deg, #2D9E6B 0%, #1A7A4D 100%)",
     icon: GraduationCap,
     message: "Your learning adventure begins! Explore endless possibilities!",
-    emoji: "🎓"
+    image: "/leaner.png"
   }
 };
 
@@ -121,9 +121,21 @@ export default function WelcomeBanner() {
               color: "#FFFFFF",
               margin: 0,
               marginBottom: 4,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
             }}
           >
-            Welcome to Coursevia, {firstName}! {config.emoji}
+            Welcome to Coursevia, {firstName}!
+            <img
+              src={config.image}
+              alt={roleLabel}
+              style={{
+                width: 24,
+                height: 24,
+                objectFit: "contain"
+              }}
+            />
           </h3>
           <p
             style={{
