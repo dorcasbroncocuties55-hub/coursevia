@@ -41,23 +41,23 @@ const PaymentPage = lazy(() => import("./pages/PaymentPage"));
 const FAQ = lazy(() => import("./pages/public/FAQ"));
 const SubscriptionCallback = lazy(() => import("./pages/billing/SubscriptionCallback"));
 
-// Learner dashboard
-const LearnerDashboard = lazy(() => import("./pages/dashboard/LearnerDashboard"));
-const LearnerCourses = lazy(() => import("./pages/dashboard/LearnerCourses"));
-const LearnerVideos = lazy(() => import("./pages/dashboard/LearnerVideos"));
+// Learner dashboard - LEGACY (commented out - files removed)
+// const LearnerDashboard = lazy(() => import("./pages/dashboard/LearnerDashboard"));
+// const LearnerCourses = lazy(() => import("./pages/dashboard/LearnerCourses"));
+// const LearnerVideos = lazy(() => import("./pages/dashboard/LearnerVideos"));
 const LearnerBookings = lazy(() => import("./pages/dashboard/LearnerBookings"));
-const LearnerWishlist = lazy(() => import("./pages/dashboard/LearnerWishlist"));
-const LearnerMessages = lazy(() => import("./pages/dashboard/Messages").then(m => ({ default: m.LearnerMessages })));
-const DashboardCreatorMessages = lazy(() => import("./pages/dashboard/Messages").then(m => ({ default: m.CreatorMessages })));
-const InviteFriendsPage = lazy(() => import("./pages/dashboard/InviteFriendsPage"));
-const CoachInvitePage = lazy(() => import("./pages/coach/CoachInvitePage"));
-const CreatorInvitePage = lazy(() => import("./pages/creator/CreatorInvitePage"));
-const TherapistInvitePage = lazy(() => import("./pages/therapist/TherapistInvitePage"));
-const LearnerPayments = lazy(() => import("./pages/dashboard/LearnerPayments"));
-const LearnerSubscription = lazy(() => import("./pages/dashboard/LearnerSubscription"));
-const LearnerPaymentMethods = lazy(() => import("./pages/dashboard/LearnerPaymentMethods"));
-const LearnerNotifications = lazy(() => import("./pages/dashboard/LearnerNotifications"));
-const LearnerProfile = lazy(() => import("./pages/dashboard/ProfileSettings").then(m => ({ default: m.LearnerProfile })));
+// const LearnerWishlist = lazy(() => import("./pages/dashboard/LearnerWishlist"));
+// const LearnerMessages = lazy(() => import("./pages/dashboard/Messages").then(m => ({ default: m.LearnerMessages })));
+// const DashboardCreatorMessages = lazy(() => import("./pages/dashboard/Messages").then(m => ({ default: m.CreatorMessages })));
+// const InviteFriendsPage = lazy(() => import("./pages/dashboard/InviteFriendsPage"));
+// const CoachInvitePage = lazy(() => import("./pages/coach/CoachInvitePage"));
+// const CreatorInvitePage = lazy(() => import("./pages/creator/CreatorInvitePage"));
+// const TherapistInvitePage = lazy(() => import("./pages/therapist/TherapistInvitePage"));
+// const LearnerPayments = lazy(() => import("./pages/dashboard/LearnerPayments"));
+// const LearnerSubscription = lazy(() => import("./pages/dashboard/LearnerSubscription"));
+// const LearnerPaymentMethods = lazy(() => import("./pages/dashboard/LearnerPaymentMethods"));
+// const LearnerNotifications = lazy(() => import("./pages/dashboard/LearnerNotifications"));
+// const LearnerProfile = lazy(() => import("./pages/dashboard/ProfileSettings").then(m => ({ default: m.LearnerProfile })));
 
 // New Learner Portal Pages
 const NewLearnerDashboard = lazy(() => import("./pages/learner/LearnerDashboard"));
@@ -107,8 +107,8 @@ const CreatorWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage"
 const TherapistWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage").then(m => ({ default: m.TherapistWithdrawals })));
 
 const BookingMeetingRoom = lazy(() => import("./pages/dashboard/BookingMeetingRoom"));
-const ProfessionalProfileSettings = lazy(() => import("./pages/dashboard/ProfessionalProfileSettings"));
-const BankAccountsPage = lazy(() => import("./pages/dashboard/BankAccountsPage"));
+// const ProfessionalProfileSettings = lazy(() => import("./pages/dashboard/ProfessionalProfileSettings"));
+// const BankAccountsPage = lazy(() => import("./pages/dashboard/BankAccountsPage"));
 
 // Creator dashboard
 const CreatorDashboard = lazy(() => import("./pages/creator/CreatorDashboard"));
@@ -296,7 +296,7 @@ const App = () => {
                       path="/dashboard"
                       element={
                         <ProtectedRoute requiredRole="learner">
-                          <LearnerDashboard />
+                          <NewLearnerDashboard />
                         </ProtectedRoute>
                       }
                     />
@@ -341,7 +341,7 @@ const App = () => {
                       path="/dashboard/courses"
                       element={
                         <ProtectedRoute requiredRole="learner">
-                          <LearnerCourses />
+                          <NewLearnerCourses />
                         </ProtectedRoute>
                       }
                     />
@@ -349,7 +349,7 @@ const App = () => {
                       path="/dashboard/videos"
                       element={
                         <ProtectedRoute requiredRole="learner">
-                          <LearnerVideos />
+                          <NewLearnerCourses />
                         </ProtectedRoute>
                       }
                     />
@@ -365,7 +365,7 @@ const App = () => {
                       path="/dashboard/wishlist"
                       element={
                         <ProtectedRoute requiredRole="learner">
-                          <LearnerWishlist />
+                          <NewLearnerCourses />
                         </ProtectedRoute>
                       }
                     />
@@ -373,7 +373,7 @@ const App = () => {
                       path="/dashboard/messages"
                       element={
                         <ProtectedRoute requiredRole="learner">
-                          <LearnerMessages />
+                          <NewLearnerDashboard />
                         </ProtectedRoute>
                       }
                     />
@@ -381,7 +381,7 @@ const App = () => {
                       path="/dashboard/payments"
                       element={
                         <ProtectedRoute requiredRole="learner">
-                          <LearnerPayments />
+                          <NewLearnerPayments />
                         </ProtectedRoute>
                       }
                     />
@@ -389,7 +389,7 @@ const App = () => {
                       path="/dashboard/subscription"
                       element={
                         <ProtectedRoute requiredRole="learner">
-                          <LearnerSubscription />
+                          <NewLearnerDashboard />
                         </ProtectedRoute>
                       }
                     />
@@ -397,7 +397,7 @@ const App = () => {
                       path="/dashboard/payment-methods"
                       element={
                         <ProtectedRoute requiredRole="learner">
-                          <LearnerPaymentMethods />
+                          <NewLearnerPaymentMethods />
                         </ProtectedRoute>
                       }
                     />
@@ -405,7 +405,7 @@ const App = () => {
                       path="/dashboard/notifications"
                       element={
                         <ProtectedRoute requiredRole="learner">
-                          <LearnerNotifications />
+                          <NewLearnerDashboard />
                         </ProtectedRoute>
                       }
                     />
@@ -413,7 +413,7 @@ const App = () => {
                       path="/dashboard/profile"
                       element={
                         <ProtectedRoute requiredRole="learner">
-                          <LearnerProfile />
+                          <NewLearnerDashboard />
                         </ProtectedRoute>
                       }
                     />
@@ -421,7 +421,7 @@ const App = () => {
                       path="/dashboard/invite"
                       element={
                         <ProtectedRoute requiredRole="learner">
-                          <InviteFriendsPage />
+                          <NewLearnerDashboard />
                         </ProtectedRoute>
                       }
                     />
@@ -589,6 +589,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    {/* COMMENTED OUT - BankAccountsPage component missing
                     <Route
                       path="/coach/bank-accounts"
                       element={
@@ -597,6 +598,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    */}
 
                     {/* Legacy coach routes (old dashboard) */}
                     <Route
@@ -639,6 +641,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    {/* COMMENTED OUT - ProfessionalProfileSettings component missing
                     <Route
                       path="/coach/profile-settings"
                       element={
@@ -647,6 +650,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    */}
                     <Route
                       path="/coach/invite"
                       element={
@@ -736,6 +740,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    {/* COMMENTED OUT - BankAccountsPage component missing
                     <Route
                       path="/therapist/bank-accounts"
                       element={
@@ -744,6 +749,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    */}
                     <Route
                       path="/therapist/settings"
                       element={
@@ -849,6 +855,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    {/* COMMENTED OUT - ProfessionalProfileSettings component missing
                     <Route
                       path="/creator/profile-settings"
                       element={
@@ -857,6 +864,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    */}
                     <Route
                       path="/creator/invite"
                       element={
@@ -865,6 +873,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    {/* COMMENTED OUT - BankAccountsPage component missing
                     <Route
                       path="/creator/bank-accounts"
                       element={
@@ -873,6 +882,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    */}
                     <Route path="/admin-login" element={<AdminLogin />} />
                     <Route path="/support-agent" element={<SupportAgentLogin />} />
                     <Route path="/support-agent/dashboard" element={<SupportAgentDashboard />} />
@@ -924,6 +934,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    {/* COMMENTED OUT - BankAccountsPage component missing
                     <Route
                       path="/admin/bank-accounts"
                       element={
@@ -932,6 +943,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    */}
                     <Route
                       path="/admin/withdrawals"
                       element={
