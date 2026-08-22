@@ -1216,6 +1216,9 @@ const Onboarding = () => {
       // Mark as redirecting to prevent interference
       redirectingRef.current = true;
 
+      // Set flag for welcome banner
+      sessionStorage.setItem('just_onboarded', 'true');
+
       // Clear loading state
       setLoading(false);
       setSaveProgress("");

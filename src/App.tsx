@@ -11,6 +11,7 @@ import { isJudgePortalDomain, getJudgePortalRedirect } from "@/utils/subdomainRo
 
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AuthDecisionGuard from "./components/AuthDecisionGuard";
+import WelcomeBanner from "@/components/WelcomeBanner";
 
 // Public pages
 const Index = lazy(() => import("./pages/Index"));
