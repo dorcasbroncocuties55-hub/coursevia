@@ -48,7 +48,7 @@ const LearnerVideos = lazy(() => import("./pages/dashboard/LearnerVideos"));
 const LearnerBookings = lazy(() => import("./pages/dashboard/LearnerBookings"));
 const LearnerWishlist = lazy(() => import("./pages/dashboard/LearnerWishlist"));
 const LearnerMessages = lazy(() => import("./pages/dashboard/Messages").then(m => ({ default: m.LearnerMessages })));
-const CreatorMessages = lazy(() => import("./pages/dashboard/Messages").then(m => ({ default: m.CreatorMessages })));
+const DashboardCreatorMessages = lazy(() => import("./pages/dashboard/Messages").then(m => ({ default: m.CreatorMessages })));
 const InviteFriendsPage = lazy(() => import("./pages/dashboard/InviteFriendsPage"));
 const CoachInvitePage = lazy(() => import("./pages/coach/CoachInvitePage"));
 const CreatorInvitePage = lazy(() => import("./pages/creator/CreatorInvitePage"));
