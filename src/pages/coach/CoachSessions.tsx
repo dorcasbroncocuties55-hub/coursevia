@@ -10,7 +10,7 @@ const A = "#2D9E6B", D = "#0F3D2E", B = "#EAE6E2", TM = "#1A1A1A", TS = "#6B7280
 
 const SOAP_LABELS = ["S — Subjective", "O — Objective", "A — Assessment", "P — Plan"];
 
-export default function TherapistSessions() {
+export default function CoachSessions() {
   const { user } = useAuth();
   const { data: bookings, loading } = useProviderBookings(user?.id);
 
@@ -82,7 +82,7 @@ export default function TherapistSessions() {
                     <div key={b.id} onClick={() => selectBooking(b)}
                       style={{ background: isSelected ? "#fff" : "#F1EFEA", border: `1px solid ${isSelected ? A : B}`, borderRadius: 10, padding: 14, marginBottom: 8, cursor: "pointer" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                        <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: TM }}>{b.learner?.full_name || "Patient"}</span>
+                        <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: TM }}>{b.learner?.full_name || "Client"}</span>
                         <span style={{
                           padding: "2px 6px", borderRadius: 4,
                           background: isLocked ? "#F0FDF4" : "#FEF3C7",
@@ -104,7 +104,7 @@ export default function TherapistSessions() {
               <div style={{ flex: "1 1 400px", background: "#fff", border: `1px solid ${B}`, borderRadius: 16, padding: 28 }}>
                 <div style={{ marginBottom: 16 }}>
                   <h2 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 22, color: D, margin: 0 }}>
-                    SOAP Note: {selected.learner?.full_name || "Patient"}
+                    SOAP Note: {selected.learner?.full_name || "Client"}
                   </h2>
                   <p style={{ fontFamily: "Inter,sans-serif", fontSize: 12, color: TS, marginTop: 4 }}>
                     Session: {fmtDate(selected.scheduled_at)} · {fmtTime(selected.scheduled_at)} · {selected.service?.title || "Session"}
@@ -116,7 +116,7 @@ export default function TherapistSessions() {
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   {[
-                    { key: "s" as const, label: "S — Subjective Observation", placeholder: "What the patient reported…" },
+                    { key: "s" as const, label: "S — Subjective Observation", placeholder: "What the client reported…" },
                     { key: "o" as const, label: "O — Objective Measurements", placeholder: "Clinical observations, scores…" },
                     { key: "a" as const, label: "A — Clinical Assessment", placeholder: "Your clinical assessment…" },
                     { key: "p" as const, label: "P — Treatment Plan", placeholder: "Next steps and treatment plan…" },

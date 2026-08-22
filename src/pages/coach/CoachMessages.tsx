@@ -14,7 +14,7 @@ const Av = ({ name, url, size = 38 }: { name: string | null; url?: string | null
   </div>
 );
 
-export default function TherapistMessages() {
+export default function CoachMessages() {
   const { user } = useAuth();
   const { data: convs, loading: loadingConvs, refetch: refetchConvs } = useConversations(user?.id);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
@@ -176,7 +176,7 @@ export default function TherapistMessages() {
                     <Av name={c.other_user?.full_name ?? null} url={c.other_user?.avatar_url} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: TM }}>{c.other_user?.full_name || "Patient"}</span>
+                        <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: TM }}>{c.other_user?.full_name || "Client"}</span>
                         {(c.unread_count ?? 0) > 0 && <span style={{ width: 7, height: 7, borderRadius: "50%", background: A, flexShrink: 0 }} />}
                       </div>
                       <p style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.last_message || "…"}</p>
@@ -198,8 +198,8 @@ export default function TherapistMessages() {
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <Av name={activeConv.other_user?.full_name ?? null} url={activeConv.other_user?.avatar_url} size={42} />
                   <div>
-                    <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 15, color: TM, margin: 0 }}>{activeConv.other_user?.full_name || "Patient"}</p>
-                    <p style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS, margin: 0 }}>Patient · Therapy session</p>
+                    <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 15, color: TM, margin: 0 }}>{activeConv.other_user?.full_name || "Client"}</p>
+                    <p style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS, margin: 0 }}>Client · Coaching session</p>
                   </div>
                 </div>
               </div>

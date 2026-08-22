@@ -56,6 +56,7 @@ const StripeConnect = {
 import { courtRoomRoutes } from "./court-room-routes.js";
 import { autoEscalateToCourtRoom } from "./court-room-integration.js";
 import { courtRoomEmailService } from "./court-room-email-service.js";
+import { stripeLearnerRoutes } from "./stripe-learner-routes.js";
 
 const app = express();
 app.use(cors());
@@ -2145,6 +2146,10 @@ app.post("/api/stripe-connect/webhook", express.raw({ type: 'application/json' }
 // ── Court Room Routes ─────────────────────────────────────────────────────────
 // Add Court Room dispute resolution system routes
 courtRoomRoutes(app, supabaseAdmin);
+
+// ── Stripe Learner Payment Routes ─────────────────────────────────────────────
+// Add Stripe learner payment routes
+app.use("/api/stripe-learner", stripeLearnerRoutes);
 
 // ── Mercy Window Scheduler ────────────────────────────────────────────────────
 // Every 5 minutes: find restricted providers with a booking starting in 25–35 mins,

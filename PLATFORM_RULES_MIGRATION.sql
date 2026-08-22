@@ -284,29 +284,54 @@ CREATE POLICY "Admins manage refunds"
 
 CREATE OR REPLACE FUNCTION public.approve_refund(p_refund_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE v_refund public.refunds%rowtype; v_wallet_id uuid;
+DECLARE 
+  v_refund public.refunds%rowtype; 
+  v_payment_record record;
 BEGIN
-  IF NOT public.has_role(auth.uid(), 'admin') THEN RAISE EXCEPTION 'Admin access required'; END IF;
+  -- Admin access check
+  IF NOT public.has_role(auth.uid(), 'admin') THEN 
+    RAISE EXCEPTION 'Admin access required'; 
+  END IF;
+
+  -- Get refund record
   SELECT * INTO v_refund FROM public.refunds WHERE id = p_refund_id AND status = 'pending';
-  IF NOT FOUND THEN RAISE EXCEPTION 'Refund not found or already processed'; END IF;
+  IF NOT FOUND THEN 
+    RAISE EXCEPTION 'Refund not found or already processed'; 
+  END IF;
 
-  INSERT INTO public.wallets (user_id, currency, balance, pending_balance, available_balance)
-  VALUES (v_refund.user_id, 'USD', 0, 0, 0) ON CONFLICT (user_id) DO NOTHING;
-  SELECT id INTO v_wallet_id FROM public.wallets WHERE user_id = v_refund.user_id;
+  -- Get original payment record to find stripe_payment_intent_id
+  IF v_refund.payment_id IS NOT NULL THEN
+    SELECT * INTO v_payment_record 
+    FROM public.payments 
+    WHERE id = v_refund.payment_id;
+  END IF;
 
-  UPDATE public.wallets
-  SET balance = balance + v_refund.amount, available_balance = available_balance + v_refund.amount,
-      updated_at = now()
-  WHERE id = v_wallet_id;
-
-  INSERT INTO public.wallet_ledger (wallet_id, amount, type, description, reference_id, reference_type)
-  VALUES (v_wallet_id, v_refund.amount, 'credit', 'Refund approved by admin', p_refund_id::text, 'refund');
-
+  -- Update refund status to 'approved' - backend will handle Stripe API call
+  -- The backend API endpoint /api/stripe-payments/process-refund will:
+  -- 1. Read this approved refund
+  -- 2. Call Stripe refund API with payment_intent_id
+  -- 3. Update status to 'processed' after successful Stripe refund
   UPDATE public.refunds
-  SET status = 'processed', processed_by = auth.uid(), processed_at = now()
+  SET 
+    status = 'approved', 
+    processed_by = auth.uid(), 
+    processed_at = now(),
+    refund_method = 'stripe_card',
+    updated_at = now()
   WHERE id = p_refund_id;
 
-  RETURN jsonb_build_object('ok', true, 'amount', v_refund.amount);
+  -- Log this approval (backend will process the actual Stripe refund)
+  RAISE NOTICE 'Refund % approved by admin %. Amount: $%. Stripe refund will be processed by backend.', 
+    p_refund_id, auth.uid(), v_refund.amount;
+
+  RETURN jsonb_build_object(
+    'ok', true, 
+    'refund_id', p_refund_id,
+    'amount', v_refund.amount,
+    'payment_id', v_refund.payment_id,
+    'method', 'stripe_card',
+    'message', 'Refund approved. Money will be returned to original payment method via Stripe.'
+  );
 END;
 $$;
 GRANT EXECUTE ON FUNCTION public.approve_refund(uuid) TO authenticated;

@@ -71,3 +71,29 @@ SELECT 'Refund system migration applied successfully' AS result;
 -- Add refund method tracking columns
 ALTER TABLE refunds ADD COLUMN IF NOT EXISTS refund_method    text DEFAULT 'wallet_fallback';
 ALTER TABLE refunds ADD COLUMN IF NOT EXISTS stripe_refund_id text;
+
+-- ============================================================
+-- STRIPE PAYMENT INTEGRATION COLUMNS
+-- Added for Learner Portal - Card-based payments
+-- ============================================================
+
+-- Add Stripe columns to payments table
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS stripe_payment_intent_id text;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS stripe_customer_id text;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS payment_method_last4 text;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS payment_method_brand text;
+
+-- Add Stripe columns to payment_methods table (for saved cards)
+ALTER TABLE public.payment_methods ADD COLUMN IF NOT EXISTS stripe_payment_method_id text;
+ALTER TABLE public.payment_methods ADD COLUMN IF NOT EXISTS stripe_customer_id text;
+ALTER TABLE public.payment_methods ADD COLUMN IF NOT EXISTS fingerprint text;
+ALTER TABLE public.payment_methods ADD COLUMN IF NOT EXISTS is_default boolean DEFAULT false;
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS payments_stripe_payment_intent_idx ON public.payments(stripe_payment_intent_id);
+CREATE INDEX IF NOT EXISTS payments_stripe_customer_idx ON public.payments(stripe_customer_id);
+CREATE INDEX IF NOT EXISTS payment_methods_stripe_pm_idx ON public.payment_methods(stripe_payment_method_id);
+CREATE INDEX IF NOT EXISTS payment_methods_user_default_idx ON public.payment_methods(user_id, is_default DESC);
+CREATE INDEX IF NOT EXISTS refunds_stripe_refund_idx ON public.refunds(stripe_refund_id);
+
+SELECT 'Stripe payment integration columns added successfully' AS result;

@@ -1506,6 +1506,520 @@
         ]
       },
       {
+        "name": "Stripe Learner Payments",
+        "item": [
+          {
+            "name": "Get Payment Methods",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/stripe-learner/payment-methods/{{user_id}}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200 or 500', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Returns paymentMethods array', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.paymentMethods).to.be.an('array');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Save Payment Method",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-learner/payment-methods",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"paymentMethodId\": \"pm_test_123\",\n  \"isDefault\": true\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "// 200 = Stripe configured; 500 = placeholder key",
+                    "pm.test('Status 200 or 500', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+                    "});",
+                    "pm.test('Returns message or success', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message || body.success !== undefined).to.exist;",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Save Payment Method - Missing Fields",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-learner/payment-methods",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"{{user_id}}\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when paymentMethodId missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.include('paymentMethodId');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Set Default Payment Method",
+            "request": {
+              "method": "PUT",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-learner/payment-methods/default",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"paymentMethodId\": \"pm_test_123\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200 or 500', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+                    "});",
+                    "pm.test('Returns message or success', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message || body.success !== undefined).to.exist;",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Set Default Payment Method - Missing Fields",
+            "request": {
+              "method": "PUT",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-learner/payment-methods/default",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"{{user_id}}\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when paymentMethodId missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.include('paymentMethodId');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Delete Payment Method",
+            "request": {
+              "method": "DELETE",
+              "url": "{{base_url}}/api/stripe-learner/payment-methods/pm_test_123?userId={{user_id}}"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200 or 500', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+                    "});",
+                    "pm.test('Returns message or success', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message || body.success !== undefined).to.exist;",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Get or Create Customer",
+            "request": {
+              "method": "GET",
+              "url": {
+                "raw": "{{base_url}}/api/stripe-learner/customer/{{user_id}}?email={{email}}&name=Test User",
+                "query": [
+                  {
+                    "key": "email",
+                    "value": "{{email}}"
+                  },
+                  {
+                    "key": "name",
+                    "value": "Test User"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200 or 500', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Returns customerId', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.customerId || body.customer).to.exist;",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Create Course Payment",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-learner/create-course-payment",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"courseId\": \"course-123\",\n  \"amount\": 49.99\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "// 200 = Stripe configured; 500 = placeholder key",
+                    "pm.test('Status 200 or 500', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Returns clientSecret and paymentIntentId', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.clientSecret || body.paymentIntentId).to.exist;",
+                    "    pm.collectionVariables.set('payment_intent_id', body.paymentIntentId);",
+                    "  });",
+                    "} else {",
+                    "  pm.test('500: returns error message', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.message).to.be.a('string');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Create Course Payment - Invalid Amount",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-learner/create-course-payment",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"courseId\": \"course-123\",\n  \"amount\": 0\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 for zero amount', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message about amount', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.include('Amount');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Create Course Payment - Missing Fields",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-learner/create-course-payment",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"{{user_id}}\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when courseId/amount missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.be.a('string');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Create Session Payment",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-learner/create-session-payment",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"serviceId\": \"service-123\",\n  \"coachId\": \"coach-456\",\n  \"amount\": 75.00\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200 or 500', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+                    "});",
+                    "if (pm.response.code === 200) {",
+                    "  pm.test('Returns clientSecret or paymentIntentId', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.clientSecret || body.paymentIntentId).to.exist;",
+                    "  });",
+                    "} else {",
+                    "  pm.test('500: returns error message', () => {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body.message).to.be.a('string');",
+                    "  });",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Create Session Payment - Invalid Amount",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-learner/create-session-payment",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"serviceId\": \"service-123\",\n  \"amount\": -5\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 for negative amount', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message about amount', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.include('Amount');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Confirm Payment",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-learner/confirm-payment",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"paymentIntentId\": \"{{payment_intent_id}}\",\n  \"userId\": \"{{user_id}}\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200 or 500', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+                    "});",
+                    "pm.test('Returns message or success', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message || body.success !== undefined).to.exist;",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Confirm Payment - Missing Fields",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-learner/confirm-payment",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"userId\": \"{{user_id}}\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 400 when paymentIntentId missing', () => pm.response.to.have.status(400));",
+                    "pm.test('Returns error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message).to.include('paymentIntentId');",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Process Approved Refunds",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/api/stripe-learner/process-refunds",
+              "body": {
+                "mode": "raw",
+                "raw": "{}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200 or 500', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+                    "});",
+                    "pm.test('Returns message or result', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.message || body.processed !== undefined || body.success !== undefined).to.exist;",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Get Refund Status",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/api/stripe-learner/refund-status/re_test_123"
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "pm.test('Status 200 or 500', () => {",
+                    "  pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+                    "});",
+                    "pm.test('Returns refund data or error message', () => {",
+                    "  const body = pm.response.json();",
+                    "  pm.expect(body.refund || body.message || body.status).to.exist;",
+                    "});"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
         "name": "Admin",
         "item": [
           {

@@ -55,14 +55,14 @@ const Avatar = ({ name, url, size = 36 }: { name: string | null; url?: string | 
 // ── weekday summary ───────────────────────────────────────────────────────────
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
-export default function TherapistDashboard() {
+export default function CoachDashboard() {
   const { user, profile } = useAuth();
   const { data: todayBookings, loading: loadingToday } = useTodayBookings(user?.id);
   const { data: allBookings } = useProviderBookings(user?.id);
   const { data: wallet } = useWallet(user?.id);
   const { data: convs } = useConversations(user?.id);
 
-  const firstName = profile?.full_name?.split(" ")[0] || "Doctor";
+  const firstName = profile?.full_name?.split(" ")[0] || "Coach";
   const unreadCount = (convs || []).filter(c => (c.unread_count ?? 0) > 0).length;
 
   // Build this-week summary
@@ -86,7 +86,7 @@ export default function TherapistDashboard() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 28, color: D, margin: 0 }}>
-            Welcome, Dr. {firstName}
+            Welcome, {firstName}
           </h1>
           <p style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: TS, marginTop: 4 }}>
             {loadingToday ? "Loading today's schedule…" : `${todayBookings?.length ?? 0} session${(todayBookings?.length ?? 0) !== 1 ? "s" : ""} scheduled today`}
@@ -152,7 +152,7 @@ export default function TherapistDashboard() {
                         <Avatar name={b.learner?.full_name ?? null} url={b.learner?.avatar_url} />
                         <div>
                           <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 13, color: TM, margin: 0 }}>
-                            {b.learner?.full_name || "Patient"}
+                            {b.learner?.full_name || "Client"}
                           </p>
                           <p style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS, margin: 0 }}>
                             {b.service?.title || "Session"} · {b.duration_minutes}m
@@ -199,9 +199,9 @@ export default function TherapistDashboard() {
 
           {/* Recent Patients */}
           <div>
-            <SectionHead title="Recent Patients Quick-View" link="/therapist/clients" linkLabel="See All Patients" />
+            <SectionHead title="Recent Clients Quick-View" link="/coach/clients" linkLabel="See All Clients" />
             {(!allBookings || allBookings.length === 0) ? (
-              <p style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: TS }}>No patient records yet</p>
+              <p style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: TS }}>No client records yet</p>
             ) : (
               <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                 {/* Dedupe by learner_id, show last 3 */}
@@ -219,7 +219,7 @@ export default function TherapistDashboard() {
                         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                           <Avatar name={b.learner?.full_name ?? null} url={b.learner?.avatar_url} size={42} />
                           <div>
-                            <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 14, color: TM, margin: 0 }}>{b.learner?.full_name || "Patient"}</p>
+                            <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 14, color: TM, margin: 0 }}>{b.learner?.full_name || "Client"}</p>
                             <p style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS, margin: 0 }}>{b.learner?.email || ""}</p>
                           </div>
                         </div>
@@ -282,7 +282,7 @@ export default function TherapistDashboard() {
                   <Avatar name={c.other_user?.full_name ?? null} url={c.other_user?.avatar_url} size={36} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: TM }}>{c.other_user?.full_name || "Patient"}</span>
+                      <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: TM }}>{c.other_user?.full_name || "Client"}</span>
                       {(c.unread_count ?? 0) > 0 && <span style={{ width: 7, height: 7, borderRadius: "50%", background: A, flexShrink: 0 }} />}
                     </div>
                     <p style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.last_message || "…"}</p>

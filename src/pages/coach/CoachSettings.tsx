@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 const A = "#2D9E6B", D = "#0F3D2E", B = "#EAE6E2", TM = "#1A1A1A", TS = "#6B7280";
 
-const TABS = ["Doctor Profile", "Notifications", "Security & HIPAA"];
+const TABS = ["Coach Profile", "Notifications", "Security & HIPAA Compliance"];
 
 const Field = ({ label, value, onChange, readOnly, placeholder, type = "text" }: any) => (
   <div>
@@ -24,7 +24,7 @@ const Toggle = ({ on, onToggle }: { on: boolean; onToggle: () => void }) => (
   </div>
 );
 
-export default function TherapistSettings() {
+export default function CoachSettings() {
   const { user, profile, refreshProfile } = useAuth();
   const [tab, setTab] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -94,8 +94,8 @@ export default function TherapistSettings() {
 
           {tab === 0 && <>
             <div>
-              <h2 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 18, color: D, margin: "0 0 4px" }}>Doctor Profile Info</h2>
-              <p style={{ fontFamily: "Inter,sans-serif", fontSize: 12, color: TS, margin: 0 }}>Credentials displayed to patients on scheduling dashboards.</p>
+              <h2 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 18, color: D, margin: "0 0 4px" }}>Coach Profile Info</h2>
+              <p style={{ fontFamily: "Inter,sans-serif", fontSize: 12, color: TS, margin: 0 }}>Professional information displayed to clients on your scheduling page.</p>
             </div>
             <hr style={{ border: "none", borderTop: `1px solid ${B}`, margin: 0 }} />
 
@@ -113,19 +113,19 @@ export default function TherapistSettings() {
                 </label>
               </div>
               <div>
-                <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 13, color: TM, margin: 0 }}>{profile?.full_name || "Therapist"}</p>
+                <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 13, color: TM, margin: 0 }}>{profile?.full_name || "Coach"}</p>
                 <p style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS, margin: 0 }}>{profile?.email || ""}</p>
               </div>
             </div>
 
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-              <div style={{ flex: "1 1 200px" }}><Field label="Full Professional Name" value={form.full_name} onChange={set("full_name")} placeholder="Dr. Jane Smith" /></div>
+              <div style={{ flex: "1 1 200px" }}><Field label="Full Professional Name" value={form.full_name} onChange={set("full_name")} placeholder="Jane Smith" /></div>
               <div style={{ flex: "1 1 200px" }}><Field label="Phone" value={form.phone} onChange={set("phone")} placeholder="+1 555 000 0000" type="tel" /></div>
             </div>
             <Field label="Country" value={form.country} onChange={set("country")} placeholder="United States" />
             <div>
-              <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 11, color: TS, textTransform: "uppercase", margin: "0 0 6px" }}>Practice Bio</p>
-              <textarea value={form.bio ?? ""} onChange={e => set("bio")(e.target.value)} rows={4} placeholder="Describe your practice focus and expertise…"
+              <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 11, color: TS, textTransform: "uppercase", margin: "0 0 6px" }}>Coaching Bio</p>
+              <textarea value={form.bio ?? ""} onChange={e => set("bio")(e.target.value)} rows={4} placeholder="Describe your coaching focus and expertise…"
                 style={{ width: "100%", padding: 12, background: "#F9F8F6", border: `1px solid ${B}`, borderRadius: 8, fontFamily: "Inter,sans-serif", fontSize: 13, color: TM, outline: "none", resize: "vertical", boxSizing: "border-box" }} />
             </div>
           </>}
@@ -137,9 +137,9 @@ export default function TherapistSettings() {
             </div>
             <hr style={{ border: "none", borderTop: `1px solid ${B}`, margin: 0 }} />
             {[
-              { key: "chatAlerts" as const, label: "Secure Patient Chat Alerts", desc: "Real-time push notifications on new patient messages." },
-              { key: "dailySummary" as const, label: "Daily Morning Calendar Summary", desc: "Email summary of today's bookings at 07:30 AM." },
-              { key: "bookingConfirmations" as const, label: "Booking Confirmations", desc: "Email and push notification when a booking is confirmed." },
+              { key: "chatAlerts" as const, label: "Secure Client Chat Alerts", desc: "Real-time push notifications on new client messages." },
+              { key: "dailySummary" as const, label: "Daily Morning Calendar Summary", desc: "Email summary of today's sessions at 07:30 AM." },
+              { key: "bookingConfirmations" as const, label: "Session Confirmations", desc: "Email and push notification when a session is confirmed." },
             ].map(n => (
               <div key={n.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <div>

@@ -17,17 +17,17 @@ const Avatar = ({ name, url, size = 36 }: { name: string | null; url?: string | 
   </div>
 );
 
-const FILTERS = ["All Patients", "Active", "New Request", "Inactive"];
+const FILTERS = ["All Clients", "Active", "New Request", "Inactive"];
 
-export default function TherapistClients() {
+export default function CoachClients() {
   const { user } = useAuth();
   const { data: bookings, loading } = useProviderBookings(user?.id);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // Dedupe patients from bookings
-  const patientMap = new Map<string, {
+  // Dedupe clients from bookings
+  const clientMap = new Map<string, {
     learnerId: string;
     name: string | null;
     email: string | null;
@@ -39,11 +39,11 @@ export default function TherapistClients() {
   }>();
 
   (bookings || []).forEach(b => {
-    const existing = patientMap.get(b.learner_id);
+    const existing = clientMap.get(b.learner_id);
     const bDate = new Date(b.scheduled_at);
     const now = new Date();
     if (!existing) {
-      patientMap.set(b.learner_id, {
+      clientMap.set(b.learner_id, {
         learnerId: b.learner_id,
         name: b.learner?.full_name ?? null,
         email: b.learner?.email ?? null,
@@ -60,25 +60,25 @@ export default function TherapistClients() {
     }
   });
 
-  const patients = Array.from(patientMap.values());
-  const filtered = patients.filter(p => {
+  const clients = Array.from(clientMap.values());
+  const filtered = clients.filter(p => {
     const q = search.toLowerCase();
     const matchQ = !q || (p.name?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q));
     const matchF = filter === 0 || (filter === 1 && p.status === "Active") || (filter === 2 && p.status === "New Request") || (filter === 3 && p.status === "Inactive");
     return matchQ && matchF;
   });
 
-  const selected = selectedId ? patients.find(p => p.learnerId === selectedId) : filtered[0];
+  const selected = selectedId ? clients.find(p => p.learnerId === selectedId) : filtered[0];
 
   return (
     <CoachLayout>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 28, color: D, margin: 0 }}>Patient Directory</h1>
-          <p style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: TS, marginTop: 4 }}>Manage therapy records, treatment logs, and clinical intake.</p>
+          <h1 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 28, color: D, margin: 0 }}>Client Directory</h1>
+          <p style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: TS, marginTop: 4 }}>Manage coaching records, session logs, and client progress.</p>
         </div>
-        <Link to="/therapist/bookings" style={{ padding: "9px 16px", borderRadius: 8, border: `1.5px solid ${A}`, background: "#fff", fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 13, color: A, textDecoration: "none" }}>
+        <Link to="/coach/bookings" style={{ padding: "9px 16px", borderRadius: 8, border: `1.5px solid ${A}`, background: "#fff", fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 13, color: A, textDecoration: "none" }}>
           + New Booking
         </Link>
       </div>
@@ -87,7 +87,7 @@ export default function TherapistClients() {
       <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: "#F9F8F6", border: `1px solid ${B}`, borderRadius: 10, flex: "1 1 200px", maxWidth: 320 }}>
           <Search size={15} color={TS} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search patients…"
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clients…"
             style={{ border: "none", background: "transparent", fontFamily: "Inter,sans-serif", fontSize: 13, color: TM, outline: "none", flex: 1 }} />
         </div>
         {FILTERS.map((f, i) => (
@@ -110,12 +110,12 @@ export default function TherapistClients() {
           {/* Table */}
           <div style={{ flex: "1 1 480px", background: "#fff", border: `1px solid ${B}`, borderRadius: 16, overflow: "hidden" }}>
             <div style={{ display: "flex", gap: 12, padding: "13px 16px", background: "#FBFBF9", borderBottom: `1px solid ${B}` }}>
-              {[["Patient Name", 3], ["Next Session", 2], ["Sessions", 1], ["Status", 1.5]].map(([h, f]) => (
+              {[["Client Name", 3], ["Next Session", 2], ["Sessions", 1], ["Status", 1.5]].map(([h, f]) => (
                 <span key={h as string} style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 11, color: TS, flex: f as number, textTransform: "uppercase" }}>{h}</span>
               ))}
             </div>
             {filtered.length === 0
-              ? <p style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: TS, textAlign: "center", padding: 32 }}>No patients found</p>
+              ? <p style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: TS, textAlign: "center", padding: 32 }}>No clients found</p>
               : filtered.map((p, i) => {
                 const isSelected = (selectedId ?? filtered[0]?.learnerId) === p.learnerId;
                 return (
@@ -127,7 +127,7 @@ export default function TherapistClients() {
                     <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 3 }}>
                       <Avatar name={p.name} url={p.avatar} />
                       <div>
-                        <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 13, color: TM, margin: 0 }}>{p.name || "Patient"}</p>
+                        <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 13, color: TM, margin: 0 }}>{p.name || "Client"}</p>
                         <p style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS, margin: 0 }}>{p.email || ""}</p>
                       </div>
                     </div>
@@ -155,13 +155,13 @@ export default function TherapistClients() {
           {selected && (
             <div style={{ width: 340, flexShrink: 0, background: "#fff", border: `1px solid ${B}`, borderRadius: 16, padding: 24 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <h3 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 18, color: D, margin: 0 }}>Clinical Summary</h3>
+                <h3 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 18, color: D, margin: 0 }}>Client Summary</h3>
                 <MoreHorizontal size={16} color={TS} style={{ cursor: "pointer" }} />
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
                 <Avatar name={selected.name} url={selected.avatar} size={56} />
                 <div>
-                  <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 17, color: TM, margin: 0 }}>{selected.name || "Patient"}</p>
+                  <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 17, color: TM, margin: 0 }}>{selected.name || "Client"}</p>
                   <p style={{ fontFamily: "Inter,sans-serif", fontSize: 12, color: TS, margin: 0 }}>{selected.totalSessions} sessions · {selected.status}</p>
                 </div>
               </div>
@@ -181,11 +181,11 @@ export default function TherapistClients() {
               <hr style={{ border: "none", borderTop: `1px solid ${B}`, margin: "16px 0" }} />
 
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <Link to="/therapist/sessions" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: "#F9F8F6", textDecoration: "none" }}>
+                <Link to="/coach/sessions" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: "#F9F8F6", textDecoration: "none" }}>
                   <FileText size={14} color={A} />
                   <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: D }}>View Session Notes</span>
                 </Link>
-                <Link to="/therapist/bookings" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: "#F9F8F6", textDecoration: "none" }}>
+                <Link to="/coach/bookings" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: "#F9F8F6", textDecoration: "none" }}>
                   <CalendarCheck size={14} color={A} />
                   <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: D }}>Schedule Next Session</span>
                 </Link>

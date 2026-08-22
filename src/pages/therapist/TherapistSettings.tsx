@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 const A = "#2D9E6B", D = "#0F3D2E", B = "#EAE6E2", TM = "#1A1A1A", TS = "#6B7280";
 
-const TABS = ["Doctor Profile", "Notifications", "Security & HIPAA"];
+const TABS = ["Doctor Profile", "Notifications", "Security & HIPAA Compliance"];
 
 const Field = ({ label, value, onChange, readOnly, placeholder, type = "text" }: any) => (
   <div>

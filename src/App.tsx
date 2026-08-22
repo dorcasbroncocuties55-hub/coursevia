@@ -66,7 +66,7 @@ const CoachBookings = lazy(() => import("./pages/coach/CoachBookings"));
 const CoachClients = lazy(() => import("./pages/coach/CoachClients"));
 const CoachSessions = lazy(() => import("./pages/coach/CoachSessions"));
 const CoachMessages = lazy(() => import("./pages/coach/CoachMessages"));
-const CoachWallet = lazy(() => import("./pages/coach/CoachWallet"));
+const CoachWallet = lazy(() => import("./pages/dashboard/WalletPage").then(m => ({ default: m.CoachWallet })));
 const CoachPayout = lazy(() => import("./pages/coach/CoachPayout"));
 const CoachSettings = lazy(() => import("./pages/coach/CoachSettings"));
 

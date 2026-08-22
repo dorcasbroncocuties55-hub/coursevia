@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { Search, Send, Paperclip, MoreVertical, Star, Archive, Trash2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Search, Send, Paperclip, MoreVertical, Star, Archive } from "lucide-react";
+import { getConversations, getConversation, sendMessage, subscribeToConversation } from "@/lib/api/messagingService";
+import { formatNotificationTime } from "@/lib/api/notificationService";
 
-// ── Figma-exact Creator Portal design tokens (Indigo theme) ──────────────────
 const S = {
   accent: "#4F46E5",
   accentLight: "#EEF2FF",
@@ -14,150 +15,114 @@ const S = {
   warning: "#F59E0B",
 };
 
-// Mock messages data
-const CONVERSATIONS = [
-  {
-    id: 1,
-    student: "Sarah Johnson",
-    avatar: "SJ",
-    lastMessage: "Thank you for the detailed explanation on async/await patterns!",
-    timestamp: "2 min ago",
-    unread: true,
-    course: "Advanced React Patterns",
-  },
-  {
-    id: 2,
-    student: "Michael Chen",
-    avatar: "MC",
-    lastMessage: "Could you clarify the TypeScript generics section?",
-    timestamp: "1 hour ago",
-    unread: true,
-    course: "TypeScript Masterclass",
-  },
-  {
-    id: 3,
-    student: "Emily Davis",
-    avatar: "ED",
-    lastMessage: "The course materials are excellent, really enjoying it so far",
-    timestamp: "3 hours ago",
-    unread: false,
-    course: "Node.js Backend Dev",
-  },
-  {
-    id: 4,
-    student: "James Wilson",
-    avatar: "JW",
-    lastMessage: "When will the next module be available?",
-    timestamp: "Yesterday",
-    unread: false,
-    course: "Advanced React Patterns",
-  },
-  {
-    id: 5,
-    student: "Lisa Anderson",
-    avatar: "LA",
-    lastMessage: "Got it working, thanks for your help!",
-    timestamp: "2 days ago",
-    unread: false,
-    course: "Full Stack Development",
-  },
-];
-
-const CHAT_MESSAGES = [
-  {
-    id: 1,
-    sender: "student",
-    text: "Hi! I'm having trouble understanding the async/await patterns in lesson 4. Could you help?",
-    timestamp: "10:32 AM",
-  },
-  {
-    id: 2,
-    sender: "creator",
-    text: "Of course! Async/await is syntactic sugar over Promises. Think of 'await' as pausing execution until a Promise resolves. What specific part is confusing?",
-    timestamp: "10:35 AM",
-  },
-  {
-    id: 3,
-    sender: "student",
-    text: "I get the basics, but when should I use try/catch blocks with async/await?",
-    timestamp: "10:38 AM",
-  },
-  {
-    id: 4,
-    sender: "creator",
-    text: "Great question! You should wrap await calls in try/catch whenever you need to handle errors. Without it, unhandled promise rejections can crash your app. Let me share an example...",
-    timestamp: "10:40 AM",
-  },
-  {
-    id: 5,
-    sender: "student",
-    text: "Thank you for the detailed explanation on async/await patterns!",
-    timestamp: "10:45 AM",
-  },
-];
-
 export default function CreatorMessages() {
+  const [loading, setLoading] = useState(true);
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [selectedConv, setSelectedConv] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedConversation, setSelectedConversation] = useState<typeof CONVERSATIONS[0] | null>(
-    CONVERSATIONS[0]
-  );
-  const [messageInput, setMessageInput] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const filteredConversations = CONVERSATIONS.filter(conv =>
-    conv.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    conv.course.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    loadConversations();
+  }, []);
 
-  const handleSendMessage = () => {
-    if (!messageInput.trim()) return;
-    // In production: send message via API
-    console.log("Sending:", messageInput);
-    setMessageInput("");
+  useEffect(() => {
+    if (selectedConv) {
+      loadMessages(selectedConv.otherUserId);
+    }
+  }, [selectedConv]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  useEffect(() => {
+    if (!selectedConv) return;
+
+    const channel = subscribeToConversation(
+      selectedConv.courseId,
+      selectedConv.otherUserId,
+      (message) => {
+        setMessages(prev => [...prev, message]);
+      }
+    );
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [selectedConv]);
+
+  const loadConversations = async () => {
+    setLoading(true);
+    const { data } = await getConversations({ limit: 50 });
+    if (data) {
+      setConversations(data);
+      if (data.length > 0) {
+        setSelectedConv(data[0]);
+      }
+    }
+    setLoading(false);
   };
+
+  const loadMessages = async (otherUserId: string) => {
+    const { data } = await getConversation(selectedConv.courseId, otherUserId, { limit: 100 });
+    if (data) {
+      setMessages(data);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedConv) return;
+
+    const { data } = await sendMessage(
+      selectedConv.courseId,
+      selectedConv.otherUserId,
+      newMessage
+    );
+
+    if (data) {
+      setMessages(prev => [...prev, data]);
+      setNewMessage("");
+    }
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const filteredConversations = conversations.filter(conv =>
+    conv.otherUserName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    conv.courseTitle?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  if (loading) {
+    return (
+      <div style={{ fontFamily: "Inter,sans-serif", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "400px" }}>
+        <div style={{ fontSize: 16, color: S.dim }}>Loading messages...</div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ fontFamily: "Inter,sans-serif" }}>
-      {/* Header */}
-      <div style={{ marginBottom: 32 }}>
+      <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 28, fontWeight: 700, color: S.full, margin: 0, marginBottom: 8 }}>
           Messages
         </h1>
         <p style={{ fontSize: 15, color: S.dim, margin: 0 }}>
-          Communicate with your students and answer questions
+          Communicate with your students
         </p>
       </div>
 
-      {/* Messages Layout */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "340px 1fr",
-        gap: 0,
-        height: "calc(100vh - 220px)",
-        minHeight: 600,
-        background: S.card,
-        border: `1px solid ${S.border}`,
-        borderRadius: 12,
-        overflow: "hidden",
-      }}>
-        {/* Left: Conversations List */}
-        <div style={{
-          borderRight: `1px solid ${S.border}`,
-          display: "flex",
-          flexDirection: "column",
-        }}>
+      <div style={{ display: "grid", gridTemplateColumns: "350px 1fr", gap: 24, height: "calc(100vh - 220px)" }}>
+        {/* Conversations sidebar */}
+        <div style={{ background: S.card, borderRadius: 12, border: `1px solid ${S.border}`, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           {/* Search */}
           <div style={{ padding: 16, borderBottom: `1px solid ${S.border}` }}>
             <div style={{ position: "relative" }}>
-              <Search
-                size={18}
-                style={{
-                  position: "absolute",
-                  left: 12,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: S.dim,
-                }}
-              />
+              <Search size={18} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: S.dim }} />
               <input
                 type="text"
                 placeholder="Search conversations..."
@@ -176,115 +141,90 @@ export default function CreatorMessages() {
             </div>
           </div>
 
-          {/* Conversations */}
+          {/* Conversation list */}
           <div style={{ flex: 1, overflowY: "auto" }}>
             {filteredConversations.map((conv) => (
               <div
-                key={conv.id}
-                onClick={() => setSelectedConversation(conv)}
+                key={`${conv.courseId}-${conv.otherUserId}`}
+                onClick={() => setSelectedConv(conv)}
                 style={{
-                  padding: "16px",
+                  padding: 16,
                   borderBottom: `1px solid ${S.border}`,
                   cursor: "pointer",
-                  background: selectedConversation?.id === conv.id ? S.accentLight : "transparent",
+                  background: selectedConv?.otherUserId === conv.otherUserId ? S.accentLight : "transparent",
                   transition: "background 0.15s",
                 }}
                 onMouseEnter={(e) => {
-                  if (selectedConversation?.id !== conv.id) {
+                  if (selectedConv?.otherUserId !== conv.otherUserId) {
                     e.currentTarget.style.background = S.bg;
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (selectedConversation?.id !== conv.id) {
+                  if (selectedConv?.otherUserId !== conv.otherUserId) {
                     e.currentTarget.style.background = "transparent";
                   }
                 }}
               >
-                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{
-                    width: 44,
-                    height: 44,
+                    width: 48,
+                    height: 48,
                     borderRadius: "50%",
-                    background: conv.unread ? S.accent : S.accentLight,
-                    color: "#FFFFFF",
+                    background: S.accentLight,
+                    color: S.accent,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     fontWeight: 600,
-                    fontSize: 15,
+                    fontSize: 16,
                     flexShrink: 0,
                   }}>
-                    {conv.avatar}
+                    {getInitials(conv.otherUserName)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 4,
-                    }}>
-                      <span style={{
-                        fontSize: 15,
-                        fontWeight: 600,
-                        color: S.full,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}>
-                        {conv.student}
-                      </span>
-                      <span style={{ fontSize: 12, color: S.dim, flexShrink: 0, marginLeft: 8 }}>
-                        {conv.timestamp}
-                      </span>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ fontSize: 15, fontWeight: 600, color: S.full }}>{conv.otherUserName}</span>
+                      {conv.unreadCount > 0 && (
+                        <div style={{
+                          minWidth: 20,
+                          height: 20,
+                          borderRadius: 10,
+                          background: S.accent,
+                          color: "#FFFFFF",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: "0 6px",
+                        }}>
+                          {conv.unreadCount}
+                        </div>
+                      )}
                     </div>
-                    <div style={{
-                      fontSize: 13,
-                      color: S.dim,
-                      marginBottom: 4,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}>
-                      {conv.course}
+                    <div style={{ fontSize: 12, color: S.dim, marginBottom: 4 }}>
+                      {conv.courseTitle}
                     </div>
-                    <div style={{
-                      fontSize: 14,
-                      color: conv.unread ? S.full : S.dim,
-                      fontWeight: conv.unread ? 500 : 400,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}>
+                    <div style={{ fontSize: 13, color: S.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {conv.lastMessage}
                     </div>
                   </div>
-                  {conv.unread && (
-                    <div style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: S.accent,
-                      flexShrink: 0,
-                      marginTop: 8,
-                    }} />
-                  )}
                 </div>
               </div>
             ))}
+            {filteredConversations.length === 0 && (
+              <div style={{ padding: "60px 20px", textAlign: "center", color: S.dim, fontSize: 14 }}>
+                {searchQuery ? 'No conversations found' : 'No messages yet'}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right: Chat Area */}
-        {selectedConversation ? (
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {/* Chat Header */}
-            <div style={{
-              padding: "16px 20px",
-              borderBottom: `1px solid ${S.border}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}>
+        {/* Chat panel */}
+        {selectedConv ? (
+          <div style={{ background: S.card, borderRadius: 12, border: `1px solid ${S.border}`, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            {/* Chat header */}
+            <div style={{ padding: "16px 24px", borderBottom: `1px solid ${S.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{
                   width: 40,
@@ -298,186 +238,100 @@ export default function CreatorMessages() {
                   fontWeight: 600,
                   fontSize: 14,
                 }}>
-                  {selectedConversation.avatar}
+                  {getInitials(selectedConv.otherUserName)}
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 600, color: S.full }}>
-                    {selectedConversation.student}
-                  </div>
-                  <div style={{ fontSize: 13, color: S.dim }}>
-                    {selectedConversation.course}
-                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: S.full }}>{selectedConv.otherUserName}</div>
+                  <div style={{ fontSize: 13, color: S.dim }}>{selectedConv.courseTitle}</div>
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  border: `1px solid ${S.border}`,
-                  background: S.card,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                }}>
-                  <Star size={16} style={{ color: S.dim }} />
+                <button style={{ width: 36, height: 36, borderRadius: 8, border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                  <Star size={18} style={{ color: S.dim }} />
                 </button>
-                <button style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  border: `1px solid ${S.border}`,
-                  background: S.card,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                }}>
-                  <Archive size={16} style={{ color: S.dim }} />
+                <button style={{ width: 36, height: 36, borderRadius: 8, border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                  <Archive size={18} style={{ color: S.dim }} />
                 </button>
-                <button style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  border: `1px solid ${S.border}`,
-                  background: S.card,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                }}>
-                  <MoreVertical size={16} style={{ color: S.dim }} />
+                <button style={{ width: 36, height: 36, borderRadius: 8, border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                  <MoreVertical size={18} style={{ color: S.dim }} />
                 </button>
               </div>
             </div>
 
             {/* Messages */}
-            <div style={{
-              flex: 1,
-              overflowY: "auto",
-              padding: "20px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 16,
-            }}>
-              {CHAT_MESSAGES.map((msg) => (
-                <div
-                  key={msg.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: msg.sender === "creator" ? "flex-end" : "flex-start",
-                  }}
-                >
-                  <div style={{
-                    maxWidth: "70%",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 4,
-                  }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+              {messages.map((msg) => {
+                const isCreator = msg.sender_id !== selectedConv.otherUserId;
+                return (
+                  <div key={msg.id} style={{ display: "flex", justifyContent: isCreator ? "flex-end" : "flex-start" }}>
                     <div style={{
+                      maxWidth: "70%",
                       padding: "12px 16px",
                       borderRadius: 12,
-                      background: msg.sender === "creator" ? S.accent : S.bg,
-                      color: msg.sender === "creator" ? "#FFFFFF" : S.full,
-                      fontSize: 14,
-                      lineHeight: 1.5,
+                      background: isCreator ? S.accent : S.bg,
+                      color: isCreator ? "#FFFFFF" : S.full,
                     }}>
-                      {msg.text}
-                    </div>
-                    <div style={{
-                      fontSize: 12,
-                      color: S.dim,
-                      textAlign: msg.sender === "creator" ? "right" : "left",
-                      paddingLeft: msg.sender === "creator" ? 0 : 16,
-                      paddingRight: msg.sender === "creator" ? 16 : 0,
-                    }}>
-                      {msg.timestamp}
+                      <div style={{ fontSize: 15, lineHeight: 1.5, marginBottom: 4 }}>
+                        {msg.content}
+                      </div>
+                      <div style={{ fontSize: 12, opacity: 0.7, textAlign: "right" }}>
+                        {formatNotificationTime(msg.created_at)}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+              <div ref={messagesEndRef} />
             </div>
 
-            {/* Message Input */}
-            <div style={{
-              padding: "16px 20px",
-              borderTop: `1px solid ${S.border}`,
-              display: "flex",
-              gap: 12,
-              alignItems: "flex-end",
-            }}>
-              <button style={{
-                width: 40,
-                height: 40,
-                borderRadius: 8,
-                border: `1px solid ${S.border}`,
-                background: S.card,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                flexShrink: 0,
-              }}>
-                <Paperclip size={18} style={{ color: S.dim }} />
-              </button>
-              <div style={{ flex: 1, position: "relative" }}>
-                <textarea
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
+            {/* Message input */}
+            <div style={{ padding: 16, borderTop: `1px solid ${S.border}` }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <button style={{ width: 40, height: 40, borderRadius: 8, border: `1px solid ${S.border}`, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                  <Paperclip size={18} style={{ color: S.dim }} />
+                </button>
+                <input
+                  type="text"
                   placeholder="Type your message..."
-                  rows={1}
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                   style={{
-                    width: "100%",
+                    flex: 1,
                     padding: "12px 16px",
                     border: `1px solid ${S.border}`,
                     borderRadius: 8,
                     fontSize: 15,
                     fontFamily: "Inter,sans-serif",
                     outline: "none",
-                    resize: "none",
-                    minHeight: 40,
-                    maxHeight: 120,
                   }}
                 />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim()}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 8,
+                    border: "none",
+                    background: newMessage.trim() ? S.accent : S.border,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: newMessage.trim() ? "pointer" : "not-allowed",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  <Send size={18} style={{ color: "#FFFFFF" }} />
+                </button>
               </div>
-              <button
-                onClick={handleSendMessage}
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 8,
-                  border: "none",
-                  background: S.accent,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: messageInput.trim() ? "pointer" : "not-allowed",
-                  opacity: messageInput.trim() ? 1 : 0.5,
-                  flexShrink: 0,
-                }}
-                disabled={!messageInput.trim()}
-              >
-                <Send size={18} style={{ color: "#FFFFFF" }} />
-              </button>
             </div>
           </div>
         ) : (
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            height: "100%",
-            color: S.dim,
-            fontSize: 15,
-          }}>
-            Select a conversation to start messaging
+          <div style={{ background: S.card, borderRadius: 12, border: `1px solid ${S.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ textAlign: "center", color: S.dim }}>
+              <p style={{ fontSize: 16, margin: 0 }}>Select a conversation to start messaging</p>
+            </div>
           </div>
         )}
       </div>

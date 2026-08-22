@@ -16,7 +16,7 @@ const Av = ({ name, url, size = 34 }: { name: string | null; url?: string | null
   </div>
 );
 
-export default function TherapistBookings() {
+export default function CoachBookings() {
   const { user } = useAuth();
   const { data: bookings, loading } = useProviderBookings(user?.id);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -52,7 +52,7 @@ export default function TherapistBookings() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 28, color: D, margin: 0 }}>Scheduler & Books</h1>
-          <p style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: TS, marginTop: 4 }}>Manage your calendar, patient bookings, and telehealth sessions.</p>
+          <p style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: TS, marginTop: 4 }}>Manage your calendar, client bookings, and virtual sessions.</p>
         </div>
       </div>
 
@@ -106,7 +106,7 @@ export default function TherapistBookings() {
                     </div>
                     <Av name={b.learner?.full_name ?? null} url={b.learner?.avatar_url} />
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 13, color: TM, margin: 0 }}>{b.learner?.full_name || "Patient"}</p>
+                      <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 13, color: TM, margin: 0 }}>{b.learner?.full_name || "Client"}</p>
                       <p style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS, margin: 0, display: "flex", alignItems: "center", gap: 4 }}>
                         {isVirtual ? <Video size={9} /> : <MapPin size={9} />}
                         {b.service?.title || "Session"} · {b.duration_minutes}m
@@ -133,7 +133,7 @@ export default function TherapistBookings() {
               : pendingRequests.map(b => (
                 <div key={b.id} style={{ background: "#F9F8F6", borderRadius: 8, padding: 12, marginBottom: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: TM }}>{b.learner?.full_name || "Patient"}</span>
+                    <span style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: TM }}>{b.learner?.full_name || "Client"}</span>
                     <span style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS }}>New</span>
                   </div>
                   <p style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: TS, margin: "0 0 8px" }}>

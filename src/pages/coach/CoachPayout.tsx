@@ -2,8 +2,8 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-export default function TherapistPayout() {
+export default function CoachPayout() {
   const nav = useNavigate();
-  useEffect(() => { nav("/therapist/withdrawals", { replace: true }); }, [nav]);
+  useEffect(() => { nav("/coach/withdrawals", { replace: true }); }, [nav]);
   return null;
 }

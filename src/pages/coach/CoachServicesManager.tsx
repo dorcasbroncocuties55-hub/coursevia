@@ -43,7 +43,7 @@ function getIcon(index: number) {
   return IconComponent;
 }
 
-export default function TherapistServicesManager() {
+export default function CoachServicesManager() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [services, setServices] = useState<Service[]>([]);
@@ -110,7 +110,7 @@ export default function TherapistServicesManager() {
         <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", maxWidth: 1260 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <h1 style={{ fontFamily: "Inter", fontWeight: 800, fontSize: 28, lineHeight: "34px", color: "#0B4F60", margin: 0 }}>Services</h1>
-            <p style={{ fontFamily: "Inter", fontWeight: 500, fontSize: 14, lineHeight: "17px", color: "#64748B", margin: 0 }}>Manage the therapy services you offer to your patients.</p>
+            <p style={{ fontFamily: "Inter", fontWeight: 500, fontSize: 14, lineHeight: "17px", color: "#64748B", margin: 0 }}>Manage the coaching services you offer to your clients.</p>
           </div>
           <button onClick={() => navigate("/therapist/services/new")} style={{ display: "flex", alignItems: "center", padding: "12px 18px", gap: 8, background: "#0B4F60", borderRadius: 8, border: "none", cursor: "pointer" }}>
             <Plus size={14} color="#fff" />
@@ -247,7 +247,7 @@ export default function TherapistServicesManager() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <span style={{ fontFamily: "Inter", fontWeight: 700, fontSize: 16, color: "#0F172A" }}>Offer a new service</span>
-              <span style={{ fontFamily: "Inter", fontSize: 14, color: "#64748B" }}>Add a new therapy service to help more patients and grow your practice.</span>
+              <span style={{ fontFamily: "Inter", fontSize: 14, color: "#64748B" }}>Add a new coaching service to help more clients and grow your practice.</span>
             </div>
           </div>
           <button onClick={() => navigate("/therapist/services/new")} style={{ padding: "10px 16px", background: "#fff", border: "1px solid #E2E8F0", borderRadius: 8, fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: "#0B4F60", cursor: "pointer" }}>
