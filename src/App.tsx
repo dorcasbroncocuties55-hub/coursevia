@@ -650,6 +650,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    {/* COMMENTED OUT - CoachInvitePage component missing
                     <Route
                       path="/coach/invite"
                       element={
@@ -658,6 +659,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    */}
                     {/* COMMENTED OUT - CoachRefunds component removed
                     <Route
                       path="/coach/refunds"
