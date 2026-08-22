@@ -36,8 +36,13 @@ export default function CreatorDashboard() {
     try {
       console.log('🔄 Loading creator dashboard data...');
 
-      // Load all dashboard data
-      const [dashboardData, enrollmentData, coursesData] = await Promise.all([
+      // Add a timeout wrapper to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Dashboard load timed out after 15 seconds')), 15000)
+      );
+
+      // Load all dashboard data with timeout
+      const dataPromise = Promise.all([
         getCreatorDashboardStats('30d').catch(err => {
           console.error('❌ Failed to load dashboard stats:', err);
           return { data: null, error: err };
@@ -51,6 +56,11 @@ export default function CreatorDashboard() {
           return { data: null, error: err };
         }),
       ]);
+
+      const [dashboardData, enrollmentData, coursesData] = await Promise.race([
+        dataPromise,
+        timeoutPromise
+      ]) as any;
 
       console.log('📊 Dashboard data:', dashboardData);
       console.log('👥 Enrollment data:', enrollmentData);
@@ -73,6 +83,7 @@ export default function CreatorDashboard() {
       console.error('❌ Error loading dashboard data:', error);
       setError(error instanceof Error ? error.message : 'Failed to load dashboard data');
     } finally {
+      console.log('🏁 Setting loading to false');
       setLoading(false);
     }
   };

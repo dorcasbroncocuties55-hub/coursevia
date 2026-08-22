@@ -67,7 +67,18 @@ export default function TherapistSidebar() {
       {/* ── Desktop sidebar ─────────────────────────────────────────────────── */}
       <aside
         className="hidden lg:flex flex-col flex-shrink-0"
-        style={{ width: 220, minHeight: "100vh", background: S.bg, padding: "24px 16px", gap: 0 }}
+        style={{
+          width: 220,
+          minHeight: "100vh",
+          maxHeight: "100vh",
+          background: S.bg,
+          padding: "24px 16px",
+          gap: 0,
+          position: "sticky",
+          top: 0,
+          overflowY: "auto",
+          overflowX: "hidden"
+        }}
       >
         {/* Logo — Figma exact */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, height: 40, marginBottom: 24 }}>
