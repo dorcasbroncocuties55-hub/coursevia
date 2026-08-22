@@ -872,6 +872,7 @@ const App = () => {
                       }
                     />
                     */}
+                    {/* COMMENTED OUT - CreatorInvitePage component missing
                     <Route
                       path="/creator/invite"
                       element={
@@ -880,6 +881,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    */}
                     {/* COMMENTED OUT - BankAccountsPage component missing
                     <Route
                       path="/creator/bank-accounts"
