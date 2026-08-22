@@ -106,6 +106,7 @@ const CreatorWallet = lazy(() => import("./pages/dashboard/WalletPage").then(m =
 const TherapistWallet = lazy(() => import("./pages/dashboard/WalletPage").then(m => ({ default: m.TherapistWallet })));
 const CreatorWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage").then(m => ({ default: m.CreatorWithdrawals })));
 const TherapistWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage").then(m => ({ default: m.TherapistWithdrawals })));
+const CoachWithdrawals = lazy(() => import("./pages/dashboard/WithdrawalsPage").then(m => ({ default: m.CoachWithdrawals })));
 
 const BookingMeetingRoom = lazy(() => import("./pages/dashboard/BookingMeetingRoom"));
 // const ProfessionalProfileSettings = lazy(() => import("./pages/dashboard/ProfessionalProfileSettings"));
@@ -578,7 +579,7 @@ const App = () => {
                       path="/coach/withdrawals"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <PortalRestrictionGuard role="coach"><CoachPayout /></PortalRestrictionGuard>
+                          <PortalRestrictionGuard role="coach"><CoachWithdrawals /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />

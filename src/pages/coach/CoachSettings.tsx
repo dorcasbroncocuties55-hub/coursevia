@@ -28,11 +28,35 @@ export default function CoachSettings() {
   const { user, profile, refreshProfile } = useAuth();
   const [tab, setTab] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ full_name: "", bio: "", phone: "", country: "" });
+  const [form, setForm] = useState({
+    full_name: "",
+    bio: "",
+    phone: "",
+    country: "",
+    city: "",
+    profession: "",
+    headline: "",
+    experience: "",
+    certification: "",
+    specialization: "",
+    services_offered: ""
+  });
   const [notifs, setNotifs] = useState({ chatAlerts: true, dailySummary: true, bookingConfirmations: true });
 
   useEffect(() => {
-    if (profile) setForm({ full_name: profile.full_name || "", bio: profile.bio || "", phone: profile.phone || "", country: profile.country || "" });
+    if (profile) setForm({
+      full_name: profile.full_name || "",
+      bio: profile.bio || "",
+      phone: profile.phone || "",
+      country: profile.country || "",
+      city: (profile as any).city || "",
+      profession: (profile as any).profession || "",
+      headline: (profile as any).headline || "",
+      experience: (profile as any).experience || "",
+      certification: (profile as any).certification || "",
+      specialization: (profile as any).specialization || "",
+      services_offered: (profile as any).services_offered || ""
+    });
   }, [profile]);
 
   const set = (k: keyof typeof form) => (v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -41,7 +65,19 @@ export default function CoachSettings() {
     if (!user?.id) return;
     setSaving(true);
     try {
-      await updateProfile(user.id, { full_name: form.full_name, bio: form.bio, phone: form.phone, country: form.country });
+      await updateProfile(user.id, {
+        full_name: form.full_name,
+        bio: form.bio,
+        phone: form.phone,
+        country: form.country,
+        city: form.city,
+        profession: form.profession,
+        headline: form.headline,
+        experience: form.experience,
+        certification: form.certification,
+        specialization: form.specialization,
+        services_offered: form.services_offered
+      } as any);
       await refreshProfile();
       toast.success("Settings saved");
     } catch (e: any) { toast.error(e.message || "Save failed"); }
@@ -120,9 +156,28 @@ export default function CoachSettings() {
 
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 200px" }}><Field label="Full Professional Name" value={form.full_name} onChange={set("full_name")} placeholder="Jane Smith" /></div>
-              <div style={{ flex: "1 1 200px" }}><Field label="Phone" value={form.phone} onChange={set("phone")} placeholder="+1 555 000 0000" type="tel" /></div>
+              <div style={{ flex: "1 1 200px" }}><Field label="Professional Title" value={form.profession} onChange={set("profession")} placeholder="Life Coach" /></div>
             </div>
-            <Field label="Country" value={form.country} onChange={set("country")} placeholder="United States" />
+            <Field label="Professional Headline" value={form.headline} onChange={set("headline")} placeholder="Helping professionals achieve work-life balance" />
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 200px" }}><Field label="Phone" value={form.phone} onChange={set("phone")} placeholder="+1 555 000 0000" type="tel" /></div>
+              <div style={{ flex: "1 1 200px" }}><Field label="Country" value={form.country} onChange={set("country")} placeholder="United States" /></div>
+            </div>
+            <Field label="City" value={form.city} onChange={set("city")} placeholder="New York" />
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 200px" }}><Field label="Coaching Type" value={form.specialization} onChange={set("specialization")} placeholder="Life Coaching" /></div>
+              <div style={{ flex: "1 1 200px" }}><Field label="Certification" value={form.certification} onChange={set("certification")} placeholder="ICF Certified Coach" /></div>
+            </div>
+            <div>
+              <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 11, color: TS, textTransform: "uppercase", margin: "0 0 6px" }}>Services Offered</p>
+              <textarea value={form.services_offered ?? ""} onChange={e => set("services_offered")(e.target.value)} rows={3} placeholder="One-on-one coaching, group sessions, workshops…"
+                style={{ width: "100%", padding: 12, background: "#F9F8F6", border: `1px solid ${B}`, borderRadius: 8, fontFamily: "Inter,sans-serif", fontSize: 13, color: TM, outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+            </div>
+            <div>
+              <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 11, color: TS, textTransform: "uppercase", margin: "0 0 6px" }}>Experience & Approach</p>
+              <textarea value={form.experience ?? ""} onChange={e => set("experience")(e.target.value)} rows={4} placeholder="Describe your coaching approach and years of experience…"
+                style={{ width: "100%", padding: 12, background: "#F9F8F6", border: `1px solid ${B}`, borderRadius: 8, fontFamily: "Inter,sans-serif", fontSize: 13, color: TM, outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+            </div>
             <div>
               <p style={{ fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 11, color: TS, textTransform: "uppercase", margin: "0 0 6px" }}>Coaching Bio</p>
               <textarea value={form.bio ?? ""} onChange={e => set("bio")(e.target.value)} rows={4} placeholder="Describe your coaching focus and expertise…"

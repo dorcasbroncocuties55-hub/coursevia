@@ -81,7 +81,7 @@ function WalletContent({ role, withdrawPath, bankPath }: Props) {
                   <ArrowUpRight size={14} /> Withdraw
                 </Link>
               )}
-              {bankPath && (
+              {bankPath && role === "creator" && (
                 <Link to={bankPath} style={{ padding: "10px 18px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.1)", fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 13, color: "#fff", textDecoration: "none" }}>
                   Add Funds
                 </Link>
@@ -175,7 +175,7 @@ function WalletContent({ role, withdrawPath, bankPath }: Props) {
           </div>
 
           {/* Payment methods — link to bank accounts */}
-          {bankPath && (
+          {bankPath && role === "creator" && (
             <div style={{ background: "#fff", border: `1px solid ${B}`, borderRadius: 16, padding: 22 }}>
               <h3 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 17, color: D, margin: "0 0 14px" }}>Payment Methods</h3>
               <Link to={bankPath} style={{ display: "block", padding: "9px 14px", borderRadius: 8, border: `1px solid ${A}`, background: "#fff", fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: A, textDecoration: "none", textAlign: "center" }}>

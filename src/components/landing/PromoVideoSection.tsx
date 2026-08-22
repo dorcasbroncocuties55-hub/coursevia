@@ -14,11 +14,7 @@ const highlights = [
     title: "Sessions and messaging",
     text: "Highlight how learners can connect with coaches and therapists beyond static course content.",
   },
-  {
-    icon: Sparkles,
-    title: "A better platform overview",
-    text: "Give visitors a clear introduction without crowding the homepage hero area.",
-  },
+
 ];
 
 const PromoVideoSection = () => {

@@ -112,7 +112,7 @@ export default function CoachServicesManager() {
             <h1 style={{ fontFamily: "Inter", fontWeight: 800, fontSize: 28, lineHeight: "34px", color: "#0B4F60", margin: 0 }}>Services</h1>
             <p style={{ fontFamily: "Inter", fontWeight: 500, fontSize: 14, lineHeight: "17px", color: "#64748B", margin: 0 }}>Manage the coaching services you offer to your clients.</p>
           </div>
-          <button onClick={() => navigate("/therapist/services/new")} style={{ display: "flex", alignItems: "center", padding: "12px 18px", gap: 8, background: "#0B4F60", borderRadius: 8, border: "none", cursor: "pointer" }}>
+          <button onClick={() => navigate("/coach/services/new")} style={{ display: "flex", alignItems: "center", padding: "12px 18px", gap: 8, background: "#0B4F60", borderRadius: 8, border: "none", cursor: "pointer" }}>
             <Plus size={14} color="#fff" />
             <span style={{ fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: "#fff" }}>Add New Service</span>
           </button>
@@ -178,7 +178,7 @@ export default function CoachServicesManager() {
         ) : filtered.length === 0 ? (
           <div style={{ width: "100%", maxWidth: 1260, textAlign: "center", padding: 60, background: "#fff", border: "1px solid #E2E8F0", borderRadius: 16 }}>
             <p style={{ fontFamily: "Inter", fontSize: 16, color: "#64748B", marginBottom: 20 }}>No services found</p>
-            <button onClick={() => navigate("/therapist/services/new")} style={{ padding: "12px 24px", background: "#0B4F60", color: "#fff", border: "none", borderRadius: 8, fontFamily: "Inter", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
+            <button onClick={() => navigate("/coach/services/new")} style={{ padding: "12px 24px", background: "#0B4F60", color: "#fff", border: "none", borderRadius: 8, fontFamily: "Inter", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
               Create Your First Service
             </button>
           </div>
@@ -250,7 +250,7 @@ export default function CoachServicesManager() {
               <span style={{ fontFamily: "Inter", fontSize: 14, color: "#64748B" }}>Add a new coaching service to help more clients and grow your practice.</span>
             </div>
           </div>
-          <button onClick={() => navigate("/therapist/services/new")} style={{ padding: "10px 16px", background: "#fff", border: "1px solid #E2E8F0", borderRadius: 8, fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: "#0B4F60", cursor: "pointer" }}>
+          <button onClick={() => navigate("/coach/services/new")} style={{ padding: "10px 16px", background: "#fff", border: "1px solid #E2E8F0", borderRadius: 8, fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: "#0B4F60", cursor: "pointer" }}>
             Add New Service
           </button>
         </div>
