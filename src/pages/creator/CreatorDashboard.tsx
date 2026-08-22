@@ -20,6 +20,7 @@ const S = {
 
 export default function CreatorDashboard() {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<any>(null);
   const [recentEnrollments, setRecentEnrollments] = useState<any[]>([]);
   const [topCourses, setTopCourses] = useState<any[]>([]);
@@ -30,23 +31,30 @@ export default function CreatorDashboard() {
 
   const loadDashboardData = async () => {
     setLoading(true);
+    setError(null);
 
     try {
+      console.log('🔄 Loading creator dashboard data...');
+
       // Load all dashboard data
       const [dashboardData, enrollmentData, coursesData] = await Promise.all([
         getCreatorDashboardStats('30d').catch(err => {
-          console.error('Failed to load dashboard stats:', err);
+          console.error('❌ Failed to load dashboard stats:', err);
           return { data: null, error: err };
         }),
         getEnrollmentStats('30d').catch(err => {
-          console.error('Failed to load enrollment stats:', err);
+          console.error('❌ Failed to load enrollment stats:', err);
           return { data: null, error: err };
         }),
         getCourses({ status: 'published' }).catch(err => {
-          console.error('Failed to load courses:', err);
+          console.error('❌ Failed to load courses:', err);
           return { data: null, error: err };
         }),
       ]);
+
+      console.log('📊 Dashboard data:', dashboardData);
+      console.log('👥 Enrollment data:', enrollmentData);
+      console.log('📚 Courses data:', coursesData);
 
       if (dashboardData.data) {
         setStats(dashboardData.data);
@@ -59,8 +67,11 @@ export default function CreatorDashboard() {
       if (coursesData.data) {
         setTopCourses(coursesData.data.slice(0, 4) || []);
       }
+
+      console.log('✅ Dashboard data loaded successfully');
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      console.error('❌ Error loading dashboard data:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
@@ -97,6 +108,42 @@ export default function CreatorDashboard() {
         minHeight: "400px",
       }}>
         <div style={{ fontSize: 16, color: S.dim }}>Loading dashboard...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{
+        fontFamily: "Inter,sans-serif",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "400px",
+        gap: 16,
+      }}>
+        <div style={{ fontSize: 16, color: "#DC2626", fontWeight: 600 }}>
+          Failed to load dashboard
+        </div>
+        <div style={{ fontSize: 14, color: S.dim }}>
+          {error}
+        </div>
+        <button
+          onClick={loadDashboardData}
+          style={{
+            padding: "8px 16px",
+            borderRadius: 8,
+            border: `1px solid ${S.border}`,
+            background: S.card,
+            color: S.full,
+            fontSize: 14,
+            fontWeight: 500,
+            cursor: "pointer",
+          }}
+        >
+          Retry
+        </button>
       </div>
     );
   }
