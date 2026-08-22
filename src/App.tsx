@@ -119,8 +119,8 @@ const CreatorAnalytics = lazy(() => import("./pages/creator/CreatorAnalytics"));
 const CreatorRevenue = lazy(() => import("./pages/creator/CreatorRevenue"));
 const CreatorMessages = lazy(() => import("./pages/creator/CreatorMessages"));
 const CreatorSettings = lazy(() => import("./pages/creator/CreatorSettings"));
-const UploadVideo = lazy(() => import("./pages/creator/UploadVideo"));
-const CreatorContent = lazy(() => import("./pages/creator/CreatorContent"));
+// const UploadVideo = lazy(() => import("./pages/creator/UploadVideo"));
+// const CreatorContent = lazy(() => import("./pages/creator/CreatorContent"));
 
 // Public profile preview
 const ProfilePreview = lazy(() => import("./pages/public/ProfilePreview"));
@@ -824,6 +824,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    {/* COMMENTED OUT - UploadVideo component missing
                     <Route
                       path="/creator/upload-video"
                       element={
@@ -832,6 +833,8 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    */}
+                    {/* COMMENTED OUT - CreatorContent component missing
                     <Route
                       path="/creator/content"
                       element={
@@ -840,6 +843,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    */}
                     <Route
                       path="/creator/wallet"
                       element={
