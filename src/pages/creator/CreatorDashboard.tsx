@@ -31,26 +31,39 @@ export default function CreatorDashboard() {
   const loadDashboardData = async () => {
     setLoading(true);
 
-    // Load all dashboard data
-    const [dashboardData, enrollmentData, coursesData] = await Promise.all([
-      getCreatorDashboardStats('30d'),
-      getEnrollmentStats('30d'),
-      getCourses({ status: 'published', limit: 4, sortBy: 'enrollments' }),
-    ]);
+    try {
+      // Load all dashboard data
+      const [dashboardData, enrollmentData, coursesData] = await Promise.all([
+        getCreatorDashboardStats('30d').catch(err => {
+          console.error('Failed to load dashboard stats:', err);
+          return { data: null, error: err };
+        }),
+        getEnrollmentStats('30d').catch(err => {
+          console.error('Failed to load enrollment stats:', err);
+          return { data: null, error: err };
+        }),
+        getCourses({ status: 'published', limit: 4 }).catch(err => {
+          console.error('Failed to load courses:', err);
+          return { data: null, error: err };
+        }),
+      ]);
 
-    if (dashboardData.data) {
-      setStats(dashboardData.data);
+      if (dashboardData.data) {
+        setStats(dashboardData.data);
+      }
+
+      if (enrollmentData.data) {
+        setRecentEnrollments(enrollmentData.data.recentEnrollments?.slice(0, 5) || []);
+      }
+
+      if (coursesData.data) {
+        setTopCourses(coursesData.data);
+      }
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
     }
-
-    if (enrollmentData.data) {
-      setRecentEnrollments(enrollmentData.data.recentEnrollments.slice(0, 5));
-    }
-
-    if (coursesData.data) {
-      setTopCourses(coursesData.data);
-    }
-
-    setLoading(false);
   };
 
   const formatCurrency = (amount: number) => {
