@@ -642,16 +642,14 @@ const App = () => {
                       }
                     />
                     */}
-                    {/* COMMENTED OUT - ProfessionalProfileSettings component missing
                     <Route
-                      path="/coach/profile-settings"
+                      path="/coach/settings"
                       element={
                         <ProtectedRoute requiredRole="coach">
-                          <PortalRestrictionGuard role="coach"><ProfessionalProfileSettings role="coach" /></PortalRestrictionGuard>
+                          <PortalRestrictionGuard role="coach"><CoachSettings /></PortalRestrictionGuard>
                         </ProtectedRoute>
                       }
                     />
-                    */}
                     <Route
                       path="/coach/invite"
                       element={
