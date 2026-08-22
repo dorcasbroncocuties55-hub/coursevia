@@ -27,18 +27,6 @@ const ROLE_CONFIGS = {
     icon: GraduationCap,
     message: "Your learning adventure begins! Explore endless possibilities!",
     emoji: "🎓"
-  },
-  admin: {
-    gradient: "linear-gradient(135deg, #2D9E6B 0%, #1A7A4D 100%)",
-    icon: Sparkles,
-    message: "Admin dashboard ready. Manage with confidence!",
-    emoji: "⚡"
-  },
-  judge: {
-    gradient: "linear-gradient(135deg, #2D9E6B 0%, #1A7A4D 100%)",
-    icon: Sparkles,
-    message: "Court room access granted. Justice awaits!",
-    emoji: "⚖️"
   }
 };
 
@@ -74,6 +62,10 @@ export default function WelcomeBanner() {
 
   const firstName = profile?.full_name?.split(" ")[0] || "there";
   const role = (profile?.role || "learner") as keyof typeof ROLE_CONFIGS;
+
+  // Don't show banner for admin or judge
+  if (role === 'admin' || role === 'judge') return null;
+
   const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
   const config = ROLE_CONFIGS[role] || ROLE_CONFIGS.learner;
   const Icon = config.icon;
