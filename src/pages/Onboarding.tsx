@@ -1126,10 +1126,21 @@ const Onboarding = () => {
 
       // Get authenticated user
       console.log("🔐 Getting authenticated user...");
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      const { data: { user: authUser }, error: authError } = await Promise.race([
+        supabase.auth.getUser(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Auth timeout after 10s')), 10000)
+        )
+      ]).catch(err => {
+        console.error("Auth error or timeout:", err);
+        return { data: { user: null }, error: err };
+      });
+
       if (authError || !authUser?.id) {
         console.error("Auth error:", authError);
-        throw new Error("Authentication required to complete onboarding");
+        toast.error("Authentication failed. Please try logging in again.");
+        setLoading(false);
+        return;
       }
       console.log("✅ Auth user found:", authUser.id);
 
@@ -1344,8 +1355,8 @@ const Onboarding = () => {
                   type="button"
                   onClick={() => applyRoleDefaults(option.value)}
                   className={`rounded-2xl border p-0 text-left transition ${selectedRole === option.value
-                      ? "border-primary ring-2 ring-primary/20"
-                      : "border-border hover:border-primary/40"
+                    ? "border-primary ring-2 ring-primary/20"
+                    : "border-border hover:border-primary/40"
                     }`}
                 >
                   <Card className="border-0 bg-transparent shadow-none">
@@ -2042,8 +2053,8 @@ const Onboarding = () => {
                     )
                   }
                   className={`rounded-[24px] border p-5 text-left transition ${serviceDeliveryMode === mode.value
-                      ? "border-emerald-500 bg-emerald-50 shadow-sm ring-2 ring-emerald-100"
-                      : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50"
+                    ? "border-emerald-500 bg-emerald-50 shadow-sm ring-2 ring-emerald-100"
+                    : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50"
                     }`}
                 >
                   <div className="space-y-3">
