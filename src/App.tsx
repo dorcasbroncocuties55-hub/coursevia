@@ -80,14 +80,14 @@ const CoachWallet = lazy(() => import("./pages/dashboard/WalletPage").then(m => 
 const CoachPayout = lazy(() => import("./pages/coach/CoachPayout"));
 const CoachSettings = lazy(() => import("./pages/coach/CoachSettings"));
 
-// Legacy coach pages (old dashboard)
-const CoachProfile = lazy(() => import("./pages/coach/CoachProfile"));
-const CoachServices = lazy(() => import("./pages/coach/CoachServices"));
-const CoachCalendar = lazy(() => import("./pages/coach/CoachCalendar"));
-const CoachReviews = lazy(() => import("./pages/coach/CoachReviews"));
-const CoachContent = lazy(() => import("./pages/coach/CoachContent"));
-const CoachRefunds = lazy(() => import("./pages/coach/CoachRefunds"));
-const CoachUploadVideo = lazy(() => import("./pages/coach/CoachUploadVideo"));
+// Legacy coach pages (old dashboard) - COMMENTED OUT - files removed
+// const CoachProfile = lazy(() => import("./pages/coach/CoachProfile"));
+// const CoachServices = lazy(() => import("./pages/coach/CoachServices"));
+// const CoachCalendar = lazy(() => import("./pages/coach/CoachCalendar"));
+// const CoachReviews = lazy(() => import("./pages/coach/CoachReviews"));
+// const CoachContent = lazy(() => import("./pages/coach/CoachContent"));
+// const CoachRefunds = lazy(() => import("./pages/coach/CoachRefunds"));
+// const CoachUploadVideo = lazy(() => import("./pages/coach/CoachUploadVideo"));
 
 // Therapist portal pages (Figma redesign)
 const TherapistDashboard = lazy(() => import("./pages/therapist/TherapistDashboard"));
@@ -600,7 +600,7 @@ const App = () => {
                     />
                     */}
 
-                    {/* Legacy coach routes (old dashboard) */}
+                    {/* Legacy coach routes (old dashboard) - COMMENTED OUT - components removed
                     <Route
                       path="/coach/profile"
                       element={
@@ -641,6 +641,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    */}
                     {/* COMMENTED OUT - ProfessionalProfileSettings component missing
                     <Route
                       path="/coach/profile-settings"
@@ -659,6 +660,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    {/* COMMENTED OUT - CoachRefunds component removed
                     <Route
                       path="/coach/refunds"
                       element={
@@ -667,6 +669,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    */}
 
                     <Route
                       path="/therapist/dashboard"
