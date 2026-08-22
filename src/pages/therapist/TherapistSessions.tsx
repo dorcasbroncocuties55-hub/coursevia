@@ -49,17 +49,30 @@ export default function TherapistSessions() {
   return (
     <TherapistLayout>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-        <div>
+        <div style={{ flex: "1 1 auto", minWidth: 200 }}>
           <h1 style={{ fontFamily: "Inter,sans-serif", fontWeight: 700, fontSize: 28, color: D, margin: 0 }}>Session Notes & Clinical Logs</h1>
           <p style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: TS, marginTop: 4 }}>Draft and lock SOAP clinical files for compliance and progress tracking.</p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
           <button disabled={!selected || saving || locked} onClick={() => handleSave(false)}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: `1px solid ${B}`, background: "#F9F8F6", fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: TS, cursor: "pointer" }}>
+            style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8,
+              border: `1px solid ${B}`, background: (!selected || saving || locked) ? "#F3F4F6" : "#F9F8F6",
+              fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12,
+              color: (!selected || saving || locked) ? "#9CA3AF" : TS,
+              cursor: (!selected || saving || locked) ? "not-allowed" : "pointer",
+              opacity: (!selected || saving || locked) ? 0.6 : 1
+            }}>
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Draft
           </button>
           <button disabled={!selected || saving || locked} onClick={() => handleSave(true)}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "none", background: A, fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: "#fff", cursor: "pointer" }}>
+            style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8,
+              border: "none", background: (!selected || saving || locked) ? "#D1D5DB" : A,
+              fontFamily: "Inter,sans-serif", fontWeight: 600, fontSize: 12, color: "#fff",
+              cursor: (!selected || saving || locked) ? "not-allowed" : "pointer",
+              opacity: (!selected || saving || locked) ? 0.6 : 1
+            }}>
             <Lock size={12} /> Sign & Lock
           </button>
         </div>
